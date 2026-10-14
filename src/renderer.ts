@@ -1,5 +1,5 @@
 import type { PlayNote } from './engine';
-export const LANE_COLORS = ['#ff739c', '#ffb65c', '#ffe779', '#76edbc', '#78ceff', '#bd9bff'];
+import { LANE_COLORS } from './colors';
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private width = 1;

@@ -1,4 +1,7 @@
 import './style.css';
+import { LANE_COLORS } from './colors';
+import { bindDockLayout } from './layout';
+import { TapSound } from './sound';
 import { generateChart } from './chart';
 import { GameEngine } from './engine';
 import type { Hit } from './engine';
@@ -19,7 +22,14 @@ const engine = new GameEngine(generateChart(settings.bpm, settings.startTime));
 const clock = new VideoClock();
 const renderer = new Renderer(element<HTMLCanvasElement>('game-canvas'));
 const score = element('score'), combo = element('combo'), maxCombo = element('max-combo');
-const judgement = element('judgement'), judgementDetail = element('judgement-detail');
+const judgements = Array.from({ length: 6 }, (_, lane) => element(`judgement-${lane}`));
+const judgementTimes = Array<number>(6).fill(-Infinity);
+const controlStatus = element('control-status');
+const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
+buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
+const sound = new TapSound(() => { element('sound-status').textContent = 'タップ音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'; });
+sound.enabled = settings.sound;
+const unbindLayout = bindDockLayout(document.querySelector('.stage')!, document.querySelector('.controls-dock')!);
 const result = element('result'), stageHint = element('stage-hint');
 const status = element('player-status'), notice = element('game-notice');
 const restart = element<HTMLButtonElement>('restart');
@@ -31,7 +41,6 @@ let failed = false;
 let videoTime = 0;
 let restartTarget: number | null = null;
 let restartDeadline = 0;
-let judgementAt = -Infinity;
 let lastInputError: number | null = null;
 let resultShown = false;
 let disposed = false;
@@ -52,25 +61,24 @@ function updateScore(): void {
   maxCombo.textContent = `MAX ${engine.maxCombo}`;
 }
 function showHit(hit: Hit, now: number): void {
-  judgementAt = now;
-  judgement.textContent = hit.judgement;
-  judgement.dataset.kind = hit.judgement;
-  judgementDetail.textContent = hit.judgement === 'MISS' ? '次のノーツを狙おう！' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
-  judgement.classList.remove('pop');
-  // Restart the small CSS animation without registering additional listeners.
-  void judgement.offsetWidth;
-  judgement.classList.add('pop');
+  const feedback = judgements[hit.lane];
+  judgementTimes[hit.lane] = now;
+  feedback.hidden = false;
+  feedback.dataset.kind = hit.judgement;
+  feedback.querySelector('.judgement-label')!.textContent = hit.judgement;
+  feedback.querySelector('.judgement-error')!.textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
+  feedback.classList.remove('pop');
+  void feedback.offsetWidth;
+  feedback.classList.add('pop');
   if (hit.judgement !== 'MISS') renderer.flash(hit.lane, now);
   updateScore();
 }
 function clearResults(): void {
   resultShown = false;
   result.hidden = true;
-  judgementAt = -Infinity;
   lastInputError = null;
-  judgement.textContent = 'READY';
-  delete judgement.dataset.kind;
-  judgementDetail.textContent = 'MVを再生してスタート';
+  judgementTimes.fill(-Infinity);
+  judgements.forEach(feedback => { feedback.hidden = true; delete feedback.dataset.kind; });
   renderer.clearEffects();
   updateScore();
 }
@@ -160,16 +168,18 @@ const disposePlayer = createYouTubePlayer({
 });
 
 function hit(lane: number): void {
+  // Sample timing before audio initialization so a cold AudioContext cannot delay judgement.
   const now = performance.now();
   const sample = readTime(now);
+  sound.play(lane);
   if (!sample.playing) return;
   const misses = engine.advance(sample.time);
-  if (misses.length) showHit(misses[misses.length - 1], now);
+  misses.forEach(miss => showHit(miss, now));
   const hit = engine.input(lane, sample.time);
   if (hit) { lastInputError = hit.errorMs; showHit(hit, now); }
   showResults();
 }
-const unbindInput = bindInput([...document.querySelectorAll<HTMLButtonElement>('.lane-button')], hit, lanes => { renderer.pressed = lanes; });
+const unbindInput = bindInput(buttons, hit, lanes => { renderer.pressed = lanes; });
 
 restart.addEventListener('click', () => {
   if (!player || failed) return;
@@ -191,16 +201,18 @@ function showSettings(open: boolean): void {
 settingsToggle.addEventListener('click', () => showSettings(settingsPanel.hidden), { signal });
 element('settings-close').addEventListener('click', () => showSettings(false), { signal });
 const travel = element<HTMLInputElement>('travel'), offset = element<HTMLInputElement>('offset');
+const soundToggle = element<HTMLInputElement>('sound-toggle');
 const bpm = element<HTMLInputElement>('bpm'), startTime = element<HTMLInputElement>('start-time'), debug = element<HTMLInputElement>('debug-toggle');
 function reflectSettings(): void {
   travel.value = String(settings.travel); offset.value = String(settings.offset);
-  bpm.value = String(settings.bpm); startTime.value = String(settings.startTime); debug.checked = settings.debug;
+  bpm.value = String(settings.bpm); startTime.value = String(settings.startTime); debug.checked = settings.debug; soundToggle.checked = settings.sound;
+  sound.enabled = settings.sound;
   element('travel-value').textContent = `${settings.travel.toFixed(2)}秒`;
   element('offset-value').textContent = `${settings.offset > 0 ? '+' : ''}${settings.offset} ms`;
   element('debug-panel').hidden = !settings.debug;
 }
 function changeSettings(): void {
-  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked });
+  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked });
   reflectSettings();
   const saved = saveSettings(settings);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
@@ -211,6 +223,7 @@ offset.addEventListener('input', changeSettings, { signal });
 bpm.addEventListener('change', changeSettings, { signal });
 startTime.addEventListener('change', changeSettings, { signal });
 debug.addEventListener('change', changeSettings, { signal });
+soundToggle.addEventListener('change', changeSettings, { signal });
 reflectSettings(); updateChartInfo();
 
 let debugUpdated = 0;
@@ -219,7 +232,7 @@ function frame(now: number): void {
   const sample = readTime(now);
   if (sample.playing) {
     const misses = engine.advance(sample.time);
-    if (misses.length) showHit(misses[misses.length - 1], now);
+    misses.forEach(miss => showHit(miss, now));
     showResults();
   }
   renderer.draw(engine.notes, sample.time, settings.travel, now);
@@ -233,11 +246,14 @@ function frame(now: number): void {
     stageHint.querySelector('strong')!.textContent = hint;
     stageHint.querySelector('span:last-child')!.textContent = 'ノーツがラインに重なったらタップ';
   }
-  if (sample.playing && now - judgementAt > 800) {
-    judgement.textContent = engine.finished ? 'FINISH!' : sample.time < engine.chart.startTime ? 'READY' : 'LET’S GO!';
-    delete judgement.dataset.kind;
-    judgementDetail.textContent = sample.time < engine.chart.startTime ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : engine.finished ? 'リザルトをチェック ↓' : 'S D F · J K L';
-  }
+  judgements.forEach((feedback, lane) => {
+    if (now - judgementTimes[lane] > 800) feedback.hidden = true;
+  });
+  const guidance = failed ? '動画を再生できません' : sample.playing
+    ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
+      ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : 'TAP! · S D F / J K L'
+    : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : 'MVを再生してスタート';
+  if (controlStatus.textContent !== guidance) controlStatus.textContent = guidance;
   frames++;
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }
   if (settings.debug && now - debugUpdated >= 100) {
@@ -257,6 +273,6 @@ frameId = requestAnimationFrame(frame);
 function dispose(): void {
   disposed = true;
   cancelAnimationFrame(frameId);
-  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer();
+  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); unbindLayout();
 }
 if (import.meta.hot) import.meta.hot.dispose(dispose);
