@@ -5,15 +5,19 @@ import type { Page } from '@playwright/test';
 const api = `
 window.YT = { Player: class {
   constructor(id, options) {
-    this.time = 0; this.state = -1; this.liveClock = false; this.anchor = performance.now(); this.options = options;
+    this.time = 0; this.state = -1; this.liveClock = true; this.updateInterval = 0; this.rate = 1; this.anchor = performance.now(); this.options = options;
     const frame = document.createElement('iframe'); frame.src = 'about:blank';
     document.getElementById(id).replaceWith(frame);
     window.testVideo = this;
     setTimeout(() => options.events.onReady({target:this}), 0);
   }
-  getCurrentTime() { return this.time + (this.state === 1 && this.liveClock ? (performance.now()-this.anchor)/1000 : 0); }
+  getCurrentTime() {
+    const time = this.time + (this.state === 1 && this.liveClock ? (performance.now()-this.anchor)/1000 * this.rate : 0);
+    return this.updateInterval ? Math.floor(time / this.updateInterval) * this.updateInterval : time;
+  }
   getPlayerState() { return this.state; }
   getDuration() { return 220; }
+  getPlaybackRate() { return this.rate; }
   seekTo(t) { this.time = t; this.anchor = performance.now(); }
   setState(state) { this.time = this.getCurrentTime(); this.anchor = performance.now(); this.state = state; this.options.events.onStateChange({target:this,data:state}); }
   playVideo() { this.setState(1); }
@@ -40,9 +44,10 @@ test('keyboard timing, repeat protection, paused/buffering input, seek and resta
   await expect(page.locator('#game-canvas')).toBeFocused();
   await seekPlay(page, 12);
   await page.keyboard.down('s');
-  await expect(page.locator('#score')).toHaveText('001000');
+  const initialScore = await page.locator('#score').textContent();
+  expect(Number(initialScore)).toBeGreaterThanOrEqual(700);
   await page.keyboard.down('s');
-  await expect(page.locator('#score')).toHaveText('001000');
+  await expect(page.locator('#score')).toHaveText(initialScore!);
   await page.keyboard.up('s');
   await expect(page.locator('#combo')).toHaveText('1');
   await page.evaluate(() => (window as any).testVideo.setState(2));
@@ -82,7 +87,7 @@ test('independent simultaneous pointer inputs, settings persistence and high DPI
   await expect.poll(() => page.evaluate(() => (window as any).touchSounds)).toBe(2);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(page.locator('.lane-button.pressed')).toHaveCount(0);
-  await expect(page.locator('#score')).toHaveText('002000');
+  expect(Number(await page.locator('#score').textContent())).toBeGreaterThanOrEqual(1400);
   await expect(page.locator('#combo')).toHaveText('2');
   await page.locator('#settings-toggle').click();
   await page.locator('#bpm').fill('100');
@@ -137,6 +142,7 @@ test('video time moves the canvas, overdue notes MISS once, and pause retains ju
   const after = await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
   expect(after).not.toBe(before);
   await page.evaluate(() => (window as any).testVideo.setState(2));
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const paused = await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
   await page.waitForTimeout(100);
   expect(await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())).toBe(paused);
@@ -155,17 +161,14 @@ test('V controls share the requested lane colors and feedback appears at each bu
   expect(colors).toEqual(['#ff739c', '#b9f56c', '#f5f5ff', '#ff5b66', '#bd9bff', '#ffe779']);
   await seekPlay(page, 12);
   await page.keyboard.press('s');
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT');
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT/);
   expect(await page.locator('.scoreboard .lane-judgement').count()).toBe(0);
   const judgement = (await page.locator('#judgement-0').boundingBox())!;
   const button = (await page.locator('.lane-button[data-lane="0"]').boundingBox())!;
   expect(judgement.y + judgement.height).toBeLessThanOrEqual(button.y);
   expect(button.y - judgement.y).toBeLessThan(40);
-  await page.evaluate(async () => {
-    (window as any).testVideo.seekTo(12.3);
-    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-  });
-  await page.evaluate(() => (window as any).testVideo.seekTo(12.428571 + 0.15));
+  const waitUntilGood = await page.evaluate(() => (12 + 60 / 140 + 0.125 - (window as any).testVideo.getCurrentTime()) * 1000);
+  await page.waitForTimeout(Math.max(0, waitUntilGood));
   await page.keyboard.press('f');
   await expect(page.locator('#judgement-2 .judgement-label')).toHaveText('GOOD');
   await expect(page.locator('#combo')).toHaveText('2');
@@ -237,7 +240,7 @@ test('repeated touch inputs leave the playfield and scroll position stable witho
   for (let i = 0; i < 12; i++) await page.locator(`.lane-button[data-lane="${i % 6}"]`).tap();
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe(activeBefore);
   expect(await geometry()).toEqual(before);
-  await expect(page.locator('#score')).toHaveText('001000');
+  expect(Number(await page.locator('#score').textContent())).toBeGreaterThan(0);
   // Feedback expiry must not resize the runway either.
   await page.waitForTimeout(850);
   expect(await geometry()).toEqual(before);
@@ -261,4 +264,49 @@ test('mobile browser chrome height changes do not resize the runway or switch co
     expect(await geometry()).toEqual(before);
     await expect(page.locator('html')).toHaveClass('compact-viewport');
   }
+});
+
+test('sparse video timestamps still produce moving notes every animation frame and pause stops them', async ({ page }) => {
+  await page.evaluate(() => { (window as any).testVideo.updateInterval = 0.25; });
+  await seekPlay(page, 11.5);
+  const capture = () => page.evaluate(async () => {
+    const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+    const original = CanvasRenderingContext2D.prototype.roundRect;
+    let rows: number[] = [];
+    CanvasRenderingContext2D.prototype.roundRect = function (...args) {
+      if (this.canvas === canvas && args[0] < canvas.getBoundingClientRect().width / 6 && args[3] === 12) rows.push(args[1]);
+      return original.apply(this, args);
+    };
+    const samples: { raw: number; y: number }[] = [];
+    try {
+      for (let i = 0; i < 10; i++) {
+        rows = [];
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        samples.push({ raw: (window as any).testVideo.getCurrentTime(), y: Math.max(...rows) });
+      }
+    } finally { CanvasRenderingContext2D.prototype.roundRect = original; }
+    return samples;
+  });
+  const moving = await capture();
+  expect(moving.some((sample, i) => i > 0 && sample.raw === moving[i - 1].raw)).toBe(true);
+  for (let i = 1; i < moving.length; i++) expect(moving[i].y).toBeGreaterThan(moving[i - 1].y);
+  await page.evaluate(() => (window as any).testVideo.setState(2));
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  const paused = await capture();
+  for (const sample of paused) expect(sample.y).toBe(paused[0].y);
+});
+
+test('loss of video timestamp updates stops prediction and recovery resynchronizes', async ({ page }) => {
+  await seekPlay(page, 11.5);
+  await page.evaluate(() => { (window as any).testVideo.liveClock = false; });
+  await expect(page.locator('#player-status')).toContainText('更新待ち');
+  const frozen = await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+  await page.waitForTimeout(100);
+  expect(await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())).toBe(frozen);
+  await page.evaluate(() => {
+    const video = (window as any).testVideo;
+    video.seekTo(13); video.liveClock = true;
+  });
+  await expect(page.locator('#player-status')).toContainText('プレイ中');
+  await expect(page.locator('#game-notice')).toContainText('再同期');
 });

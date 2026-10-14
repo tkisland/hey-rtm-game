@@ -44,7 +44,7 @@ export class Renderer {
       ctx.strokeStyle = '#ffffff0c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
       ctx.fillStyle = color; ctx.globalAlpha = 0.15; ctx.fillRect(x + 3, line - 10, laneWidth - 6, 20); ctx.globalAlpha = 1;
     }
-    // Decorative grid has no timing authority; notes are positioned directly from video time.
+    // Decorative grid has no timing authority; notes use the video-anchored interpolated clock shared with judgement.
     ctx.strokeStyle = '#ffffff08';
     for (let y = line % 60; y < h; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
     ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2;

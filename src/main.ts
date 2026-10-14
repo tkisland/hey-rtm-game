@@ -39,6 +39,8 @@ let player: YouTubePlayer | null = null;
 let state = -2;
 let failed = false;
 let videoTime = 0;
+let smoothedVideoTime = 0;
+let clockStale = false;
 let restartTarget: number | null = null;
 let restartDeadline = 0;
 let lastInputError: number | null = null;
@@ -99,14 +101,18 @@ function showResults(): void {
   element('result-accuracy').textContent = `得点率 ${engine.accuracy.toFixed(1)}%（判定済みノーツのみ） · シークでスキップ ${engine.skipped} / 全 ${engine.notes.length} ノーツ`;
 }
 function readTime(now: number): { time: number; playing: boolean } {
-  if (!player || failed) return { time: videoTime - settings.offset / 1000, playing: false };
+  if (!player || failed) return { time: smoothedVideoTime - settings.offset / 1000, playing: false };
   try {
     // Also poll state: input cannot score during a state-event delivery delay.
     const observed = player.getPlayerState();
     if (observed !== state) setState(observed);
-    const sample = clock.sample(player.getCurrentTime(), state, now);
-    videoTime = sample.time;
-    const gameTime = videoTime - settings.offset / 1000;
+    const sample = clock.sample(player.getCurrentTime(), state, now, player.getPlaybackRate());
+    videoTime = sample.rawTime;
+    smoothedVideoTime = sample.time;
+    const wasStale = clockStale;
+    clockStale = sample.stale;
+    if (clockStale !== wasStale) setState(state);
+    const gameTime = sample.time - settings.offset / 1000;
     if (restartTarget !== null) {
       // seekTo is asynchronous; never process the old playhead during a restart.
       if (Math.abs(videoTime - restartTarget) <= 0.5) { restartTarget = null; clock.reset(); }
@@ -120,17 +126,17 @@ function readTime(now: number): { time: number; playing: boolean } {
     if (sample.seek) {
       engine.seek(gameTime, sample.backwards);
       clearResults();
-      notice.textContent = sample.backwards ? '後方シーク：スコアをリセットしました。' : '前方シーク：飛ばしたノーツはMISSに数えません。';
+      notice.textContent = sample.backwards ? '後方シーク：スコアをリセットしました。' : '前方シーク・時刻の再同期：飛ばしたノーツはMISSに数えません。';
     }
     return { time: gameTime, playing: sample.playing };
   } catch {
     showError('プレーヤーの再生時刻を取得できません。ページを再読み込みしてください。');
-    return { time: videoTime, playing: false };
+    return { time: smoothedVideoTime - settings.offset / 1000, playing: false };
   }
 }
 function setState(next: number): void {
   state = next;
-  element('status-dot').classList.toggle('playing', next === PLAYER_STATE.PLAYING && !failed);
+  element('status-dot').classList.toggle('playing', next === PLAYER_STATE.PLAYING && !failed && !clockStale);
   const labels: Record<number, string> = {
     [-2]: 'YouTubeプレーヤーを読み込み中…',
     [-1]: 'MVの再生ボタンを押してスタート',
@@ -140,7 +146,7 @@ function setState(next: number): void {
     [3]: '動画を読み込み中 · ノーツを停止しています',
     [5]: 'MVの再生ボタンを押してスタート',
   };
-  if (!failed) status.textContent = labels[next] ?? 'MVの再生ボタンを押してスタート';
+  if (!failed) status.textContent = clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? 'MVの再生ボタンを押してスタート';
 }
 function showError(message: string): void {
   failed = true;
@@ -229,7 +235,7 @@ reflectSettings(); updateChartInfo();
 let debugUpdated = 0;
 function frame(now: number): void {
   if (disposed) return;
-  const sample = readTime(now);
+  const sample = readTime(performance.now());
   if (sample.playing) {
     const misses = engine.advance(sample.time);
     misses.forEach(miss => showHit(miss, now));
@@ -242,14 +248,14 @@ function frame(now: number): void {
     stageHint.querySelector('span:last-child')!.textContent = '上のエラーメッセージをご確認ください';
   } else {
     stageHint.hidden = sample.playing || resultShown;
-    const hint = state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : 'MVの再生ボタンで開始';
+    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : 'MVの再生ボタンで開始';
     stageHint.querySelector('strong')!.textContent = hint;
     stageHint.querySelector('span:last-child')!.textContent = 'ノーツがラインに重なったらタップ';
   }
   judgements.forEach((feedback, lane) => {
     if (now - judgementTimes[lane] > 800) feedback.hidden = true;
   });
-  const guidance = failed ? '動画を再生できません' : sample.playing
+  const guidance = failed ? '動画を再生できません' : clockStale ? '動画時刻の更新待ち' : sample.playing
     ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
       ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : 'TAP! · S D F / J K L'
     : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : 'MVを再生してスタート';
@@ -259,6 +265,8 @@ function frame(now: number): void {
   if (settings.debug && now - debugUpdated >= 100) {
     debugUpdated = now;
     element('debug-time').textContent = `${videoTime.toFixed(3)} s`;
+    element('debug-game-time').textContent = `${(smoothedVideoTime - settings.offset / 1000).toFixed(3)} s`;
+    element('debug-clock').textContent = clockStale ? '更新待ち' : sample.playing ? '補間中' : '停止';
     element('debug-state').textContent = failed ? 'ERROR' : stateName(state);
     element('debug-bpm').textContent = String(engine.chart.bpm);
     element('debug-offset').textContent = `${settings.offset} ms`;
