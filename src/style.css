@@ -157,6 +157,11 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
   .scoreboard { height:55px; padding:8px 12px; }
   .controls-dock { left:auto; width:calc(50% - 8px); max-width:none; }
   .stage { height:max(64px,calc(var(--playfield-height,100svh) - var(--stage-top) - var(--dock-height) - 8px)); }
-  .settings-panel,.result,.game-toolbar,.game-notice,.debug-panel,footer { grid-column:1 / -1; }
+  .chart-choice,.settings-panel,.result,.game-toolbar,.game-notice,.debug-panel,footer { grid-column:1 / -1; }
 }
 @media (prefers-reduced-motion:reduce) { .pop,.lane-judgement.pop { animation:none; } .lane-button { transition:none; } }
+
+.header-actions { display:flex; align-items:center; gap:8px; }
+.editor-link { font-size:11px; white-space:nowrap; }
+.chart-choice { display:flex; align-items:center; gap:8px; margin:8px 0; font-size:11px; }
+.chart-choice select { font:inherit; min-width:0; padding:6px; border:1px solid #ffffff26; border-radius:5px; background:#10111c; color:#fff; }

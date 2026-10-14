@@ -3,6 +3,7 @@ import { LANE_COLORS } from './colors';
 import { bindDockLayout } from './layout';
 import { TapSound } from './sound';
 import { generateChart } from './chart';
+import { CUSTOM_CHART_KEY, loadChart } from './editor-model';
 import { GameEngine } from './engine';
 import type { Hit } from './engine';
 import { bindInput } from './input';
@@ -18,7 +19,10 @@ function element<T extends HTMLElement = HTMLElement>(id: string): T {
   return node as T;
 }
 let settings = loadSettings();
-const engine = new GameEngine(generateChart(settings.bpm, settings.startTime));
+const customChart = loadChart(CUSTOM_CHART_KEY, true);
+let custom = new URLSearchParams(location.search).get('chart') === 'custom' && customChart !== null;
+const activeChart = () => custom && customChart ? customChart : generateChart(settings.bpm, settings.startTime);
+const engine = new GameEngine(activeChart());
 const clock = new VideoClock();
 const renderer = new Renderer(element<HTMLCanvasElement>('game-canvas'));
 const score = element('score'), combo = element('combo'), maxCombo = element('max-combo');
@@ -158,7 +162,7 @@ function showError(message: string): void {
   restart.disabled = true;
 }
 function updateChartInfo(): void {
-  element('chart-info').textContent = `TEST CHART · ${engine.chart.bpm} BPM · ${engine.chart.startTime.toFixed(1)}秒〜 · ${engine.notes.length} NOTES`;
+  element('chart-info').textContent = `${custom ? 'EDITOR CHART' : 'TEST CHART'} · ${engine.chart.bpm} BPM · ${engine.chart.startTime.toFixed(1)}秒〜 · ${engine.notes.length} NOTES`;
 }
 
 const disposePlayer = createYouTubePlayer({
@@ -169,6 +173,11 @@ const disposePlayer = createYouTubePlayer({
     restart.disabled = false;
     clock.reset();
     setState(instance.getPlayerState());
+    if (custom) {
+      restartTarget = Math.max(0, engine.chart.startTime - settings.travel - 0.5);
+      restartDeadline = performance.now() + 5000;
+      instance.seekTo(restartTarget, true);
+    }
   },
   state: next => { if (!failed) setState(next); },
   error: showError,
@@ -190,9 +199,9 @@ const unbindInput = bindInput(buttons, hit, lanes => { renderer.pressed = lanes;
 
 restart.addEventListener('click', () => {
   if (!player || failed) return;
-  engine.reset(generateChart(settings.bpm, settings.startTime));
+  engine.reset(activeChart());
   clearResults(); updateChartInfo(); clock.reset();
-  restartTarget = Math.max(0, settings.startTime - settings.travel - 0.5);
+  restartTarget = Math.max(0, engine.chart.startTime - settings.travel - 0.5);
   restartDeadline = performance.now() + 5000;
   notice.textContent = '再生が始まらない場合は、YouTubeプレーヤー内の再生ボタンを押してください。';
   try { player.seekTo(restartTarget, true); player.playVideo(); }
@@ -227,7 +236,7 @@ function changeSettings(): void {
   reflectSettings();
   const saved = saveSettings(settings);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
-  if (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
+  if (!custom && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
 }
 travel.addEventListener('input', changeSettings, { signal });
 offset.addEventListener('input', changeSettings, { signal });
@@ -237,6 +246,24 @@ debug.addEventListener('change', changeSettings, { signal });
 soundToggle.addEventListener('change', changeSettings, { signal });
 soundVolume.addEventListener('input', changeSettings, { signal });
 reflectSettings(); updateChartInfo();
+const chartSource = element<HTMLSelectElement>('chart-source');
+chartSource.querySelector<HTMLOptionElement>('option[value="custom"]')!.disabled = !customChart;
+function reflectChartSource(): void {
+  chartSource.value = custom ? 'custom' : 'test';
+  bpm.disabled = custom; startTime.disabled = custom;
+  element('chart-settings-help').textContent = custom ? '編集譜面のBPM・時刻は「譜面編集」で変更できます。' : 'BPM・開始時刻は次のリスタートから反映されます。';
+  notice.textContent = custom ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
+}
+reflectChartSource();
+if (!customChart && new URLSearchParams(location.search).get('chart') === 'custom') notice.textContent = '編集譜面を読み込めませんでした。「譜面編集」でノーツを追加し「ゲームで試す」を押してください。仮譜面を表示しています。';
+chartSource.addEventListener('change', () => {
+  custom = chartSource.value === 'custom' && customChart !== null;
+  const url = new URL(location.href);
+  if (custom) url.searchParams.set('chart', 'custom'); else url.searchParams.delete('chart');
+  history.replaceState(null, '', url);
+  engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
+  if (player && !failed) restart.click();
+}, { signal });
 
 let debugUpdated = 0;
 function frame(now: number): void {

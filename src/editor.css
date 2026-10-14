@@ -1,0 +1,40 @@
+.editor-page #app { max-width:1120px; }
+.editor-page main { display:block; }
+.editor-page { padding-bottom:0; }
+.editor-top { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; }
+.editor-top .panel { margin-top:0; }
+.editor-page .panel h2 { margin-bottom:12px; }
+.editor-fields { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:12px 0; }
+.editor-fields > label { flex:1; min-width:140px; font-size:12px; }
+.editor-fields input[type="number"] { margin-top:6px; }
+.editor-page select { font:inherit; display:block; width:100%; padding:9px; margin-top:6px; border:1px solid #ffffff26; border-radius:5px; background:#10111c; color:#fff; }
+.edit-button { display:inline-block; font:inherit; font-size:12px; text-decoration:none; border:1px solid #ffffff26; background:#ffffff09; color:#ddddef; padding:10px 12px; border-radius:6px; cursor:pointer; min-height:40px; }
+.edit-button.primary { color:#ffc4d5; border-color:#ff739c66; background:#ff739c18; }
+#record-toggle[aria-pressed="true"] { background:#943246; color:#fff; }
+.editor-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.editor-actions h2 { margin:0 !important; margin-right:auto; }
+.editor-check { display:flex; gap:6px; align-items:center; font-size:12px; }
+#record-status { color:#b9f56c; font-size:12px; min-height:20px; }
+#playhead { font:18px ui-monospace,monospace; }
+#note-count { font-size:12px; }
+.editor-page .lane-control { padding-top:8px; }
+.editor-page .lane-buttons { max-width:540px; margin:auto; }
+.editor-page .lane-buttons:focus-visible { outline:2px solid #ffb65c; }
+#timeline { display:block; width:100%; height:264px; margin-top:12px; touch-action:none; border:1px solid #ffffff20; border-radius:7px; }
+#timeline:focus-visible { outline:2px solid #ffb65c; }
+.note-table { max-height:320px; overflow:auto; margin-top:12px; }
+.note-table table { border-collapse:collapse; width:100%; font-size:12px; font-variant-numeric:tabular-nums; }
+.note-table th,.note-table td { text-align:left; padding:8px 5px; border-bottom:1px solid #ffffff16; }
+.note-table tr[data-selected="true"] { background:#ff739c18; }
+.note-table button { border:1px solid #ffffff33; background:#ffffff09; border-radius:4px; padding:6px; }
+.editor-page summary { font-size:12px; cursor:pointer; }
+#import-chart { display:block; width:180px; font-size:10px; margin-top:6px; }
+.editor-notice { color:#ffc4d5; font-size:12px; line-height:1.8; }
+@media (max-width:760px) {
+  .editor-top { display:block; }
+  .editor-page #app { padding-left:10px; padding-right:10px; }
+  .editor-page .panel { padding:12px; }
+  .editor-page .header { gap:8px; }
+  .editor-page .header a:last-child { font-size:11px; }
+  .editor-page .editor-fields > label { min-width:120px; }
+}

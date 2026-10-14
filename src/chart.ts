@@ -4,12 +4,16 @@ export interface TapNote {
   time: number;
   lane: number;
   type: 'tap';
+  /** Original recorded timestamp; retained through quantization and manual edits. */
+  sourceTime?: number;
 }
 export interface Chart {
   videoId: string;
   title: string;
   bpm: number;
   startTime: number;
+  /** Video timestamp of a reference quarter-note beat, independent of the first note. */
+  beatOrigin?: number;
   notes: TapNote[];
 }
 export const VIDEO_ID = 'pJDfWpZ7CI4';
