@@ -223,3 +223,42 @@ test('tap sound uses live Web Audio on user input, does not repeat, and can be m
   await page.locator('#settings-toggle').click();
   await expect(page.locator('#sound-toggle')).not.toBeChecked();
 });
+
+test('repeated touch inputs leave the playfield and scroll position stable without moving focus', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile-touch', 'Mobile touch focus regression');
+  const geometry = () => page.locator('#game-canvas').evaluate(canvas => {
+    const rect = canvas.getBoundingClientRect();
+    return { top: rect.top, height: rect.height, scroll: scrollY };
+  });
+  await page.evaluate(() => document.body.focus());
+  const activeBefore = await page.evaluate(() => document.activeElement?.tagName);
+  await seekPlay(page, 12);
+  const before = await geometry();
+  for (let i = 0; i < 12; i++) await page.locator(`.lane-button[data-lane="${i % 6}"]`).tap();
+  expect(await page.evaluate(() => document.activeElement?.tagName)).toBe(activeBefore);
+  expect(await geometry()).toEqual(before);
+  await expect(page.locator('#score')).toHaveText('001000');
+  // Feedback expiry must not resize the runway either.
+  await page.waitForTimeout(850);
+  expect(await geometry()).toEqual(before);
+});
+
+test('mobile browser chrome height changes do not resize the runway or switch compact layout', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile-touch', 'Mobile browser chrome regression');
+  // Emulate stable small-viewport height while the visible viewport changes as
+  // the address bar opens/closes. An actual orientation change is covered above.
+  await page.locator('.viewport-size-reference').evaluate((reference: HTMLElement) => { reference.style.height = '600px'; });
+  await expect(page.locator('html')).toHaveClass('compact-viewport');
+  const geometry = () => page.locator('#game-canvas').evaluate(canvas => {
+    const rect = canvas.getBoundingClientRect();
+    return { top: rect.top, height: rect.height, line: rect.bottom - 25 };
+  });
+  await expect.poll(async () => (await geometry()).height).toBe(64);
+  const before = await geometry();
+  for (const height of [700, 650, 600, 700, 844]) {
+    await page.setViewportSize({ width: 390, height });
+    await page.waitForTimeout(80);
+    expect(await geometry()).toEqual(before);
+    await expect(page.locator('html')).toHaveClass('compact-viewport');
+  }
+});

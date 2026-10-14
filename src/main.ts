@@ -52,7 +52,7 @@ const signal = listeners.signal;
 const canvas = element<HTMLCanvasElement>('game-canvas');
 canvas.addEventListener('pointerdown', event => {
   event.preventDefault();
-  canvas.focus({ preventScroll: true });
+  if (event.pointerType === 'mouse') canvas.focus({ preventScroll: true });
 }, { signal });
 
 function updateScore(): void {
