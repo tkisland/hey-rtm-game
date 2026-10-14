@@ -12,7 +12,7 @@
     <header class="header"><a class="wordmark" href="./">HEY! <span>RHYTHM!</span></a><a href="./" class="icon-button">ゲームへ</a></header>
     <main>
       <div class="song-heading"><div><p class="eyebrow">SUPER MOMMY GIRLS / CHART EDITOR</p><h1>ノーツ・タイミングエディター</h1></div></div>
-      <p class="field-help">① MVに合わせて打ち込む → ② 拍にそろえる → ③ ノーツを微調整 → ④ ゲームで試す</p>
+      <p class="field-help">① MVに合わせて打ち込む → ② 拍にそろえる → ③ ノーツを微調整 → ④ 譜面の再生確認・ゲームで試す</p>
       <div class="editor-top">
         <section aria-label="公式MV"><div class="video-frame"><div id="youtube-player"></div></div><div class="playback-info"><p id="player-status" role="status">YouTubeプレーヤーを読み込み中…</p><a href="https://www.youtube.com/watch?v=pJDfWpZ7CI4" target="_blank" rel="noopener">YouTube ↗</a></div><div id="player-error" class="error-box" role="alert" hidden></div></section>
         <section class="panel" aria-label="拍とクオンタイズ">
@@ -26,6 +26,25 @@
           <p class="field-help">元の時刻は残ります。微調整を基準にそろえる場合はチェックを外します。</p>
         </section>
       </div>
+      <section class="panel preview-panel" aria-label="譜面の再生確認">
+        <h2>譜面の再生確認</h2>
+        <p class="field-help">MVに合わせてノーツを自動再生します。長押しは帯とHOLD、同時押しは◇と連結線で確認できます。</p>
+        <div class="editor-actions">
+          <button id="preview-first" class="edit-button primary" disabled>↺ 譜面の最初から</button>
+          <button id="preview-play" class="edit-button" disabled>▶ 現在位置から再生</button>
+          <button id="preview-selected" class="edit-button" disabled>選択ノーツの少し前から</button>
+          <button id="preview-pause" class="edit-button" disabled>Ⅱ 一時停止</button>
+          <button id="preview-stop" class="edit-button" disabled>■ 終了</button>
+        </div>
+        <div class="editor-actions preview-options"><label class="editor-check"><input id="preview-sound" type="checkbox" checked /> ノーツ音（長押しは始点・終点）</label><label class="editor-check">プレビュー音量 <output id="preview-volume-value">70%</output><input id="preview-volume" aria-label="プレビュー音量" type="range" min="0" max="100" step="5" value="70" /></label></div>
+        <p id="preview-status" role="status">ノーツを追加すると再生できます。</p>
+        <p id="preview-audio-status" class="field-help">ノーツ音は譜面の時刻で鳴ります。再生が始まらない場合はMV内の再生ボタンを押してください。</p>
+        <canvas id="preview-canvas" aria-label="6レーンの譜面再生プレビュー"></canvas>
+        <div id="preview-lanes" class="preview-lanes" aria-label="自動再生のレーン表示">
+          <div data-lane="0"><strong>S</strong><span>1</span><output>—</output></div><div data-lane="1"><strong>D</strong><span>2</span><output>—</output></div><div data-lane="2"><strong>F</strong><span>3</span><output>—</output></div><div data-lane="3"><strong>J</strong><span>4</span><output>—</output></div><div data-lane="4"><strong>K</strong><span>5</span><output>—</output></div><div data-lane="5"><strong>L</strong><span>6</span><output>—</output></div>
+        </div>
+        <p class="field-help">再生中は打ち込みを止めます。編集するとプレビューを停止します。選択ノーツからの再生には、先にタイムラインでノーツを選んでください。</p>
+      </section>
       <section class="panel recording-panel" aria-label="リアルタイム入力">
         <div class="editor-actions"><button id="record-toggle" class="edit-button primary" aria-pressed="false" disabled>● 打ち込み開始</button><output id="playhead">0.000 s</output><strong id="note-count">0 NOTES</strong><label class="editor-check"><input id="editor-sound" type="checkbox" checked /> 入力音</label><label class="editor-check"><input id="audition" type="checkbox" /> 譜面の試聴音</label></div>
         <div class="editor-fields"><label>打ち込みの種類<select id="record-type"><option value="tap">タップ</option><option value="hold">長押し（離すまで記録）</option></select></label></div>

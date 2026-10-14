@@ -10,6 +10,8 @@ import { createCalibrationDialog } from './calibration-dialog';
 import { compensateInput } from './timing';
 import { VideoClock } from './sync';
 import { Timeline } from './timeline';
+import { Renderer } from './renderer';
+import { EditorPreview, previewStart } from './editor-preview';
 import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
 
@@ -34,6 +36,50 @@ let pressed = new Set<number>();
 let seekTarget: number | null = null, seekDeadline = 0;
 const division = (): Division => Number(select('division').value) as Division;
 const message = (text: string) => { el('editor-notice').textContent = text; };
+const preview = new EditorPreview(); preview.sync(model.chart);
+const previewRenderer = new Renderer(el<HTMLCanvasElement>('preview-canvas'));
+const previewSound = new TapSound(() => { el('preview-audio-status').textContent = 'ノーツ音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。映像のプレビューは続けられます。'; });
+previewSound.volume = settings.soundVolume; // Reference chart sounds have no input compensation or added tap delay.
+input('preview-volume').value = String(settings.soundVolume);
+el('preview-volume-value').textContent = `${settings.soundVolume}%`;
+let previewing = false, previewEndMessage = '';
+let previewTarget: { time: number; includeExact: boolean } | null = null;
+const previewLanes = [...el('preview-lanes').querySelectorAll<HTMLElement>('[data-lane]')];
+const previewFeedback = Array<number>(6).fill(-Infinity), previewLabels = Array<string>(6).fill('—');
+previewLanes.forEach((lane, i) => lane.style.setProperty('--lane', LANE_COLORS[i]));
+function clearPreviewEffects(): void {
+  previewFeedback.fill(-Infinity); previewLabels.fill('—');
+  previewRenderer.clearEffects(); previewRenderer.pressed.clear();
+}
+function refreshPreviewControls(): void {
+  const available = player !== null && !failed && model.chart.notes.length > 0;
+  for (const id of ['preview-play', 'preview-first']) el<HTMLButtonElement>(id).disabled = !available;
+  el<HTMLButtonElement>('preview-selected').disabled = !available || !model.selectedNote;
+  el<HTMLButtonElement>('preview-pause').disabled = !previewing || !playing;
+  el<HTMLButtonElement>('preview-stop').disabled = !previewing;
+}
+function stopPreview(pause = true): void {
+  const active = previewing;
+  previewing = false; previewEndMessage = '';
+  if (previewTarget) seekTarget = null;
+  previewTarget = null; previewSound.cancelPending(); preview.seek(time); clearPreviewEffects();
+  if (active && pause && player && !failed) {
+    try { player.pauseVideo(); } catch { message('MVを一時停止できませんでした。プレーヤー内で停止してください。'); }
+  }
+  refreshPreviewControls();
+}
+function playPreview(position?: number): void {
+  if (!player || failed || !model.chart.notes.length) return;
+  readTime(); setArmed(false); sound.cancelPending();
+  const resuming = previewing && position === undefined;
+  previewing = true; previewEndMessage = ''; preview.sync(model.chart);
+  clearPreviewEffects(); previewSound.cancelPending(); void previewSound.unlock();
+  if (position !== undefined) { if (!seek(position)) return; if (previewTarget) previewTarget.includeExact = true; }
+  else if (!resuming) preview.seek(time, true);
+  try { player.playVideo(); }
+  catch { stopPreview(false); message('再生を開始できませんでした。MV内の再生ボタンを押してください。'); }
+  refreshPreviewControls();
+}
 const timeline = new Timeline(el<HTMLCanvasElement>('timeline'), {
   select: id => { model.selected = id; refreshSelection(); refreshList(); },
   move: (id, seconds, lane) => edit(() => model.move(id, seconds, lane)),
@@ -41,6 +87,7 @@ const timeline = new Timeline(el<HTMLCanvasElement>('timeline'), {
   seek: seconds => seek(seconds),
 });
 function setArmed(value: boolean): void {
+  if (value) stopPreview(false);
   if (!value) captures.clear();
   sound.cancelPending();
   armed = value;
@@ -53,16 +100,18 @@ function save(): void {
   el('save-status').textContent = storeChart(EDITOR_KEY, model.chart) ? '編集内容をこのブラウザに保存しました。' : 'ブラウザに保存できません。JSONを書き出して保存してください。';
 }
 function changed(): void {
+  preview.sync(model.chart);
   refresh();
   el('save-status').textContent = '保存中…';
   clearTimeout(saveTimer); saveTimer = window.setTimeout(save, 200);
   lastAudition = null;
 }
 function edit(operation: () => unknown): void {
-  setArmed(false);
+  stopPreview(); setArmed(false);
   try { operation(); changed(); } catch (error) { message(error instanceof Error ? error.message : '編集できませんでした。'); refresh(); }
 }
 function refreshSelection(): void {
+  refreshPreviewControls();
   const note = model.selectedNote;
   el('selected-panel').hidden = !note; el('selected-empty').hidden = Boolean(note);
   if (note) {
@@ -111,31 +160,41 @@ function setView(start: number, manual = false): void {
   if (manual) input('follow').checked = false;
   refreshList();
 }
-function seek(seconds: number): void {
-  if (!player || failed) return;
+function seek(seconds: number): boolean {
+  if (!player || failed) return false;
   try {
     seekTarget = Math.min(MAX_TIME, Math.max(0, seconds)); seekDeadline = performance.now() + 5000;
-    captures.clear(); sound.cancelPending();
+    captures.clear(); sound.cancelPending(); previewSound.cancelPending(); clearPreviewEffects();
+    if (previewing) previewTarget = { time: seekTarget, includeExact: false };
+    preview.seek(seekTarget);
     player.seekTo(seekTarget, true); clock.reset(); lastAudition = null;
-  } catch { seekTarget = null; message('シークできませんでした。プレーヤーを確認してください。'); }
+    return true;
+  } catch { seekTarget = null; stopPreview(false); message('シークできませんでした。プレーヤーを確認してください。'); return false; }
 }
 function readTime(): void {
   if (!player || failed) { playing = false; return; }
   try {
     const sample = clock.sample(player.getCurrentTime(), player.getPlayerState(), performance.now(), player.getPlaybackRate());
     time = sample.time;
-    if (sample.seek) { sound.cancelPending(); lastAudition = null; cancelCaptures(); }
+    if (sample.seek) {
+      sound.cancelPending(); previewSound.cancelPending(); clearPreviewEffects();
+      if (!previewTarget) preview.seek(time);
+      lastAudition = null; cancelCaptures();
+    }
     if (!sample.playing) cancelCaptures();
     if (seekTarget !== null) {
-      if (Math.abs(sample.rawTime - seekTarget) <= 0.5) seekTarget = null;
-      else if (performance.now() > seekDeadline) { seekTarget = null; message('シークが完了しませんでした。プレーヤーを確認してください。'); }
+      if (Math.abs(sample.rawTime - seekTarget) <= 0.5) {
+        seekTarget = null;
+        if (previewTarget) { preview.seek(previewTarget.time, previewTarget.includeExact); previewTarget = null; }
+      }
+      else if (performance.now() > seekDeadline) { seekTarget = null; stopPreview(); message('シークが完了しませんでした。プレーヤーを確認してください。'); }
       else { playing = false; return; }
     }
-    if (playing && !sample.playing) sound.cancelPending();
+    if (playing && !sample.playing) { sound.cancelPending(); previewSound.cancelPending(); }
     playing = sample.playing && !calibration.active;
     const label = sample.stale ? '動画時刻の更新待ち' : playing ? 'MV再生中' : '停止・一時停止・読み込み中';
     if (el('player-status').textContent !== label) el('player-status').textContent = label;
-  } catch { playing = false; message('動画の再生時刻を取得できません。プレーヤーを確認してください。'); }
+  } catch { playing = false; stopPreview(); message('動画の再生時刻を取得できません。プレーヤーを確認してください。'); }
 }
 const disposePlayer = createYouTubePlayer({
   keyboardTarget: el('record-pads'),
@@ -144,11 +203,16 @@ const disposePlayer = createYouTubePlayer({
     player = instance; clock.reset();
     for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note']) el<HTMLButtonElement>(id).disabled = false;
     el('player-status').textContent = 'MVの再生ボタンを押してください';
+    refreshPreviewControls();
   },
-  state: next => { if (next !== 1) sound.cancelPending(); lastAudition = null; },
+  state: next => {
+    if (next !== 1) { sound.cancelPending(); previewSound.cancelPending(); }
+    if (next === 0 && previewing) { stopPreview(false); previewEndMessage = 'MVの再生が終了しました。'; }
+    lastAudition = null;
+  },
   error: text => {
     sound.cancelPending();
-    failed = true; playing = false; setArmed(false);
+    failed = true; playing = false; setArmed(false); stopPreview(false);
     el('player-error').hidden = false; el('player-error').textContent = `${text} JSONの読み込み・編集・保存は引き続き使えます。`;
     el('player-status').textContent = '動画を再生できません';
     for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note']) el<HTMLButtonElement>(id).disabled = true;
@@ -161,7 +225,7 @@ function cancelCaptures(): void {
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
 buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
 const unbindInput = bindInput(buttons, lane => {
-  if (calibration.active) return;
+  if (calibration.active || previewing) return;
   readTime(); const captured = Math.max(0, compensateInput(time, settings.inputOffset)), record = armed && playing;
   if (input('editor-sound').checked) sound.play(lane);
   if (!record) return;
@@ -172,7 +236,7 @@ const unbindInput = bindInput(buttons, lane => {
   try { model.add(captured, lane, true); changed(); } catch (error) { setArmed(false); message(error instanceof Error ? error.message : '記録できませんでした。'); }
 }, (lanes, reason) => {
   const previous = pressed; pressed = lanes;
-  if (calibration.active) return;
+  if (calibration.active || previewing) return;
   const released = [...previous].filter(lane => !lanes.has(lane));
   if (!released.length || !captures.size) return;
   if (reason === 'cancel') { released.forEach(lane => captures.delete(lane)); message('入力がキャンセルされたため未完了の長押しを破棄しました。'); return; }
@@ -184,10 +248,21 @@ const unbindInput = bindInput(buttons, lane => {
     if (end - start < MIN_HOLD) { message('長押しは30ms以上保持してください。'); continue; }
     try { model.add(start, lane, true, end); changed(); } catch (error) { message(error instanceof Error ? error.message : '長押しを記録できませんでした。'); }
   }
-}, () => calibration.active);
+}, () => calibration.active || previewing);
 el('record-pads').addEventListener('pointerdown', event => { if (event.pointerType === 'mouse' && event.target === el('record-pads')) el('record-pads').focus({ preventScroll: true }); }, { signal });
 el('record-toggle').addEventListener('click', () => { setArmed(!armed); el('record-pads').focus({ preventScroll: true }); }, { signal });
 const on = (id: string, callback: () => void) => el(id).addEventListener('click', callback, { signal });
+on('preview-play', () => playPreview());
+on('preview-first', () => playPreview(previewStart(undefined, preview.first, settings.travel)));
+on('preview-selected', () => { if (model.selectedNote) playPreview(previewStart(model.selectedNote, preview.first, settings.travel)); });
+on('preview-pause', () => {
+  if (!player || failed) return;
+  previewSound.cancelPending();
+  try { player.pauseVideo(); } catch { message('MVを一時停止できませんでした。プレーヤー内で停止してください。'); }
+});
+on('preview-stop', () => stopPreview());
+input('preview-sound').addEventListener('change', () => { previewSound.enabled = input('preview-sound').checked; if (previewSound.enabled && previewing) void previewSound.unlock(); }, { signal });
+input('preview-volume').addEventListener('input', () => { previewSound.volume = input('preview-volume').valueAsNumber; el('preview-volume-value').textContent = `${previewSound.volume}%`; if (previewing) void previewSound.unlock(); }, { signal });
 select('record-type').addEventListener('change', cancelCaptures, { signal });
 const metadata = () => edit(() => model.metadata(input('editor-bpm').valueAsNumber, input('beat-origin').valueAsNumber));
 input('editor-bpm').addEventListener('change', metadata, { signal }); input('beat-origin').addEventListener('change', metadata, { signal });
@@ -224,7 +299,7 @@ on('add-note', () => {
 input('view-start').addEventListener('change', () => { const value = input('view-start').valueAsNumber; setView(Number.isFinite(value) ? value : viewStart, true); }, { signal });
 select('view-span').addEventListener('change', () => { viewSpan = Number(select('view-span').value); refreshList(); }, { signal });
 on('view-prev', () => setView(viewStart - viewSpan, true)); on('view-next', () => setView(viewStart + viewSpan, true)); on('view-now', () => { readTime(); setView(Math.max(0, time - viewSpan / 4)); });
-input('audition').addEventListener('change', () => { sound.cancelPending(); lastAudition = null; if (input('audition').checked) sound.play(0); }, { signal });
+input('audition').addEventListener('change', () => { sound.cancelPending(); lastAudition = null; if (input('audition').checked && !previewing) sound.play(0); }, { signal });
 on('export-chart', () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(model.chart, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a'); link.href = url; link.download = 'hey-rhythm-chart.json'; link.click();
@@ -232,7 +307,7 @@ on('export-chart', () => {
 });
 input('import-chart').addEventListener('change', async () => {
   const file = input('import-chart').files?.[0]; if (!file) return;
-  setArmed(false);
+  stopPreview(); setArmed(false);
   try {
     if (file.size > 1024 * 1024) throw new Error('JSONは1MB以内にしてください。');
     const chart = parseChart(await file.text());
@@ -242,7 +317,7 @@ input('import-chart').addEventListener('change', async () => {
 }, { signal });
 on('new-chart', () => { edit(() => model.replace(emptyChart())); setView(0); message('空の譜面にしました。「元に戻す」で前の譜面に戻せます。'); });
 on('try-game', () => {
-  setArmed(false); save();
+  stopPreview(); setArmed(false); save();
   if (!model.chart.notes.length) return;
   if (!storeChart(CUSTOM_CHART_KEY, model.chart)) { message('試遊用の譜面を保存できません。ブラウザのストレージ設定を確認してください。JSONの書き出しは利用できます。'); return; }
   location.href = './?chart=custom';
@@ -260,7 +335,7 @@ window.addEventListener('keydown', event => {
   }
 }, { signal });
 window.addEventListener('pagehide', save, { signal });
-document.addEventListener('visibilitychange', () => { if (document.hidden) save(); }, { signal });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopPreview(); save(); } }, { signal });
 function reflectTiming(): void {
   input('editor-input-offset').value = String(settings.inputOffset);
   input('editor-sound-delay').value = String(settings.soundDelay);
@@ -279,7 +354,7 @@ input('editor-input-offset').addEventListener('input', changeTiming, { signal })
 input('editor-sound-delay').addEventListener('input', changeTiming, { signal });
 const calibration = createCalibrationDialog({
   pause() {
-    setArmed(false); sound.cancelPending(); lastAudition = null;
+    stopPreview(); setArmed(false); sound.cancelPending(); lastAudition = null;
     player?.pauseVideo();
   },
   apply(value) { input('editor-input-offset').value = String(value); changeTiming(); },
@@ -300,16 +375,39 @@ function frame(now: number): void {
   if (disposed) return;
   readTime();
   if (playing && input('follow').checked && !timeline.dragging && (time < viewStart || time > viewStart + viewSpan * 0.9)) setView(Math.floor(time / (viewSpan * 0.75)) * (viewSpan * 0.75));
-  if (playing && !armed && input('audition').checked) {
+  if (!previewing && playing && !armed && input('audition').checked) {
     if (lastAudition !== null && time > lastAudition && time - lastAudition < 0.5) model.chart.notes.filter(note => note.time > lastAudition! && note.time <= time).slice(0, 12).forEach(note => sound.play(note.lane));
     lastAudition = time;
   } else lastAudition = null;
+  preview.sync(model.chart);
+  const previewEvents = seekTarget === null ? preview.update(time, playing && previewing) : [];
+  previewEvents.forEach(event => {
+    previewSound.play(event.lane); previewRenderer.flash(event.lane, now);
+    previewFeedback[event.lane] = now;
+    previewLabels[event.lane] = event.phase === 'end' ? '離す' : event.phase === 'start' ? 'HOLD' : 'TAP';
+  });
+  const holds = new Set(preview.notes.filter(note => note.state === 'holding').map(note => note.lane));
+  previewRenderer.pressed = previewing ? holds : new Set();
+  previewRenderer.draw(preview.notes, time, settings.travel, now, settings.noteSize, model.chart.bpm);
+  previewLanes.forEach((lane, i) => {
+    const holding = previewing && holds.has(i), recent = previewing && now - previewFeedback[i] < 180;
+    lane.classList.toggle('active', holding || recent);
+    lane.dataset.state = holding ? 'holding' : recent ? 'pulse' : 'idle';
+    lane.querySelector('output')!.textContent = holding ? 'HOLD' : recent ? previewLabels[i] : '—';
+  });
+  if (previewing && playing && seekTarget === null && time >= preview.end + 0.35) {
+    stopPreview(); previewEndMessage = 'プレビュー完了 · 譜面の最後まで再生しました。';
+  }
   timeline.draw({ chart: model.chart, noteSize: settings.noteSize, selected: model.selected, start: viewStart, span: viewSpan, division: division(), snap: input('drag-snap').checked, time });
   if (now - lastUi > 100) {
+    refreshPreviewControls();
+    const previewStatus = failed ? '動画を再生できません。編集・保存は引き続き使えます。' : !model.chart.notes.length ? 'ノーツを追加すると再生できます。'
+      : !player ? 'YouTubeプレーヤーを読み込み中…' : previewEndMessage || `${previewing ? seekTarget !== null ? '開始位置へ移動中' : playing ? 'プレビュー再生中' : '一時停止・再生待ち' : '停止中'} · ${time.toFixed(3)} s`;
+    el('preview-status').textContent = previewStatus;
     lastUi = now; el('playhead').textContent = `${time.toFixed(3)} s`;
     el('record-status').textContent = armed ? playing ? captures.size ? `● 長押し記録中 ${captures.size}本 · 離すと保存します` : '● 打ち込み中 · キーまたは6ボタンを押してください' : '● 打ち込み待機 · MVを再生してください（一時停止・読み込み中は記録しません）' : '打ち込み停止中 · ノーツを選択して編集できます';
   }
   frameId = requestAnimationFrame(frame);
 }
 frameId = requestAnimationFrame(frame);
-if (import.meta.hot) import.meta.hot.dispose(() => { disposed = true; cancelAnimationFrame(frameId); clearTimeout(saveTimer); save(); listeners.abort(); unbindInput(); timeline.destroy(); sound.destroy(); calibration.destroy(); disposePlayer(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { disposed = true; cancelAnimationFrame(frameId); clearTimeout(saveTimer); save(); listeners.abort(); unbindInput(); timeline.destroy(); previewRenderer.destroy(); previewSound.destroy(); sound.destroy(); calibration.destroy(); disposePlayer(); });

@@ -65,7 +65,11 @@ test('PC playback returns focus to the game for F input; touch playback retains 
 
 test('editor playback returns PC focus to the recording pads and touch input still records', async ({ page }, info) => {
   await page.goto('/editor.html'); await expect(page.locator('#record-toggle')).toBeEnabled();
-  await page.locator('#record-toggle').click(); await page.frameLocator('iframe').locator('#play').click();
+  await page.locator('#record-toggle').click();
+  await page.frameLocator('iframe').locator('#surface').click();
+  expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('IFRAME');
+  await page.frameLocator('iframe').locator('#play').click();
+  await expect.poll(() => page.evaluate(() => (window as any).testVideo.getPlayerState())).toBe(1);
   if (info.project.name === 'mobile-touch') {
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('IFRAME');
     await page.locator('.lane-button[data-lane="2"]').tap();
