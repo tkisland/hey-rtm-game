@@ -29,6 +29,7 @@ const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')
 buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
 const sound = new TapSound(() => { element('sound-status').textContent = 'タップ音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'; });
 sound.enabled = settings.sound;
+sound.volume = settings.soundVolume;
 const unbindLayout = bindDockLayout(document.querySelector('.stage')!, document.querySelector('.controls-dock')!);
 const result = element('result'), stageHint = element('stage-hint');
 const status = element('player-status'), notice = element('game-notice');
@@ -208,17 +209,21 @@ settingsToggle.addEventListener('click', () => showSettings(settingsPanel.hidden
 element('settings-close').addEventListener('click', () => showSettings(false), { signal });
 const travel = element<HTMLInputElement>('travel'), offset = element<HTMLInputElement>('offset');
 const soundToggle = element<HTMLInputElement>('sound-toggle');
+const soundVolume = element<HTMLInputElement>('sound-volume');
 const bpm = element<HTMLInputElement>('bpm'), startTime = element<HTMLInputElement>('start-time'), debug = element<HTMLInputElement>('debug-toggle');
 function reflectSettings(): void {
   travel.value = String(settings.travel); offset.value = String(settings.offset);
   bpm.value = String(settings.bpm); startTime.value = String(settings.startTime); debug.checked = settings.debug; soundToggle.checked = settings.sound;
   sound.enabled = settings.sound;
+  sound.volume = settings.soundVolume;
+  soundVolume.value = String(settings.soundVolume);
+  element('sound-volume-value').textContent = `${settings.soundVolume}%`;
   element('travel-value').textContent = `${settings.travel.toFixed(2)}秒`;
   element('offset-value').textContent = `${settings.offset > 0 ? '+' : ''}${settings.offset} ms`;
   element('debug-panel').hidden = !settings.debug;
 }
 function changeSettings(): void {
-  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked });
+  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber });
   reflectSettings();
   const saved = saveSettings(settings);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
@@ -230,6 +235,7 @@ bpm.addEventListener('change', changeSettings, { signal });
 startTime.addEventListener('change', changeSettings, { signal });
 debug.addEventListener('change', changeSettings, { signal });
 soundToggle.addEventListener('change', changeSettings, { signal });
+soundVolume.addEventListener('input', changeSettings, { signal });
 reflectSettings(); updateChartInfo();
 
 let debugUpdated = 0;
