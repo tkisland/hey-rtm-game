@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#11121e" />
+    <meta name="description" content="Hey!Mommy!の公式MVで遊ぶ、6レーンのファンメイド・リズムゲーム試作版。" />
+    <title>HEY! RHYTHM! — SUPER MOMMY GIRLS</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="header">
+        <a class="wordmark" href="./" aria-label="HEY! RHYTHM! ホーム">HEY! <span>RHYTHM!</span><i>✦</i></a>
+        <button id="settings-toggle" class="icon-button" aria-controls="settings-panel" aria-expanded="false">⚙ <span>設定</span></button>
+      </header>
+      <main>
+        <section class="song-heading" aria-label="楽曲情報">
+          <div><p class="eyebrow">HEY!MOMMY! / OFFICIAL MV</p><h1>SUPER MOMMY GIRLS</h1></div>
+          <span class="badge">PROTOTYPE</span>
+        </section>
+        <section class="video-section" aria-label="YouTube公式ミュージックビデオ">
+          <div class="video-frame"><div id="youtube-player"></div></div>
+        </section>
+        <div class="playback-info"><span class="status-dot" id="status-dot"></span><p id="player-status" role="status">YouTubeプレーヤーを読み込み中…</p><a href="https://www.youtube.com/watch?v=pJDfWpZ7CI4" target="_blank" rel="noopener">YouTube ↗</a></div>
+        <div id="player-error" class="error-box" role="alert" hidden></div>
+        <section id="settings-panel" class="panel settings-panel" aria-label="ゲーム設定" hidden>
+          <div class="panel-heading"><h2>プレイ設定</h2><button id="settings-close" class="text-button">閉じる ×</button></div>
+          <label for="travel">ノーツ落下時間 <output id="travel-value">2.00秒</output></label>
+          <input id="travel" type="range" min="1" max="4" step="0.25" value="2" />
+          <p class="field-help">小さいほど速く落下します。</p>
+          <label for="offset">タイミングオフセット <output id="offset-value">0 ms</output></label>
+          <input id="offset" type="range" min="-300" max="300" step="10" value="0" />
+          <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>
+          <div class="settings-grid"><label for="bpm">仮BPM<input id="bpm" type="number" min="80" max="200" step="1" value="140" /></label><label for="start-time">譜面開始（秒）<input id="start-time" type="number" min="0" max="3600" step="0.1" value="12" /></label></div>
+          <p class="field-help">BPM・開始時刻は次のリスタートから反映されます。</p>
+          <label class="check-label"><input id="debug-toggle" type="checkbox" /> デバッグ表示</label>
+          <p id="storage-status" class="field-help">設定はこのブラウザに保存されます。</p>
+        </section>
+        <section class="game" aria-label="6レーンリズムゲーム">
+          <div class="scoreboard">
+            <div><span class="metric-label">SCORE</span><strong id="score">000000</strong></div>
+            <div class="judgement-wrap"><strong id="judgement" aria-label="直近の判定">READY</strong><span id="judgement-detail">MVを再生してスタート</span></div>
+            <div class="combo-metric"><span class="metric-label">COMBO</span><strong id="combo">0</strong><span id="max-combo">MAX 0</span></div>
+          </div>
+          <div class="stage"><canvas id="game-canvas" tabindex="0" aria-label="上から流れる6レーンのノーツ"></canvas><div class="stage-hint" id="stage-hint"><span class="hint-kicker">LET’S PLAY!</span><strong>MVの再生ボタンで開始</strong><span>ノーツがラインに重なったらタップ</span></div></div>
+          <div class="lane-buttons" aria-label="レーン入力">
+            <button class="lane-button" data-lane="0" style="--lane:#ff739c" aria-label="レーン1 S"><span>S</span><small>1</small></button>
+            <button class="lane-button" data-lane="1" style="--lane:#ffb65c" aria-label="レーン2 D"><span>D</span><small>2</small></button>
+            <button class="lane-button" data-lane="2" style="--lane:#ffe779" aria-label="レーン3 F"><span>F</span><small>3</small></button>
+            <button class="lane-button" data-lane="3" style="--lane:#76edbc" aria-label="レーン4 J"><span>J</span><small>4</small></button>
+            <button class="lane-button" data-lane="4" style="--lane:#78ceff" aria-label="レーン5 K"><span>K</span><small>5</small></button>
+            <button class="lane-button" data-lane="5" style="--lane:#bd9bff" aria-label="レーン6 L"><span>L</span><small>6</small></button>
+          </div>
+        </section>
+        <section id="result" class="panel result" aria-label="プレイ結果" tabindex="-1" hidden>
+          <p class="eyebrow">TEST PLAY COMPLETE</p><h2>おつかれさまでした！</h2>
+          <div class="result-headline"><strong id="result-score">0</strong><span>SCORE</span><span id="result-combo"></span></div>
+          <div id="result-counts" class="result-counts"></div><p id="result-accuracy" class="field-help"></p>
+          <p class="field-help">MVはそのまま再生されます。もう一度遊ぶならリスタート！</p>
+        </section>
+        <div class="game-toolbar"><p id="chart-info">TEST CHART · 140 BPM · 12秒〜</p><button id="restart" class="restart-button" disabled>↻ 最初からやり直す</button></div>
+        <p id="game-notice" class="game-notice" role="status">仮譜面です。実際の楽曲のリズムとは一致しません。PCではゲーム部分をクリックしてからキー入力してください。</p>
+        <section id="debug-panel" class="panel debug-panel" aria-label="同期デバッグ" hidden><h2>SYNC MONITOR</h2><dl><dt>YouTube時刻</dt><dd id="debug-time">0.000 s</dd><dt>状態</dt><dd id="debug-state">LOADING</dd><dt>適用中BPM</dt><dd id="debug-bpm">140</dd><dt>オフセット</dt><dd id="debug-offset">0 ms</dd><dt>FPS</dt><dd id="debug-fps">—</dd><dt>直近の入力誤差</dt><dd id="debug-error">—</dd><dt>最後の判定</dt><dd id="debug-judgement">—</dd></dl></section>
+        <footer><span>FANMADE · UNOFFICIAL</span><p>Hey!Mommy! 非公式ファンメイド試作版<br />音声・映像はYouTube公式プレーヤーで再生します。</p></footer>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
