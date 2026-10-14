@@ -1,5 +1,7 @@
 import type { PlayNote } from './engine';
 import { LANE_COLORS } from './colors';
+import { chordGroups, noteThickness } from './note-display';
+import type { ChartNote } from './chart';
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private width = 1;
@@ -7,6 +9,10 @@ export class Renderer {
   private observer: ResizeObserver;
   private flashes = new Map<number, number>();
   pressed = new Set<number>();
+  private cachedNotes: PlayNote[] | null = null;
+  private chords: ChartNote[][] = [];
+  private chordIds = new Set<number>();
+  private gaps = new Map<number, number>();
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2Dを利用できません。別のブラウザをお試しください。');
@@ -25,10 +31,19 @@ export class Renderer {
   }
   flash(lane: number, now: number): void { this.flashes.set(lane, now); }
   clearEffects(): void { this.flashes.clear(); }
-  draw(notes: PlayNote[], time: number, travel: number, now: number): void {
+  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, bpm = 140): void {
     if (this.canvas.width !== Math.round(this.width * (window.devicePixelRatio || 1))) this.resize();
     const ctx = this.ctx, w = this.width, h = this.height;
     const laneWidth = w / 6, line = h - 25;
+    if (this.cachedNotes !== notes) {
+      this.cachedNotes = notes; this.chords = chordGroups(notes); this.chordIds = new Set(this.chords.flat().map(note => note.id)); this.gaps.clear();
+      for (let lane = 0; lane < 6; lane++) {
+        const ordered = notes.filter(note => note.lane === lane).sort((a, b) => a.time - b.time);
+        ordered.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (ordered[i - 1]?.time ?? -Infinity), (ordered[i + 1]?.time ?? Infinity) - note.time)));
+      }
+    }
+    const yAt = (seconds: number) => line - (seconds - time) / travel * line;
+    const active = (note: ChartNote) => { const state = (note as PlayNote).state; return state === 'pending' || state === 'holding'; };
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#121422'; ctx.fillRect(0, 0, w, h);
     for (let lane = 0; lane < 6; lane++) {
@@ -49,17 +64,42 @@ export class Renderer {
     for (let y = line % 60; y < h; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
     ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, line); ctx.lineTo(w, line); ctx.stroke();
-    for (const note of notes) {
-      if (note.state !== 'pending') continue;
-      const delta = note.time - time;
-      if (delta > travel + 0.1 || delta < -0.2) continue;
-      const y = line - delta / travel * line;
-      const inset = Math.max(5, laneWidth * 0.12), x = note.lane * laneWidth + inset;
-      const noteWidth = laneWidth - inset * 2;
-      ctx.shadowBlur = 10; ctx.shadowColor = LANE_COLORS[note.lane];
-      ctx.fillStyle = LANE_COLORS[note.lane]; ctx.beginPath(); ctx.roundRect(x, y - 6, noteWidth, 12, 4); ctx.fill(); ctx.shadowBlur = 0;
-      ctx.fillStyle = '#ffffffa0'; ctx.fillRect(x + 4, y - 4, Math.max(1, noteWidth - 8), 2);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, w, line + 12); ctx.clip();
+    // A shared horizontal link and diamond on each head identify a chord without merging judgement.
+    for (const group of this.chords) {
+      const visible = group.filter(active);
+      if (visible.length < 2) continue;
+      const y = Math.min(line, yAt(group[0].time));
+      if (y < -10 || y > line + 10) continue;
+      ctx.strokeStyle = '#ffe77999'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo((Math.min(...visible.map(note => note.lane)) + 0.5) * laneWidth, y); ctx.lineTo((Math.max(...visible.map(note => note.lane)) + 0.5) * laneWidth, y); ctx.stroke(); ctx.setLineDash([]);
     }
+    for (const note of notes) {
+      if (!active(note)) continue;
+      const head = note.state === 'holding' ? line : yAt(note.time);
+      const tail = note.type === 'hold' ? yAt(note.endTime) : head;
+      if (head < -20 || tail > line + 20) continue;
+      const inset = Math.max(5, laneWidth * 0.12), x = note.lane * laneWidth + inset;
+      const noteWidth = laneWidth - inset * 2, color = LANE_COLORS[note.lane];
+      const spacing = Math.min(60 / bpm / 4, this.gaps.get(note.id) ?? Infinity) / travel * line;
+      const thickness = noteThickness(size, spacing, 8);
+      if (note.type === 'hold') {
+        const center = x + noteWidth / 2, top = Math.max(-20, tail), bottom = Math.min(line + 12, head);
+        ctx.fillStyle = `${color}${note.state === 'holding' ? '90' : '40'}`; ctx.fillRect(center - noteWidth * 0.22, top, noteWidth * 0.44, Math.max(0, bottom - top));
+        ctx.strokeStyle = color; ctx.lineWidth = note.state === 'holding' ? 3 : 1;
+        ctx.strokeRect(center - noteWidth * 0.22, top, noteWidth * 0.44, Math.max(0, bottom - top)); ctx.lineWidth = 1;
+        ctx.fillStyle = color; ctx.fillRect(x, tail - thickness / 2, noteWidth, thickness);
+        if (note.state === 'holding') { ctx.fillStyle = '#fff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('HOLD', center, line - 16); ctx.textAlign = 'start'; }
+      }
+      ctx.shadowBlur = 3; ctx.shadowColor = color; ctx.fillStyle = color;
+      ctx.beginPath(); ctx.roundRect(x, head - thickness / 2, noteWidth, thickness, Math.min(3, thickness / 2)); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffffa0'; ctx.fillRect(x + 4, head - thickness / 2, Math.max(1, noteWidth - 8), 1);
+      if (this.chordIds.has(note.id)) {
+        const center = x + noteWidth / 2, radius = Math.max(2, Math.min(4, thickness / 2));
+        ctx.strokeStyle = '#fff'; ctx.fillStyle = '#10111c'; ctx.beginPath(); ctx.moveTo(center, head - radius); ctx.lineTo(center + radius, head); ctx.lineTo(center, head + radius); ctx.lineTo(center - radius, head); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+    }
+    ctx.restore();
     const fade = ctx.createLinearGradient(0, 0, 0, 40);
     fade.addColorStop(0, '#121422'); fade.addColorStop(1, '#12142200'); ctx.fillStyle = fade; ctx.fillRect(0, 0, w, 40);
   }
