@@ -1,5 +1,5 @@
-export interface Settings { travel: number; offset: number; bpm: number; startTime: number; debug: boolean; sound: boolean }
-export const DEFAULT_SETTINGS: Settings = { travel: 2, offset: 0, bpm: 140, startTime: 12, debug: false, sound: true };
+export interface Settings { travel: number; offset: number; bpm: number; startTime: number; debug: boolean; sound: boolean; soundVolume: number }
+export const DEFAULT_SETTINGS: Settings = { travel: 2, offset: 0, bpm: 140, startTime: 12, debug: false, sound: true, soundVolume: 70 };
 const STORAGE_KEY = 'hey-rhythm-settings-v1';
 function numeric(value: unknown, fallback: number, min: number, max: number, step: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
@@ -13,6 +13,7 @@ export function normalizeSettings(value: Partial<Settings>): Settings {
     startTime: numeric(value.startTime, 12, 0, 3600, 0.1),
     debug: value.debug === true,
     sound: value.sound !== false,
+    soundVolume: numeric(value.soundVolume, 70, 0, 100, 5),
   };
 }
 export function loadSettings(): Settings {

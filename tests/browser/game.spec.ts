@@ -77,8 +77,8 @@ test('independent simultaneous pointer inputs, settings persistence and high DPI
   }));
   await page.evaluate(() => {
     (window as any).touchSounds = 0;
-    const start = OscillatorNode.prototype.start;
-    OscillatorNode.prototype.start = function (...args) { (window as any).touchSounds++; return start.apply(this, args); };
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) { (window as any).touchSounds++; return start.apply(this, args); };
   });
   const session = await page.context().newCDPSession(page);
   await seekPlay(page, 12 + 4 * 60 / 140);
@@ -201,11 +201,11 @@ test('mobile dock remains reachable on small screens, resize and scroll', async 
 });
 
 test('tap sound uses live Web Audio on user input, does not repeat, and can be muted persistently', async ({ page }) => {
-  // Count real oscillator starts while retaining the browser's AudioContext behavior.
+  // Count real sound-buffer starts while retaining the browser's AudioContext behavior.
   await page.evaluate(() => {
     (window as any).tapStarts = 0;
-    const start = OscillatorNode.prototype.start;
-    OscillatorNode.prototype.start = function (...args) {
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
       (window as any).tapStarts++;
       return start.apply(this, args);
     };
@@ -218,6 +218,17 @@ test('tap sound uses live Web Audio on user input, does not repeat, and can be m
   await page.keyboard.press('d');
   await expect.poll(() => page.evaluate(() => (window as any).tapStarts)).toBe(2);
   await page.locator('#settings-toggle').click();
+  await page.locator('#sound-volume').fill('90');
+  await page.locator('#sound-volume').dispatchEvent('input');
+  await expect(page.locator('#sound-volume-value')).toHaveText('90%');
+  await page.locator('#sound-volume').fill('0');
+  await page.locator('#sound-volume').dispatchEvent('input');
+  await page.locator('#settings-close').click();
+  await page.keyboard.press('f');
+  expect(await page.evaluate(() => (window as any).tapStarts)).toBe(2);
+  await page.locator('#settings-toggle').click();
+  await page.locator('#sound-volume').fill('90');
+  await page.locator('#sound-volume').dispatchEvent('input');
   await page.locator('#sound-toggle').uncheck();
   await page.locator('#settings-close').click();
   await page.keyboard.press('f');
@@ -225,6 +236,7 @@ test('tap sound uses live Web Audio on user input, does not repeat, and can be m
   await page.reload();
   await page.locator('#settings-toggle').click();
   await expect(page.locator('#sound-toggle')).not.toBeChecked();
+  await expect(page.locator('#sound-volume')).toHaveValue('90');
 });
 
 test('repeated touch inputs leave the playfield and scroll position stable without moving focus', async ({ page }, info) => {
