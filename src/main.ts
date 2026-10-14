@@ -314,7 +314,7 @@ function frame(now: number): void {
     updates.forEach(update => showHit(update, now));
     showResults();
   }
-  renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, engine.chart.bpm);
+  renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, engine.chart.bpm, settings.inputOffset);
   if (failed) {
     stageHint.hidden = false;
     stageHint.querySelector('strong')!.textContent = '動画を再生できません';

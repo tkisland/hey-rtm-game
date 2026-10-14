@@ -2,6 +2,7 @@ import type { PlayNote } from './engine';
 import { LANE_COLORS } from './colors';
 import { chordGroups, noteThickness } from './note-display';
 import type { ChartNote } from './chart';
+import { fieldGeometry } from './field-geometry';
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private width = 1;
@@ -31,10 +32,11 @@ export class Renderer {
   }
   flash(lane: number, now: number): void { this.flashes.set(lane, now); }
   clearEffects(): void { this.flashes.clear(); }
-  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, bpm = 140): void {
+  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, bpm = 140, inputOffsetMs = 0): void {
     if (this.canvas.width !== Math.round(this.width * (window.devicePixelRatio || 1))) this.resize();
     const ctx = this.ctx, w = this.width, h = this.height;
-    const laneWidth = w / 6, line = h - 25;
+    const laneWidth = w / 6, field = fieldGeometry(h, travel, inputOffsetMs);
+    const line = field.center, inset = Math.max(5, laneWidth * 0.12), noteWidth = laneWidth - inset * 2;
     if (this.cachedNotes !== notes) {
       this.cachedNotes = notes; this.chords = chordGroups(notes); this.chordIds = new Set(this.chords.flat().map(note => note.id)); this.gaps.clear();
       for (let lane = 0; lane < 6; lane++) {
@@ -42,7 +44,7 @@ export class Renderer {
         ordered.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (ordered[i - 1]?.time ?? -Infinity), (ordered[i + 1]?.time ?? Infinity) - note.time)));
       }
     }
-    const yAt = (seconds: number) => line - (seconds - time) / travel * line;
+    const yAt = (seconds: number) => field.anchor + (time - seconds) * field.speed;
     const active = (note: ChartNote) => { const state = (note as PlayNote).state; return state === 'pending' || state === 'holding'; };
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#121422'; ctx.fillRect(0, 0, w, h);
@@ -57,20 +59,25 @@ export class Renderer {
         ctx.globalAlpha = alpha; ctx.fillStyle = gradient; ctx.fillRect(x, 0, laneWidth, h); ctx.globalAlpha = 1;
       }
       ctx.strokeStyle = '#ffffff0c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-      ctx.fillStyle = color; ctx.globalAlpha = 0.15; ctx.fillRect(x + 3, line - 10, laneWidth - 6, 20); ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      for (const band of field.bands) {
+        ctx.globalAlpha = band.kind === 'PERFECT' ? 0.12 : 0.08;
+        ctx.fillRect(x + inset, band.top, noteWidth, band.bottom - band.top);
+      }
+      ctx.globalAlpha = 1;
     }
     // Decorative grid has no timing authority; notes use the video-anchored interpolated clock shared with judgement.
     ctx.strokeStyle = '#ffffff08';
-    for (let y = line % 60; y < h; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    for (let y = field.anchor % 60; y < h; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
     ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, line); ctx.lineTo(w, line); ctx.stroke();
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, w, line + 12); ctx.clip();
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
     // A shared horizontal link and diamond on each head identify a chord without merging judgement.
     for (const group of this.chords) {
       const visible = group.filter(active);
       if (visible.length < 2) continue;
-      const y = Math.min(line, yAt(group[0].time));
-      if (y < -10 || y > line + 10) continue;
+      const y = visible.every(note => (note as PlayNote).state === 'holding') ? line : yAt(group[0].time);
+      if (y < -10 || y > h + 10) continue;
       ctx.strokeStyle = '#ffe77999'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
       ctx.beginPath(); ctx.moveTo((Math.min(...visible.map(note => note.lane)) + 0.5) * laneWidth, y); ctx.lineTo((Math.max(...visible.map(note => note.lane)) + 0.5) * laneWidth, y); ctx.stroke(); ctx.setLineDash([]);
     }
@@ -78,13 +85,12 @@ export class Renderer {
       if (!active(note)) continue;
       const head = note.state === 'holding' ? line : yAt(note.time);
       const tail = note.type === 'hold' ? note.state === 'holding' ? Math.min(line, yAt(note.endTime)) : yAt(note.endTime) : head;
-      if (head < -20 || tail > line + 20) continue;
-      const inset = Math.max(5, laneWidth * 0.12), x = note.lane * laneWidth + inset;
-      const noteWidth = laneWidth - inset * 2, color = LANE_COLORS[note.lane];
-      const spacing = Math.min(60 / bpm / 4, this.gaps.get(note.id) ?? Infinity) / travel * line;
+      if (head < -20 || tail > h + 20) continue;
+      const x = note.lane * laneWidth + inset, color = LANE_COLORS[note.lane];
+      const spacing = Math.min(60 / bpm / 4, this.gaps.get(note.id) ?? Infinity) * field.speed;
       const thickness = noteThickness(size, spacing, 8);
       if (note.type === 'hold') {
-        const center = x + noteWidth / 2, top = Math.max(-20, tail), bottom = Math.min(line + 12, head);
+        const center = x + noteWidth / 2, top = Math.max(-20, tail), bottom = Math.min(h + 12, head);
         ctx.fillStyle = `${color}${note.state === 'holding' ? '90' : '40'}`; ctx.fillRect(center - noteWidth * 0.22, top, noteWidth * 0.44, Math.max(0, bottom - top));
         ctx.strokeStyle = color; ctx.lineWidth = note.state === 'holding' ? 3 : 1;
         ctx.strokeRect(center - noteWidth * 0.22, top, noteWidth * 0.44, Math.max(0, bottom - top)); ctx.lineWidth = 1;
