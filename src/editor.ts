@@ -6,6 +6,7 @@ import type { Division } from './editor-model';
 import { bindInput } from './input';
 import { loadSettings, normalizeSettings, saveSettings } from './settings';
 import { TapSound } from './sound';
+import { compensateInput } from './timing';
 import { VideoClock } from './sync';
 import { Timeline } from './timeline';
 import { createYouTubePlayer } from './youtube';
@@ -20,9 +21,10 @@ const select = (id: string) => el<HTMLSelectElement>(id);
 const model = new EditorModel(loadChart(EDITOR_KEY) ?? emptyChart());
 const clock = new VideoClock();
 const sound = new TapSound(() => message('確認音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'));
-let settings = loadSettings(); sound.volume = settings.soundVolume;
+let settings = loadSettings(); sound.volume = settings.soundVolume; sound.delay = settings.soundDelay;
 input('editor-sound').checked = settings.sound;
 const listeners = new AbortController(), signal = listeners.signal;
+input('editor-sound').addEventListener('change', () => { if (!input('editor-sound').checked) sound.cancelPending(); }, { signal });
 let player: YouTubePlayer | null = null;
 let failed = false, armed = false, disposed = false, time = 0, playing = false;
 let viewStart = Math.max(0, model.chart.startTime - 1), viewSpan = 4, saveTimer = 0, frameId = 0, lastUi = 0, lastAudition: number | null = null;
@@ -39,6 +41,7 @@ const timeline = new Timeline(el<HTMLCanvasElement>('timeline'), {
 });
 function setArmed(value: boolean): void {
   if (!value) captures.clear();
+  sound.cancelPending();
   armed = value;
   el('record-toggle').setAttribute('aria-pressed', String(armed));
   el('record-toggle').textContent = armed ? '■ 打ち込み停止' : '● 打ち込み開始';
@@ -111,7 +114,7 @@ function seek(seconds: number): void {
   if (!player || failed) return;
   try {
     seekTarget = Math.min(MAX_TIME, Math.max(0, seconds)); seekDeadline = performance.now() + 5000;
-    captures.clear();
+    captures.clear(); sound.cancelPending();
     player.seekTo(seekTarget, true); clock.reset(); lastAudition = null;
   } catch { seekTarget = null; message('シークできませんでした。プレーヤーを確認してください。'); }
 }
@@ -120,13 +123,14 @@ function readTime(): void {
   try {
     const sample = clock.sample(player.getCurrentTime(), player.getPlayerState(), performance.now(), player.getPlaybackRate());
     time = sample.time;
-    if (sample.seek) { lastAudition = null; cancelCaptures(); }
+    if (sample.seek) { sound.cancelPending(); lastAudition = null; cancelCaptures(); }
     if (!sample.playing) cancelCaptures();
     if (seekTarget !== null) {
       if (Math.abs(sample.rawTime - seekTarget) <= 0.5) seekTarget = null;
       else if (performance.now() > seekDeadline) { seekTarget = null; message('シークが完了しませんでした。プレーヤーを確認してください。'); }
       else { playing = false; return; }
     }
+    if (playing && !sample.playing) sound.cancelPending();
     playing = sample.playing;
     const label = sample.stale ? '動画時刻の更新待ち' : playing ? 'MV再生中' : '停止・一時停止・読み込み中';
     if (el('player-status').textContent !== label) el('player-status').textContent = label;
@@ -140,8 +144,9 @@ const disposePlayer = createYouTubePlayer({
     for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note']) el<HTMLButtonElement>(id).disabled = false;
     el('player-status').textContent = 'MVの再生ボタンを押してください';
   },
-  state: () => { lastAudition = null; },
+  state: next => { if (next !== 1) sound.cancelPending(); lastAudition = null; },
   error: text => {
+    sound.cancelPending();
     failed = true; playing = false; setArmed(false);
     el('player-error').hidden = false; el('player-error').textContent = `${text} JSONの読み込み・編集・保存は引き続き使えます。`;
     el('player-status').textContent = '動画を再生できません';
@@ -155,7 +160,7 @@ function cancelCaptures(): void {
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
 buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
 const unbindInput = bindInput(buttons, lane => {
-  readTime(); const captured = time, record = armed && playing;
+  readTime(); const captured = Math.max(0, compensateInput(time, settings.inputOffset)), record = armed && playing;
   if (input('editor-sound').checked) sound.play(lane);
   if (!record) return;
   if (select('record-type').value === 'hold') {
@@ -172,8 +177,9 @@ const unbindInput = bindInput(buttons, lane => {
   for (const lane of released) {
     const start = captures.get(lane); captures.delete(lane);
     if (start === undefined || !armed || !playing) continue;
-    if (time - start < MIN_HOLD) { message('長押しは30ms以上保持してください。'); continue; }
-    try { model.add(start, lane, true, time); changed(); } catch (error) { message(error instanceof Error ? error.message : '長押しを記録できませんでした。'); }
+    const end = Math.max(0, compensateInput(time, settings.inputOffset));
+    if (end - start < MIN_HOLD) { message('長押しは30ms以上保持してください。'); continue; }
+    try { model.add(start, lane, true, end); changed(); } catch (error) { message(error instanceof Error ? error.message : '長押しを記録できませんでした。'); }
   }
 });
 el('record-pads').addEventListener('pointerdown', event => { if (event.pointerType === 'mouse' && event.target === el('record-pads')) el('record-pads').focus({ preventScroll: true }); }, { signal });
@@ -215,7 +221,7 @@ on('add-note', () => {
 input('view-start').addEventListener('change', () => { const value = input('view-start').valueAsNumber; setView(Number.isFinite(value) ? value : viewStart, true); }, { signal });
 select('view-span').addEventListener('change', () => { viewSpan = Number(select('view-span').value); refreshList(); }, { signal });
 on('view-prev', () => setView(viewStart - viewSpan, true)); on('view-next', () => setView(viewStart + viewSpan, true)); on('view-now', () => { readTime(); setView(Math.max(0, time - viewSpan / 4)); });
-input('audition').addEventListener('change', () => { lastAudition = null; if (input('audition').checked) sound.play(0); }, { signal });
+input('audition').addEventListener('change', () => { sound.cancelPending(); lastAudition = null; if (input('audition').checked) sound.play(0); }, { signal });
 on('export-chart', () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(model.chart, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a'); link.href = url; link.download = 'hey-rhythm-chart.json'; link.click();
@@ -251,10 +257,29 @@ window.addEventListener('keydown', event => {
 }, { signal });
 window.addEventListener('pagehide', save, { signal });
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); }, { signal });
+function reflectTiming(): void {
+  input('editor-input-offset').value = String(settings.inputOffset);
+  input('editor-sound-delay').value = String(settings.soundDelay);
+  el('editor-input-offset-value').textContent = `${settings.inputOffset > 0 ? '+' : ''}${settings.inputOffset} ms`;
+  el('editor-sound-delay-value').textContent = `${settings.soundDelay} ms`;
+  sound.delay = settings.soundDelay;
+}
+function changeTiming(): void {
+  const previous = settings.inputOffset;
+  settings = normalizeSettings({ ...settings, inputOffset: input('editor-input-offset').valueAsNumber, soundDelay: input('editor-sound-delay').valueAsNumber });
+  if (settings.inputOffset !== previous) cancelCaptures();
+  reflectTiming();
+  if (!saveSettings(settings)) message('タイミング設定を保存できません。このページ内では反映します。');
+}
+input('editor-input-offset').addEventListener('input', changeTiming, { signal });
+input('editor-sound-delay').addEventListener('input', changeTiming, { signal });
+on('editor-timing-reset', () => { input('editor-input-offset').value = '0'; input('editor-sound-delay').value = '0'; changeTiming(); });
+on('editor-sound-test', () => sound.play(0));
+reflectTiming();
 input('editor-note-size').value = String(settings.noteSize); el('editor-note-size-value').textContent = `${settings.noteSize}%`;
 input('editor-note-size').addEventListener('input', () => {
   // Re-read shared settings so editing note size doesn't overwrite a game preference from another tab.
-  settings = normalizeSettings({ ...loadSettings(), noteSize: input('editor-note-size').valueAsNumber });
+  settings = normalizeSettings({ ...loadSettings(), inputOffset: settings.inputOffset, soundDelay: settings.soundDelay, noteSize: input('editor-note-size').valueAsNumber });
   el('editor-note-size-value').textContent = `${settings.noteSize}%`;
   if (!saveSettings(settings)) message('ノーツ幅をブラウザに保存できません。このページ内では反映します。');
 }, { signal });

@@ -38,3 +38,6 @@
   .editor-page .header a:last-child { font-size:11px; }
   .editor-page .editor-fields > label { min-width:120px; }
 }
+
+.timing-settings { margin:14px 0; padding:12px; border:1px solid #ffffff20; border-radius:6px; }
+.timing-settings label { display:flex; justify-content:space-between; margin-top:12px; font-size:12px; }

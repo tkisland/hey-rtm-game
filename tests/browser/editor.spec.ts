@@ -50,7 +50,7 @@ test('quantizes with beat phase, adjusts one note, undoes, saves and exports ori
   await expect(page.locator('#save-status')).toContainText('保存しました');
   let data = await saved(page); expect(data.notes.map((n: any) => n.time)).toEqual([10.195, 10.195]);
   expect(data.notes.map((n: any) => n.sourceTime)).toEqual([10.149, 10.204]);
-  await page.locator('summary').click(); await page.getByRole('button', { name: 'ノーツ1を選択', exact: true }).click();
+  await page.getByText('表示範囲のノーツ一覧（最大100個）', { exact: true }).click(); await page.getByRole('button', { name: 'ノーツ1を選択', exact: true }).click();
   await page.locator('#nudge-plus').click(); await expect(page.locator('#note-time')).toHaveValue('10.205');
   await page.locator('#undo').click(); await expect(page.locator('#note-time')).toHaveValue('10.195');
   await page.locator('#redo').click(); await expect(page.locator('#note-time')).toHaveValue('10.205');
