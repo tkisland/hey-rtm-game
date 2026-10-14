@@ -16,7 +16,8 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
     button.addEventListener('pointerdown', event => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
-      button.focus({ preventScroll: true });
+      // Touch focus can scroll the visual viewport on mobile Safari, even with preventScroll.
+      if (event.pointerType === 'mouse') button.focus({ preventScroll: true });
       button.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, lane);
       render();

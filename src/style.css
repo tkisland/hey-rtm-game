@@ -119,30 +119,30 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
   :root { --dock-height:174px; --stage-top:410px; }
   body { padding-bottom:calc(var(--dock-height) + 16px); }
   .controls-dock { position:fixed; z-index:10; left:0; right:0; bottom:0; margin:0 auto; max-width:720px; border-radius:18px 18px 0 0; padding:8px max(10px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left)); box-shadow:0 -8px 30px #0008; }
-  .stage { height:clamp(96px,calc(100dvh - var(--stage-top) - var(--dock-height) - 12px),350px); }
+  .stage { height:clamp(96px,calc(var(--playfield-height,100svh) - var(--stage-top) - var(--dock-height) - 12px),350px); }
   .lane-button { height:56px; max-width:64px; border-radius:16px; }
   .lane-control:nth-child(2),.lane-control:nth-child(5) { margin-top:22px; }
   .lane-control:nth-child(3),.lane-control:nth-child(4) { margin-top:44px; }
 }
 /* Short portrait viewports reserve more space for notes without shrinking the video player. */
-@media (max-width:480px) and (max-height:680px) and (orientation:portrait) {
-  #app { padding-top:max(8px,env(safe-area-inset-top)); }
-  .header { height:30px; margin-bottom:6px; }
-  .wordmark { font-size:20px; }
-  .song-heading { margin-bottom:6px; }
-  h1 { font-size:14px; }
-  .eyebrow { font-size:7px; margin-bottom:3px; }
-  .playback-info { min-height:28px; }
-  .scoreboard { height:44px; padding:5px 12px; }
-  .metric-label { font-size:8px; margin-bottom:1px; }
-  #score { font-size:20px; }
-  #combo { font-size:20px; }
-  #max-combo { font-size:8px; margin-top:1px; }
-  .stage { height:clamp(64px,calc(100dvh - var(--stage-top) - var(--dock-height) - 12px),350px); }
-  .stage-hint { top:15%; gap:3px; }
-  .stage-hint .hint-kicker { display:none; }
-  .stage-hint strong { font-size:12px; }
-  .stage-hint > span:last-child { font-size:9px; }
+@media (max-width:480px) and (orientation:portrait) {
+  .compact-viewport #app { padding-top:max(8px,env(safe-area-inset-top)); }
+  .compact-viewport .header { height:30px; margin-bottom:6px; }
+  .compact-viewport .wordmark { font-size:20px; }
+  .compact-viewport .song-heading { margin-bottom:6px; }
+  .compact-viewport h1 { font-size:14px; }
+  .compact-viewport .eyebrow { font-size:7px; margin-bottom:3px; }
+  .compact-viewport .playback-info { min-height:28px; }
+  .compact-viewport .scoreboard { height:44px; padding:5px 12px; }
+  .compact-viewport .metric-label { font-size:8px; margin-bottom:1px; }
+  .compact-viewport #score { font-size:20px; }
+  .compact-viewport #combo { font-size:20px; }
+  .compact-viewport #max-combo { font-size:8px; margin-top:1px; }
+  .compact-viewport .stage { height:clamp(64px,calc(var(--playfield-height,100svh) - var(--stage-top) - var(--dock-height) - 12px),350px); }
+  .compact-viewport .stage-hint { top:15%; gap:3px; }
+  .compact-viewport .stage-hint .hint-kicker { display:none; }
+  .compact-viewport .stage-hint strong { font-size:12px; }
+  .compact-viewport .stage-hint > span:last-child { font-size:9px; }
 }
 /* On short touch screens, keep the player beside the game and its controls. */
 @media (orientation:landscape) and (max-height:500px) and (pointer:coarse) {
@@ -156,7 +156,7 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
   .game { grid-column:2; grid-row:1 / span 4; align-self:start; }
   .scoreboard { height:55px; padding:8px 12px; }
   .controls-dock { left:auto; width:calc(50% - 8px); max-width:none; }
-  .stage { height:max(64px,calc(100dvh - var(--stage-top) - var(--dock-height) - 8px)); }
+  .stage { height:max(64px,calc(var(--playfield-height,100svh) - var(--stage-top) - var(--dock-height) - 8px)); }
   .settings-panel,.result,.game-toolbar,.game-notice,.debug-panel,footer { grid-column:1 / -1; }
 }
 @media (prefers-reduced-motion:reduce) { .pop,.lane-judgement.pop { animation:none; } .lane-button { transition:none; } }
