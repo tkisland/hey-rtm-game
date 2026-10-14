@@ -6,6 +6,7 @@ export interface YouTubePlayer {
   getPlaybackRate(): number;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   playVideo(): void;
+  pauseVideo(): void;
   destroy(): void;
 }
 interface PlayerEvent { target: YouTubePlayer; data: number }

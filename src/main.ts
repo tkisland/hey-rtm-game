@@ -2,6 +2,7 @@ import './style.css';
 import { LANE_COLORS } from './colors';
 import { bindDockLayout } from './layout';
 import { TapSound } from './sound';
+import { createCalibrationDialog } from './calibration-dialog';
 import { compensateInput } from './timing';
 import { generateChart } from './chart';
 import { CUSTOM_CHART_KEY, loadChart } from './editor-model';
@@ -136,7 +137,7 @@ function readTime(now: number): { time: number; playing: boolean } {
       clearResults();
       notice.textContent = sample.backwards ? '後方シーク：スコアをリセットしました。' : '前方シーク・時刻の再同期：飛ばしたノーツはMISSに数えません。';
     }
-    return { time: gameTime, playing: sample.playing };
+    return { time: gameTime, playing: sample.playing && !calibration.active };
   } catch {
     showError('プレーヤーの再生時刻を取得できません。ページを再読み込みしてください。');
     return { time: smoothedVideoTime - settings.offset / 1000, playing: false };
@@ -190,6 +191,7 @@ const disposePlayer = createYouTubePlayer({
 });
 
 function hit(lane: number): void {
+  if (calibration.active) return;
   // Sample timing before audio initialization so a cold AudioContext cannot delay judgement.
   const now = performance.now();
   const sample = readTime(now);
@@ -203,13 +205,14 @@ function hit(lane: number): void {
 }
 const unbindInput = bindInput(buttons, hit, lanes => {
   const previous = renderer.pressed; renderer.pressed = lanes;
+  if (calibration.active) return;
   const released = [...previous].filter(lane => !lanes.has(lane));
   if (!released.length) return;
   const now = performance.now(), sample = readTime(now);
   if (!sample.playing) return;
   released.forEach(lane => engine.release(lane, compensateInput(sample.time, settings.inputOffset)).forEach(result => showHit(result, now)));
   showResults();
-});
+}, () => calibration.active);
 
 restart.addEventListener('click', () => {
   if (!player || failed) return;
@@ -272,6 +275,14 @@ soundVolume.addEventListener('input', changeSettings, { signal });
 noteSize.addEventListener('input', changeSettings, { signal });
 inputOffset.addEventListener('input', changeSettings, { signal });
 soundDelay.addEventListener('input', changeSettings, { signal });
+const calibration = createCalibrationDialog({
+  pause() {
+    sound.cancelPending();
+    player?.pauseVideo();
+  },
+  apply(value) { inputOffset.value = String(value); changeSettings(); },
+});
+element('auto-calibrate').addEventListener('click', () => calibration.open(), { signal });
 element('timing-reset').addEventListener('click', () => { inputOffset.value = '0'; soundDelay.value = '0'; changeSettings(); }, { signal });
 element('sound-test').addEventListener('click', () => sound.play(0), { signal });
 reflectSettings(); updateChartInfo();
@@ -349,6 +360,6 @@ frameId = requestAnimationFrame(frame);
 function dispose(): void {
   disposed = true;
   cancelAnimationFrame(frameId);
-  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); unbindLayout();
+  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); unbindLayout();
 }
 if (import.meta.hot) import.meta.hot.dispose(dispose);

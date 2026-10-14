@@ -6,6 +6,7 @@ import type { Division } from './editor-model';
 import { bindInput } from './input';
 import { loadSettings, normalizeSettings, saveSettings } from './settings';
 import { TapSound } from './sound';
+import { createCalibrationDialog } from './calibration-dialog';
 import { compensateInput } from './timing';
 import { VideoClock } from './sync';
 import { Timeline } from './timeline';
@@ -131,7 +132,7 @@ function readTime(): void {
       else { playing = false; return; }
     }
     if (playing && !sample.playing) sound.cancelPending();
-    playing = sample.playing;
+    playing = sample.playing && !calibration.active;
     const label = sample.stale ? '動画時刻の更新待ち' : playing ? 'MV再生中' : '停止・一時停止・読み込み中';
     if (el('player-status').textContent !== label) el('player-status').textContent = label;
   } catch { playing = false; message('動画の再生時刻を取得できません。プレーヤーを確認してください。'); }
@@ -160,6 +161,7 @@ function cancelCaptures(): void {
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
 buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
 const unbindInput = bindInput(buttons, lane => {
+  if (calibration.active) return;
   readTime(); const captured = Math.max(0, compensateInput(time, settings.inputOffset)), record = armed && playing;
   if (input('editor-sound').checked) sound.play(lane);
   if (!record) return;
@@ -170,6 +172,7 @@ const unbindInput = bindInput(buttons, lane => {
   try { model.add(captured, lane, true); changed(); } catch (error) { setArmed(false); message(error instanceof Error ? error.message : '記録できませんでした。'); }
 }, (lanes, reason) => {
   const previous = pressed; pressed = lanes;
+  if (calibration.active) return;
   const released = [...previous].filter(lane => !lanes.has(lane));
   if (!released.length || !captures.size) return;
   if (reason === 'cancel') { released.forEach(lane => captures.delete(lane)); message('入力がキャンセルされたため未完了の長押しを破棄しました。'); return; }
@@ -181,7 +184,7 @@ const unbindInput = bindInput(buttons, lane => {
     if (end - start < MIN_HOLD) { message('長押しは30ms以上保持してください。'); continue; }
     try { model.add(start, lane, true, end); changed(); } catch (error) { message(error instanceof Error ? error.message : '長押しを記録できませんでした。'); }
   }
-});
+}, () => calibration.active);
 el('record-pads').addEventListener('pointerdown', event => { if (event.pointerType === 'mouse' && event.target === el('record-pads')) el('record-pads').focus({ preventScroll: true }); }, { signal });
 el('record-toggle').addEventListener('click', () => { setArmed(!armed); el('record-pads').focus({ preventScroll: true }); }, { signal });
 const on = (id: string, callback: () => void) => el(id).addEventListener('click', callback, { signal });
@@ -245,6 +248,7 @@ on('try-game', () => {
   location.href = './?chart=custom';
 });
 window.addEventListener('keydown', event => {
+  if (calibration.active) return;
   const target = event.target as HTMLElement | null;
   if (target?.closest('input,textarea,select,[contenteditable="true"]')) return;
   if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.code === 'KeyZ' || event.code === 'KeyY')) {
@@ -273,6 +277,14 @@ function changeTiming(): void {
 }
 input('editor-input-offset').addEventListener('input', changeTiming, { signal });
 input('editor-sound-delay').addEventListener('input', changeTiming, { signal });
+const calibration = createCalibrationDialog({
+  pause() {
+    setArmed(false); sound.cancelPending(); lastAudition = null;
+    player?.pauseVideo();
+  },
+  apply(value) { input('editor-input-offset').value = String(value); changeTiming(); },
+});
+on('editor-auto-calibrate', () => calibration.open());
 on('editor-timing-reset', () => { input('editor-input-offset').value = '0'; input('editor-sound-delay').value = '0'; changeTiming(); });
 on('editor-sound-test', () => sound.play(0));
 reflectTiming();
@@ -300,4 +312,4 @@ function frame(now: number): void {
   frameId = requestAnimationFrame(frame);
 }
 frameId = requestAnimationFrame(frame);
-if (import.meta.hot) import.meta.hot.dispose(() => { disposed = true; cancelAnimationFrame(frameId); clearTimeout(saveTimer); save(); listeners.abort(); unbindInput(); timeline.destroy(); sound.destroy(); disposePlayer(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { disposed = true; cancelAnimationFrame(frameId); clearTimeout(saveTimer); save(); listeners.abort(); unbindInput(); timeline.destroy(); sound.destroy(); calibration.destroy(); disposePlayer(); });

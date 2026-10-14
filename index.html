@@ -36,6 +36,8 @@
           <label for="offset">ノーツ全体の位置 <output id="offset-value">0 ms</output></label>
           <input id="offset" type="range" min="-300" max="300" step="10" value="0" />
           <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>
+          <button id="auto-calibrate" class="restart-button">基準音で自動調整</button>
+          <p class="field-help">一定間隔の音に合わせてタップし、入力補正の目安を測定します。ゲームと譜面エディターで共通です。</p>
           <label for="input-offset">入力の遅れ補正 <output id="input-offset-value">0 ms</output></label>
           <input id="input-offset" type="range" min="-300" max="300" step="5" value="0" />
           <p class="field-help">＋は遅い入力を早い時刻として判定、−は早い入力を遅い時刻として判定します。例：いつも＋80ms遅いなら＋80msに。ノーツの見た目は変えません。</p>
