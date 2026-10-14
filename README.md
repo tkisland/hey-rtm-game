@@ -35,6 +35,20 @@ npm run preview
 - YouTube標準のプレーヤーと操作機能を維持します。動画の上にゲームUIを重ねません。プレーヤーの高さは最低200pxです。
 - 埋め込み拒否・通信障害・Referer不足（153等）は画面に表示し、ゲームを停止します。公式動画へのリンクも常に表示します。
 
+## GitHub Pagesでの公開
+
+公開URLは https://tkisland.github.io/hey-rtm-game/ です。
+
+**リポジトリ直下の開発用`index.html`をそのまま配信すると、TypeScriptを実行できず、CSS・Canvas・YouTubeも読み込まれません。公開にはビルド済みの`dist/`を使います。**
+
+`.github/workflows/deploy-pages.yml`が、`main`へのpush時に`npm ci` → `npm test` → `npm run build`を実行し、`dist/`だけをGitHub Pagesへデプロイします。PRではテスト・ビルドを実行し、公開は行いません。
+
+1. リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定します（「Deploy from a branch」でリポジトリ直下を配信しないでください）。
+2. 公開ワークフローを含む変更を`main`へマージします。
+3. **Actions → Build and deploy GitHub Pages** の`build`・`deploy`が成功したら、公開URLを再読み込みします。手動の再公開は同ワークフローの **Run workflow** から行えます。
+
+UIがプレーンな文字だけでYouTubeも空欄の場合、配信HTMLに`/src/main.ts`が残っていないか確認してください。正しい公開HTMLは`./assets/…js`と`./assets/…css`を読み込みます。CSS・JSの両方がHTTP 200で取得できることを確認し、古いページが残る場合はキャッシュを消して再読み込みしてください。
+
 ## 設定
 
 右上の「設定」で変更し、localStorageに保存します。保存が制限されたブラウザでも、開いているページ内では使用できます。
