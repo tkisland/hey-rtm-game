@@ -77,9 +77,15 @@ describe('practice chart', () => {
     expect(generated.notes.every(note => note.time >= 12 && note.time < 42)).toBe(true);
     expect(new Set(generated.notes.map(note => note.id)).size).toBe(generated.notes.length);
     expect(generated.notes.some((note, i) => generated.notes[i + 1]?.time === note.time)).toBe(true);
+    expect(generated.notes.some(note => note.type === 'hold')).toBe(true);
+    expect(generated.notes.every(note => note.type !== 'hold' || note.endTime < 42)).toBe(true);
     for (let lane = 0; lane < 6; lane++) {
       const notes = generated.notes.filter(note => note.lane === lane);
-      for (let i = 1; i < notes.length; i++) expect(notes[i].time - notes[i - 1].time).toBeGreaterThan(0.29);
+      for (let i = 1; i < notes.length; i++) {
+        expect(notes[i].time - notes[i - 1].time).toBeGreaterThan(0.29);
+        const previous = notes[i - 1];
+        if (previous.type === 'hold') expect(notes[i].time - previous.endTime).toBeGreaterThan(0.29);
+      }
     }
   });
 });
@@ -107,6 +113,6 @@ describe('video-only clock', () => {
   });
 });
 it('validates corrupt settings, limits values and preserves step sizes', () => {
-  expect(normalizeSettings({ travel: 0, offset: 500, bpm: NaN, startTime: -1 })).toEqual({ travel: 1, offset: 300, bpm: 140, startTime: 0, debug: false, sound: true, soundVolume: 70 });
-  expect(normalizeSettings({ travel: 2.13, offset: -24, bpm: 139.7, startTime: 12.16, debug: true })).toEqual({ travel: 2.25, offset: -20, bpm: 140, startTime: 12.2, debug: true, sound: true, soundVolume: 70 });
+  expect(normalizeSettings({ travel: 0, offset: 500, bpm: NaN, startTime: -1 })).toEqual({ travel: 1, offset: 300, bpm: 140, startTime: 0, debug: false, sound: true, soundVolume: 70, noteSize: 100 });
+  expect(normalizeSettings({ travel: 2.13, offset: -24, bpm: 139.7, startTime: 12.16, debug: true })).toEqual({ travel: 2.25, offset: -20, bpm: 140, startTime: 12.2, debug: true, sound: true, soundVolume: 70, noteSize: 100 });
 });

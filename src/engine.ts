@@ -1,11 +1,12 @@
-import type { Chart, TapNote } from './chart';
+import type { Chart, ChartNote } from './chart';
 
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 export const POINTS = { PERFECT: 1000, GREAT: 700, GOOD: 300, MISS: 0 } as const;
 export type Judgement = keyof typeof POINTS;
-export type NoteState = 'pending' | 'hit' | 'miss' | 'skipped';
-export interface PlayNote extends TapNote { state: NoteState }
-export interface Hit { judgement: Judgement; lane: number; errorMs: number; noteId: number }
+export type NoteState = 'pending' | 'holding' | 'hit' | 'miss' | 'skipped';
+export type PlayNote = ChartNote & { state: NoteState; startJudgement?: Judgement; startError?: number };
+export interface Hit { judgement: Judgement; lane: number; errorMs: number; noteId: number; phase?: 'start' }
+export const HOLD_RELEASE_GRACE = 0.05;
 const EPSILON = 1e-8;
 
 export function judge(error: number): Judgement {
@@ -44,17 +45,25 @@ export class GameEngine {
     return this.lastHit;
   }
 
-  advance(time: number): Hit[] {
-    const misses: Hit[] = [];
+  advance(time: number, pressed?: ReadonlySet<number>): Hit[] {
+    const updates: Hit[] = [];
     for (const note of this.notes) {
       if (note.state === 'pending' && time - note.time > WINDOWS.GOOD + EPSILON) {
-        misses.push(this.record(note, 'MISS', time - note.time));
+        updates.push(this.record(note, 'MISS', time - note.time));
+      }
+      if (note.state === 'holding' && note.type === 'hold') {
+        if (time >= note.endTime || (pressed && !pressed.has(note.lane))) {
+          const hit = this.finishHold(note, time);
+          updates.push(hit);
+        }
       }
     }
-    return misses;
+    return updates;
   }
 
   input(lane: number, time: number): Hit | null {
+    // A second input source cannot score notes inside an already active hold.
+    if (this.notes.some(note => note.lane === lane && note.state === 'holding')) return null;
     let nearest: PlayNote | undefined;
     let distance = Infinity;
     for (const note of this.notes) {
@@ -64,7 +73,23 @@ export class GameEngine {
         distance = delta;
       }
     }
-    return nearest ? this.record(nearest, judge(time - nearest.time), time - nearest.time) : null;
+    if (!nearest) return null;
+    const error = time - nearest.time, judgement = judge(error);
+    if (nearest.type === 'hold') {
+      if (time >= nearest.endTime) return this.record(nearest, 'MISS', error);
+      nearest.state = 'holding'; nearest.startJudgement = judgement; nearest.startError = error;
+      return this.lastHit = { judgement, lane, errorMs: error * 1000, noteId: nearest.id, phase: 'start' };
+    }
+    return this.record(nearest, judgement, error);
+  }
+
+  private finishHold(note: PlayNote & { type: 'hold' }, time: number): Hit {
+    return time < note.endTime - HOLD_RELEASE_GRACE - EPSILON
+      ? this.record(note, 'MISS', time - note.endTime)
+      : this.record(note, note.startJudgement ?? 'MISS', note.startError ?? 0);
+  }
+  release(lane: number, time: number): Hit[] {
+    return this.notes.filter((note): note is PlayNote & { type: 'hold' } => note.lane === lane && note.type === 'hold' && note.state === 'holding').map(note => this.finishHold(note, time));
   }
 
   /** Forward seeks skip elapsed notes; backward seeks begin a new score session. */
@@ -72,11 +97,12 @@ export class GameEngine {
     if (backwards) this.reset();
     this.combo = 0;
     for (const note of this.notes) {
+      if (note.state === 'holding') note.state = 'skipped';
       if (note.state === 'pending' && note.time < time - WINDOWS.GOOD - EPSILON) note.state = 'skipped';
     }
   }
 
-  get finished(): boolean { return this.notes.every(note => note.state !== 'pending'); }
+  get finished(): boolean { return this.notes.every(note => note.state !== 'pending' && note.state !== 'holding'); }
   get skipped(): number { return this.notes.filter(note => note.state === 'skipped').length; }
   get accuracy(): number {
     const judged = Object.values(this.counts).reduce((sum, count) => sum + count, 0);

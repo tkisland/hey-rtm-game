@@ -30,6 +30,9 @@
           <label for="travel">ノーツ落下時間 <output id="travel-value">2.00秒</output></label>
           <input id="travel" type="range" min="1" max="4" step="0.25" value="2" />
           <p class="field-help">小さいほど速く落下します。</p>
+          <label for="note-size">ノーツの厚さ <output id="note-size-value">100%</output></label>
+          <input id="note-size" type="range" min="50" max="150" step="10" value="100" />
+          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。長い帯は終点まで保持、◇は同時押しです。</p>
           <label for="offset">タイミングオフセット <output id="offset-value">0 ms</output></label>
           <input id="offset" type="range" min="-300" max="300" step="10" value="0" />
           <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>

@@ -72,7 +72,7 @@ function showHit(hit: Hit, now: number): void {
   judgementTimes[hit.lane] = now;
   feedback.hidden = false;
   feedback.dataset.kind = hit.judgement;
-  feedback.querySelector('.judgement-label')!.textContent = hit.judgement;
+  feedback.querySelector('.judgement-label')!.textContent = hit.phase === 'start' ? 'HOLD' : hit.judgement;
   feedback.querySelector('.judgement-error')!.textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
   feedback.classList.remove('pop');
   void feedback.offsetWidth;
@@ -189,13 +189,21 @@ function hit(lane: number): void {
   const sample = readTime(now);
   sound.play(lane);
   if (!sample.playing) return;
-  const misses = engine.advance(sample.time);
-  misses.forEach(miss => showHit(miss, now));
+  const updates = engine.advance(sample.time, renderer.pressed);
+  updates.forEach(update => showHit(update, now));
   const hit = engine.input(lane, sample.time);
   if (hit) { lastInputError = hit.errorMs; showHit(hit, now); }
   showResults();
 }
-const unbindInput = bindInput(buttons, hit, lanes => { renderer.pressed = lanes; });
+const unbindInput = bindInput(buttons, hit, lanes => {
+  const previous = renderer.pressed; renderer.pressed = lanes;
+  const released = [...previous].filter(lane => !lanes.has(lane));
+  if (!released.length) return;
+  const now = performance.now(), sample = readTime(now);
+  if (!sample.playing) return;
+  released.forEach(lane => engine.release(lane, sample.time).forEach(result => showHit(result, now)));
+  showResults();
+});
 
 restart.addEventListener('click', () => {
   if (!player || failed) return;
@@ -219,8 +227,11 @@ element('settings-close').addEventListener('click', () => showSettings(false), {
 const travel = element<HTMLInputElement>('travel'), offset = element<HTMLInputElement>('offset');
 const soundToggle = element<HTMLInputElement>('sound-toggle');
 const soundVolume = element<HTMLInputElement>('sound-volume');
+const noteSize = element<HTMLInputElement>('note-size');
 const bpm = element<HTMLInputElement>('bpm'), startTime = element<HTMLInputElement>('start-time'), debug = element<HTMLInputElement>('debug-toggle');
 function reflectSettings(): void {
+  noteSize.value = String(settings.noteSize);
+  element('note-size-value').textContent = `${settings.noteSize}%`;
   travel.value = String(settings.travel); offset.value = String(settings.offset);
   bpm.value = String(settings.bpm); startTime.value = String(settings.startTime); debug.checked = settings.debug; soundToggle.checked = settings.sound;
   sound.enabled = settings.sound;
@@ -232,7 +243,7 @@ function reflectSettings(): void {
   element('debug-panel').hidden = !settings.debug;
 }
 function changeSettings(): void {
-  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber });
+  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, noteSize: noteSize.valueAsNumber });
   reflectSettings();
   const saved = saveSettings(settings);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
@@ -245,6 +256,7 @@ startTime.addEventListener('change', changeSettings, { signal });
 debug.addEventListener('change', changeSettings, { signal });
 soundToggle.addEventListener('change', changeSettings, { signal });
 soundVolume.addEventListener('input', changeSettings, { signal });
+noteSize.addEventListener('input', changeSettings, { signal });
 reflectSettings(); updateChartInfo();
 const chartSource = element<HTMLSelectElement>('chart-source');
 chartSource.querySelector<HTMLOptionElement>('option[value="custom"]')!.disabled = !customChart;
@@ -270,11 +282,11 @@ function frame(now: number): void {
   if (disposed) return;
   const sample = readTime(performance.now());
   if (sample.playing) {
-    const misses = engine.advance(sample.time);
-    misses.forEach(miss => showHit(miss, now));
+    const updates = engine.advance(sample.time, renderer.pressed);
+    updates.forEach(update => showHit(update, now));
     showResults();
   }
-  renderer.draw(engine.notes, sample.time, settings.travel, now);
+  renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, engine.chart.bpm);
   if (failed) {
     stageHint.hidden = false;
     stageHint.querySelector('strong')!.textContent = '動画を再生できません';
@@ -283,10 +295,13 @@ function frame(now: number): void {
     stageHint.hidden = sample.playing || resultShown;
     const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : 'MVの再生ボタンで開始';
     stageHint.querySelector('strong')!.textContent = hint;
-    stageHint.querySelector('span:last-child')!.textContent = 'ノーツがラインに重なったらタップ';
+    stageHint.querySelector('span:last-child')!.textContent = '長い帯は終点まで保持 · ◇は同時押し';
   }
   judgements.forEach((feedback, lane) => {
-    if (now - judgementTimes[lane] > 800) feedback.hidden = true;
+    if (engine.notes.some(note => note.lane === lane && note.state === 'holding')) {
+      feedback.hidden = false;
+      if (feedback.querySelector('.judgement-label')!.textContent !== 'HOLD') feedback.querySelector('.judgement-label')!.textContent = 'HOLD';
+    } else if (now - judgementTimes[lane] > 800) feedback.hidden = true;
   });
   const guidance = failed ? '動画を再生できません' : clockStale ? '動画時刻の更新待ち' : sample.playing
     ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime

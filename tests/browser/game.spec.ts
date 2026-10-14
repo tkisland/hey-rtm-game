@@ -255,7 +255,7 @@ test('sparse video timestamps still produce moving notes every animation frame a
     const original = CanvasRenderingContext2D.prototype.roundRect;
     let rows: number[] = [];
     CanvasRenderingContext2D.prototype.roundRect = function (...args) {
-      if (this.canvas === canvas && args[0] < canvas.getBoundingClientRect().width / 6 && args[3] === 12) rows.push(args[1]);
+      if (this.canvas === canvas && args[0] < canvas.getBoundingClientRect().width / 6 && args[3] > 0 && args[3] <= 12) rows.push(args[1]);
       return original.apply(this, args);
     };
     const samples: { raw: number; y: number }[] = [];
