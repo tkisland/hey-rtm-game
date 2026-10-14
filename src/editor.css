@@ -41,3 +41,15 @@
 
 .timing-settings { margin:14px 0; padding:12px; border:1px solid #ffffff20; border-radius:6px; }
 .timing-settings label { display:flex; justify-content:space-between; margin-top:12px; font-size:12px; }
+
+.preview-panel { max-width:800px; margin-inline:auto; }
+.preview-options { margin-top:12px; }
+.preview-options input[type="range"] { width:100px; }
+#preview-status { min-height:20px; font-size:13px; color:#b9f56c; font-variant-numeric:tabular-nums; }
+#preview-canvas { display:block; width:100%; height:300px; border:1px solid #ffffff20; border-radius:8px 8px 0 0; }
+.preview-lanes { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:4px; }
+.preview-lanes > div { display:flex; flex-direction:column; align-items:center; gap:3px; border:1px solid var(--lane); border-radius:0 0 8px 8px; padding:8px 2px; color:var(--lane); background:#151625; }
+.preview-lanes > div.active { background:color-mix(in srgb,var(--lane) 25%,#151625); }
+.preview-lanes span { font-size:10px; }
+.preview-lanes output { font-size:11px; min-height:16px; color:#fff; }
+@media (max-width:760px) { #preview-canvas { height:240px; } }

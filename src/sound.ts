@@ -70,6 +70,24 @@ export class TapSound {
     }
   }
 
+  /** Prepare audio in a user gesture without playing a warm-up click. */
+  async unlock(): Promise<boolean> {
+    if (this.disposed) return false;
+    if (!this.enabled || this.volume === 0) return true;
+    const generation = this.generation;
+    try {
+      const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) throw new Error('Audio unavailable');
+      this.context ??= new AudioContextClass({ latencyHint: 'interactive' });
+      if (!this.master) this.prepare(this.context);
+      if (this.context.state !== 'running') await this.context.resume();
+      return generation === this.generation && !this.disposed && this.context.state === 'running';
+    } catch {
+      if (generation === this.generation && !this.disposed) this.onUnavailable();
+      return false;
+    }
+  }
+
   play(lane: number): void {
     if (!this.enabled || this.volume === 0 || this.disposed) return;
     try {
