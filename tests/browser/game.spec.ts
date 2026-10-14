@@ -70,10 +70,16 @@ test('independent simultaneous pointer inputs, settings persistence and high DPI
     const box = (await page.locator(`.lane-button[data-lane="${lane}"]`).boundingBox())!;
     return { x: box.x + box.width / 2, y: box.y + box.height / 2, id: lane + 1 };
   }));
+  await page.evaluate(() => {
+    (window as any).touchSounds = 0;
+    const start = OscillatorNode.prototype.start;
+    OscillatorNode.prototype.start = function (...args) { (window as any).touchSounds++; return start.apply(this, args); };
+  });
   const session = await page.context().newCDPSession(page);
   await seekPlay(page, 12 + 4 * 60 / 140);
   await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: touches });
   await expect(page.locator('.lane-button.pressed')).toHaveCount(2);
+  await expect.poll(() => page.evaluate(() => (window as any).touchSounds)).toBe(2);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(page.locator('.lane-button.pressed')).toHaveCount(0);
   await expect(page.locator('#score')).toHaveText('002000');
@@ -127,7 +133,7 @@ test('video time moves the canvas, overdue notes MISS once, and pause retains ju
   await seekPlay(page, 12);
   const before = await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
   await page.evaluate(() => (window as any).testVideo.seekTo(12.2));
-  await expect(page.locator('#judgement')).toHaveText('MISS');
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS');
   const after = await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
   expect(after).not.toBe(before);
   await page.evaluate(() => (window as any).testVideo.setState(2));
@@ -135,4 +141,85 @@ test('video time moves the canvas, overdue notes MISS once, and pause retains ju
   await page.waitForTimeout(100);
   expect(await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())).toBe(paused);
   expect(await page.evaluate(() => (window as any).testVideo.options.playerVars)).toMatchObject({ origin: 'http://127.0.0.1:5173', playsinline: 1, controls: 1, autoplay: 0 });
+});
+
+test('V controls share the requested lane colors and feedback appears at each button', async ({ page }) => {
+  await page.locator('.lane-buttons').scrollIntoViewIfNeeded();
+  const boxes = await Promise.all(Array.from({ length: 6 }, (_, lane) => page.locator(`.lane-button[data-lane="${lane}"]`).boundingBox()));
+  expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
+  expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
+  expect(boxes[2]!.y).toBeCloseTo(boxes[3]!.y, 0);
+  expect(boxes[3]!.y).toBeGreaterThan(boxes[4]!.y);
+  expect(boxes[4]!.y).toBeGreaterThan(boxes[5]!.y);
+  const colors = await page.locator('.lane-button').evaluateAll(buttons => buttons.map(button => (button as HTMLElement).style.getPropertyValue('--lane')));
+  expect(colors).toEqual(['#ff739c', '#b9f56c', '#f5f5ff', '#ff5b66', '#bd9bff', '#ffe779']);
+  await seekPlay(page, 12);
+  await page.keyboard.press('s');
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT');
+  expect(await page.locator('.scoreboard .lane-judgement').count()).toBe(0);
+  const judgement = (await page.locator('#judgement-0').boundingBox())!;
+  const button = (await page.locator('.lane-button[data-lane="0"]').boundingBox())!;
+  expect(judgement.y + judgement.height).toBeLessThanOrEqual(button.y);
+  expect(button.y - judgement.y).toBeLessThan(40);
+  await page.evaluate(async () => {
+    (window as any).testVideo.seekTo(12.3);
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+  });
+  await page.evaluate(() => (window as any).testVideo.seekTo(12.428571 + 0.15));
+  await page.keyboard.press('f');
+  await expect(page.locator('#judgement-2 .judgement-label')).toHaveText('GOOD');
+  await expect(page.locator('#combo')).toHaveText('2');
+});
+
+test('mobile dock remains reachable on small screens, resize and scroll', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mobile-touch', 'Touch-device layout');
+  for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }, { width: 390, height: 600 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    await expect.poll(async () => page.locator('.lane-button').evaluateAll(buttons => buttons.every(button => {
+      const rect = button.getBoundingClientRect();
+      return rect.top >= 0 && rect.bottom <= innerHeight - 10 && rect.left >= 0 && rect.right <= innerWidth && rect.width >= 44 && rect.height >= 44;
+    }))).toBe(true);
+    const dock = (await page.locator('.controls-dock').boundingBox())!;
+    const video = (await page.locator('.video-frame').boundingBox())!;
+    expect(video.y + video.height <= dock.y || video.x + video.width <= dock.x).toBe(true);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(async () => page.locator('.lane-button').evaluateAll(buttons => buttons.every(button => {
+      const rect = button.getBoundingClientRect();
+      return rect.top >= 0 && rect.bottom <= innerHeight - 10;
+    }))).toBe(true);
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
+  await page.setViewportSize({ width: 390, height: 600 });
+  await expect.poll(() => page.locator('#game-canvas').evaluate(canvas => {
+    const line = canvas.getBoundingClientRect().bottom - 25;
+    return line < document.querySelector('.controls-dock')!.getBoundingClientRect().top;
+  })).toBe(true);
+  await page.screenshot({ path: info.outputPath('mobile-controls.png') });
+});
+
+test('tap sound uses live Web Audio on user input, does not repeat, and can be muted persistently', async ({ page }) => {
+  // Count real oscillator starts while retaining the browser's AudioContext behavior.
+  await page.evaluate(() => {
+    (window as any).tapStarts = 0;
+    const start = OscillatorNode.prototype.start;
+    OscillatorNode.prototype.start = function (...args) {
+      (window as any).tapStarts++;
+      return start.apply(this, args);
+    };
+  });
+  await page.keyboard.down('s');
+  await expect.poll(() => page.evaluate(() => (window as any).tapStarts)).toBe(1);
+  await page.keyboard.down('s');
+  expect(await page.evaluate(() => (window as any).tapStarts)).toBe(1);
+  await page.keyboard.up('s');
+  await page.keyboard.press('d');
+  await expect.poll(() => page.evaluate(() => (window as any).tapStarts)).toBe(2);
+  await page.locator('#settings-toggle').click();
+  await page.locator('#sound-toggle').uncheck();
+  await page.locator('#settings-close').click();
+  await page.keyboard.press('f');
+  expect(await page.evaluate(() => (window as any).tapStarts)).toBe(2);
+  await page.reload();
+  await page.locator('#settings-toggle').click();
+  await expect(page.locator('#sound-toggle')).not.toBeChecked();
 });

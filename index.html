@@ -34,23 +34,45 @@
           <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>
           <div class="settings-grid"><label for="bpm">仮BPM<input id="bpm" type="number" min="80" max="200" step="1" value="140" /></label><label for="start-time">譜面開始（秒）<input id="start-time" type="number" min="0" max="3600" step="0.1" value="12" /></label></div>
           <p class="field-help">BPM・開始時刻は次のリスタートから反映されます。</p>
+          <label class="check-label"><input id="sound-toggle" type="checkbox" checked /> タップ音</label>
+          <p id="sound-status" class="field-help">ボタン・キー入力時に短い音を鳴らします。</p>
           <label class="check-label"><input id="debug-toggle" type="checkbox" /> デバッグ表示</label>
           <p id="storage-status" class="field-help">設定はこのブラウザに保存されます。</p>
         </section>
         <section class="game" aria-label="6レーンリズムゲーム">
           <div class="scoreboard">
             <div><span class="metric-label">SCORE</span><strong id="score">000000</strong></div>
-            <div class="judgement-wrap"><strong id="judgement" aria-label="直近の判定">READY</strong><span id="judgement-detail">MVを再生してスタート</span></div>
             <div class="combo-metric"><span class="metric-label">COMBO</span><strong id="combo">0</strong><span id="max-combo">MAX 0</span></div>
           </div>
           <div class="stage"><canvas id="game-canvas" tabindex="0" aria-label="上から流れる6レーンのノーツ"></canvas><div class="stage-hint" id="stage-hint"><span class="hint-kicker">LET’S PLAY!</span><strong>MVの再生ボタンで開始</strong><span>ノーツがラインに重なったらタップ</span></div></div>
+        </section>
+        <section class="controls-dock" aria-label="リズム操作エリア">
+          <p id="control-status">MVを再生してスタート</p>
           <div class="lane-buttons" aria-label="レーン入力">
-            <button class="lane-button" data-lane="0" style="--lane:#ff739c" aria-label="レーン1 S"><span>S</span><small>1</small></button>
-            <button class="lane-button" data-lane="1" style="--lane:#ffb65c" aria-label="レーン2 D"><span>D</span><small>2</small></button>
-            <button class="lane-button" data-lane="2" style="--lane:#ffe779" aria-label="レーン3 F"><span>F</span><small>3</small></button>
-            <button class="lane-button" data-lane="3" style="--lane:#76edbc" aria-label="レーン4 J"><span>J</span><small>4</small></button>
-            <button class="lane-button" data-lane="4" style="--lane:#78ceff" aria-label="レーン5 K"><span>K</span><small>5</small></button>
-            <button class="lane-button" data-lane="5" style="--lane:#bd9bff" aria-label="レーン6 L"><span>L</span><small>6</small></button>
+            <div class="lane-control">
+              <output class="lane-judgement" id="judgement-0" aria-label="レーン1の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+              <button class="lane-button" data-lane="0" aria-label="レーン1 S ピンク"><span>S</span><small>1</small></button>
+            </div>
+            <div class="lane-control">
+              <output class="lane-judgement" id="judgement-1" aria-label="レーン2の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+              <button class="lane-button" data-lane="1" aria-label="レーン2 D 黄緑"><span>D</span><small>2</small></button>
+            </div>
+            <div class="lane-control">
+              <output class="lane-judgement" id="judgement-2" aria-label="レーン3の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+              <button class="lane-button" data-lane="2" aria-label="レーン3 F 白"><span>F</span><small>3</small></button>
+            </div>
+            <div class="lane-control">
+              <output class="lane-judgement" id="judgement-3" aria-label="レーン4の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+              <button class="lane-button" data-lane="3" aria-label="レーン4 J 赤"><span>J</span><small>4</small></button>
+            </div>
+            <div class="lane-control">
+              <output class="lane-judgement" id="judgement-4" aria-label="レーン5の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+              <button class="lane-button" data-lane="4" aria-label="レーン5 K 紫"><span>K</span><small>5</small></button>
+            </div>
+            <div class="lane-control">
+              <output class="lane-judgement" id="judgement-5" aria-label="レーン6の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+              <button class="lane-button" data-lane="5" aria-label="レーン6 L 黄色"><span>L</span><small>6</small></button>
+            </div>
           </div>
         </section>
         <section id="result" class="panel result" aria-label="プレイ結果" tabindex="-1" hidden>

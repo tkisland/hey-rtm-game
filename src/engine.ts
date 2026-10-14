@@ -38,7 +38,7 @@ export class GameEngine {
     note.state = judgement === 'MISS' ? 'miss' : 'hit';
     this.score += POINTS[judgement];
     this.counts[judgement]++;
-    this.combo = judgement === 'PERFECT' || judgement === 'GREAT' ? this.combo + 1 : 0;
+    this.combo = judgement !== 'MISS' ? this.combo + 1 : 0;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.lastHit = { judgement, lane: note.lane, errorMs: error * 1000, noteId: note.id };
     return this.lastHit;

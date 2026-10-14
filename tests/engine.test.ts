@@ -19,15 +19,17 @@ describe('judgement and score', () => {
     expect(game.score).toBe(1000);
     expect(game.input(1, 12)).toBeNull();
   });
-  it('judges simultaneous notes independently and maintains GREAT-or-better combo', () => {
+  it('judges simultaneous notes independently and continues combo for every non-MISS judgement', () => {
     const game = new GameEngine(chart([[12, 0], [12, 3], [13, 1], [14, 2]]));
     game.input(0, 12); game.input(3, 12.08);
     expect(game.combo).toBe(2);
     game.input(1, 13.15);
-    expect(game.combo).toBe(0);
-    expect(game.maxCombo).toBe(2);
+    expect(game.combo).toBe(3);
+    expect(game.maxCombo).toBe(3);
     expect(game.score).toBe(2000);
     game.advance(14.161);
+    expect(game.combo).toBe(0);
+    expect(game.maxCombo).toBe(3);
     expect(game.counts).toEqual({ PERFECT: 1, GREAT: 1, GOOD: 1, MISS: 1 });
     expect(game.finished).toBe(true);
     expect(game.accuracy).toBe(50);
@@ -105,6 +107,6 @@ describe('video-only clock', () => {
   });
 });
 it('validates corrupt settings, limits values and preserves step sizes', () => {
-  expect(normalizeSettings({ travel: 0, offset: 500, bpm: NaN, startTime: -1 })).toEqual({ travel: 1, offset: 300, bpm: 140, startTime: 0, debug: false });
-  expect(normalizeSettings({ travel: 2.13, offset: -24, bpm: 139.7, startTime: 12.16, debug: true })).toEqual({ travel: 2.25, offset: -20, bpm: 140, startTime: 12.2, debug: true });
+  expect(normalizeSettings({ travel: 0, offset: 500, bpm: NaN, startTime: -1 })).toEqual({ travel: 1, offset: 300, bpm: 140, startTime: 0, debug: false, sound: true });
+  expect(normalizeSettings({ travel: 2.13, offset: -24, bpm: 139.7, startTime: 12.16, debug: true })).toEqual({ travel: 2.25, offset: -20, bpm: 140, startTime: 12.2, debug: true, sound: true });
 });
