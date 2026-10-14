@@ -1,0 +1,15 @@
+.calibration-dialog { width: min(520px, calc(100% - 24px)); max-height: calc(100svh - 32px); overflow: auto; padding: 22px; border: 1px solid #6d6896; border-radius: 18px; background: #19172b; color: #f4f1ff; box-shadow: 0 15px 70px #0009; }
+.calibration-dialog::backdrop { background: #080714c9; }
+.calibration-dialog h2 { margin: 0 0 14px; font-size: 1.2rem; }
+.calibration-dialog p { line-height: 1.65; }
+.calibration-dialog button { border: 1px solid #827baa; border-radius: 10px; padding: 10px 14px; color: inherit; background: #302b4c; cursor: pointer; font: inherit; }
+.calibration-dialog button:disabled { opacity: .45; cursor: default; }
+.calibration-dialog button:focus-visible { outline: 3px solid #b9fa97; outline-offset: 3px; }
+.calibration-dialog .calibration-tap { display: block; width: 100%; min-height: 90px; margin: 16px 0; background: #453557; border-color: #f0a5ca; touch-action: none; user-select: none; -webkit-user-select: none; }
+.calibration-dialog .calibration-tap:active { background: #604671; }
+.calibration-volume { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.calibration-volume input { flex: 1; min-width: 120px; }
+.calibration-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+#calibration-status { min-height: 4.9em; }
+#calibration-progress { width: 100%; accent-color: #f0a5ca; }
+@media (max-height: 650px) { .calibration-dialog { padding: 14px; } .calibration-dialog p { margin-block: 8px; font-size: .85rem; } .calibration-dialog .calibration-tap { min-height: 65px; margin: 10px 0; } }

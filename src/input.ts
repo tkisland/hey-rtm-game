@@ -1,7 +1,7 @@
 export const KEYS = ['KeyS', 'KeyD', 'KeyF', 'KeyJ', 'KeyK', 'KeyL'];
 
 /** A pointer per finger, and independent keyboard state. No repeat hits or shared touch lock. */
-export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) => void, onPressed: (lanes: Set<number>, reason: 'change' | 'cancel') => void): () => void {
+export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) => void, onPressed: (lanes: Set<number>, reason: 'change' | 'cancel') => void, blocked: () => boolean = () => false): () => void {
   const controller = new AbortController();
   const signal = controller.signal;
   const pointers = new Map<number, number>();
@@ -15,6 +15,7 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
   const releaseAll = () => { pointers.clear(); keys.clear(); nativeKeys.clear(); render('cancel'); };
   buttons.forEach((button, lane) => {
     button.addEventListener('pointerdown', event => {
+      if (blocked()) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
       // Touch focus can scroll the visual viewport on mobile Safari, even with preventScroll.
@@ -33,9 +34,10 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
     }, { signal });
     button.addEventListener('contextmenu', event => event.preventDefault(), { signal });
     // Assistive technology and native Enter/Space activation have no pointerdown.
-    button.addEventListener('click', event => { if (event.detail === 0) onHit(lane); }, { signal });
+    button.addEventListener('click', event => { if (event.detail === 0 && !blocked()) onHit(lane); }, { signal });
   });
   window.addEventListener('keydown', event => {
+    if (blocked()) return;
     const buttonLane = buttons.indexOf(event.target as HTMLButtonElement);
     if ((event.code === 'Space' || event.code === 'Enter') && buttonLane >= 0 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();

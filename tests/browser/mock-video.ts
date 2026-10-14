@@ -20,6 +20,7 @@ window.YT = { Player: class {
   seekTo(t) { this.time = t; this.anchor = performance.now(); }
   setState(state) { this.time = this.getCurrentTime(); this.anchor = performance.now(); this.state = state; this.options.events.onStateChange({target:this,data:state}); }
   playVideo() { this.setState(1); }
+  pauseVideo() { this.setState(2); }
   destroy() {}
 }};
 window.onYouTubeIframeAPIReady();`;

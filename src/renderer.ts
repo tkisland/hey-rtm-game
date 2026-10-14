@@ -77,7 +77,7 @@ export class Renderer {
     for (const note of notes) {
       if (!active(note)) continue;
       const head = note.state === 'holding' ? line : yAt(note.time);
-      const tail = note.type === 'hold' ? yAt(note.endTime) : head;
+      const tail = note.type === 'hold' ? note.state === 'holding' ? Math.min(line, yAt(note.endTime)) : yAt(note.endTime) : head;
       if (head < -20 || tail > line + 20) continue;
       const inset = Math.max(5, laneWidth * 0.12), x = note.lane * laneWidth + inset;
       const noteWidth = laneWidth - inset * 2, color = LANE_COLORS[note.lane];

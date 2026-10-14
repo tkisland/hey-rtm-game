@@ -32,18 +32,37 @@ export class TapSound {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private buffers: AudioBuffer[] = [];
-  private voices = new Set<AudioBufferSourceNode>();
+  private voices = new Map<AudioBufferSourceNode, number>();
   private disposed = false;
   private level = 70;
   private active = true;
-  constructor(private onUnavailable: () => void) {}
+  private delayMs = 0;
+  private generation = 0;
+  private visibilityChanged = () => { if (document.hidden) this.cancelPending(); };
+  constructor(private onUnavailable: () => void) { document.addEventListener('visibilitychange', this.visibilityChanged); }
 
   get enabled(): boolean { return this.active; }
-  set enabled(enabled: boolean) { this.active = enabled; this.updateVolume(); }
+  set enabled(enabled: boolean) { this.active = enabled; if (!enabled) this.cancelPending(); this.updateVolume(); }
   get volume(): number { return this.level; }
   set volume(volume: number) {
     this.level = Number.isFinite(volume) ? Math.max(0, Math.min(100, volume)) : 70;
+    if (!this.level) this.cancelPending();
     this.updateVolume();
+  }
+  get delay(): number { return this.delayMs; }
+  set delay(value: number) {
+    const next = Number.isFinite(value) ? Math.max(0, Math.min(300, value)) : 0;
+    if (next !== this.delayMs) { this.cancelPending(); this.delayMs = next; }
+  }
+  /** Drop future clicks and delayed resume callbacks without cutting a click already playing. */
+  cancelPending(): void {
+    this.generation++;
+    for (const [source, when] of this.voices) {
+      if (this.context && when > this.context.currentTime) {
+        try { source.stop(); } catch { /* The node may have just ended. */ }
+        source.disconnect(); this.voices.delete(source);
+      }
+    }
   }
   private updateVolume(): void {
     if (this.context && this.master && this.context.state !== 'closed') {
@@ -54,16 +73,18 @@ export class TapSound {
   play(lane: number): void {
     if (!this.enabled || this.volume === 0 || this.disposed) return;
     try {
+      const requestedAt = performance.now(), delay = this.delayMs, generation = this.generation;
       // Construct/resume in the input gesture for Safari's audio activation rules.
       const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioContextClass) { this.onUnavailable(); return; }
       this.context ??= new AudioContextClass({ latencyHint: 'interactive' });
       const context = this.context;
       if (!this.master) this.prepare(context);
-      if (context.state === 'running') this.click(context, lane);
+      const remaining = () => Math.max(0, delay - (performance.now() - requestedAt)) / 1000;
+      if (context.state === 'running') this.click(context, lane, remaining());
       else void context.resume().then(() => {
-        if (this.enabled && this.volume > 0 && !this.disposed && context.state === 'running') this.click(context, lane);
-      }).catch(() => this.onUnavailable());
+        if (generation === this.generation && this.enabled && this.volume > 0 && !this.disposed && context.state === 'running') this.click(context, lane, remaining());
+      }).catch(() => { if (generation === this.generation && !this.disposed) this.onUnavailable(); });
     } catch { this.onUnavailable(); }
   }
 
@@ -95,22 +116,25 @@ export class TapSound {
     this.master.connect(compressor); compressor.connect(limiter); limiter.connect(context.destination);
   }
 
-  private click(context: AudioContext, lane: number): void {
+  private click(context: AudioContext, lane: number, delay: number): void {
     // Keep all six simultaneous inputs audible, but bound node growth during rapid tapping.
     if (this.voices.size >= 12) {
-      const oldest = this.voices.values().next().value!;
+      const oldest = this.voices.keys().next().value!;
       oldest.stop(); this.voices.delete(oldest);
     }
     const source = context.createBufferSource();
     source.buffer = this.buffers[lane] ?? this.buffers[0];
     source.connect(this.master!);
-    this.voices.add(source);
+    const when = context.currentTime + delay;
+    this.voices.set(source, when);
     source.onended = () => { source.disconnect(); this.voices.delete(source); };
-    source.start(context.currentTime);
+    source.start(when);
   }
 
   destroy(): void {
     this.disposed = true;
+    this.cancelPending();
+    document.removeEventListener('visibilitychange', this.visibilityChanged);
     this.voices.clear();
     if (this.context) void this.context.close().catch(() => {});
   }

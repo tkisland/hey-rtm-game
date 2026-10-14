@@ -29,6 +29,15 @@
       <section class="panel recording-panel" aria-label="リアルタイム入力">
         <div class="editor-actions"><button id="record-toggle" class="edit-button primary" aria-pressed="false" disabled>● 打ち込み開始</button><output id="playhead">0.000 s</output><strong id="note-count">0 NOTES</strong><label class="editor-check"><input id="editor-sound" type="checkbox" checked /> 入力音</label><label class="editor-check"><input id="audition" type="checkbox" /> 譜面の試聴音</label></div>
         <div class="editor-fields"><label>打ち込みの種類<select id="record-type"><option value="tap">タップ</option><option value="hold">長押し（離すまで記録）</option></select></label></div>
+        <details class="timing-settings"><summary>入力・タップ音のタイミング調整</summary>
+          <button id="editor-auto-calibrate" class="edit-button primary">基準音で自動調整</button>
+          <p class="field-help">一定間隔の音に合わせてタップし、入力補正の目安を測定します。ゲームと共通です。</p>
+          <label for="editor-input-offset">入力の遅れ補正 <output id="editor-input-offset-value">0 ms</output></label><input id="editor-input-offset" type="range" min="-300" max="300" step="5" value="0" />
+          <p class="field-help">＋は打ち込みを早い時刻へ、−は遅い時刻へ補正します。長押しの始点・終点も同じ量だけ補正します。判定時刻の補正はゲームと共通です。補正済みの時刻を譜面に保存し、設定を変えても保存済みノーツは動かしません。</p>
+          <label for="editor-sound-delay">タップ音の追加遅延 <output id="editor-sound-delay-value">0 ms</output></label><input id="editor-sound-delay" type="range" min="0" max="300" step="5" value="0" />
+          <p class="field-help">入力から音を鳴らすまでの追加待ち時間。0msが最短です。入力より前には鳴らせず、端末・Bluetoothの遅れを短縮する機能ではありません。設定はゲームと共通です。</p>
+          <div class="editor-actions"><button id="editor-sound-test" class="edit-button">タップ音を試す</button><button id="editor-timing-reset" class="edit-button">入力補正・音の遅延を0に戻す</button></div>
+        </details>
         <p id="record-status" role="status">停止中。打ち込み開始を押してからMVを再生します。</p>
         <p class="field-help">S / D / F / J / K / L または6ボタンで入力。動画操作後は下の入力エリアをクリックしてください。一時停止・読込中は記録しません。追加の打ち込みは既存のノーツに重ねます。長押しは離すと保存します。再生停止・シーク・入力キャンセルで未完了の長押しは破棄します。</p>
         <div id="record-pads" class="lane-buttons" tabindex="0" aria-label="打ち込み入力エリア">
