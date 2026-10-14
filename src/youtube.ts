@@ -31,6 +31,7 @@ const ERRORS: Record<number, string> = {
   153: '再生元の識別情報（Referer）が不足しています。HTTP(S)で開き、サーバーのReferrer-Policyを確認してください。',
 };
 export function createYouTubePlayer(callbacks: {
+  keyboardTarget?: HTMLElement;
   ready(player: YouTubePlayer): void;
   state(state: number): void;
   error(message: string): void;
@@ -38,14 +39,25 @@ export function createYouTubePlayer(callbacks: {
   let disposed = false;
   let player: YouTubePlayer | null = null;
   let timer = 0;
+  let focusFrame = 0;
   const clearTimer = () => window.clearTimeout(timer);
+  const returnKeyboardFocus = () => {
+    cancelAnimationFrame(focusFrame);
+    // Key events inside YouTube's cross-origin iframe cannot reach our input handler.
+    // Return focus after playback starts on PC, without scrolling or interrupting touch controls.
+    if (!callbacks.keyboardTarget || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    focusFrame = requestAnimationFrame(() => {
+      const iframe = document.querySelector<HTMLIFrameElement>('.video-frame iframe');
+      if (!disposed && document.hasFocus() && iframe && document.activeElement === iframe && callbacks.keyboardTarget?.isConnected) callbacks.keyboardTarget.focus({ preventScroll: true });
+    });
+  };
   const init = () => {
     if (disposed || player || !window.YT?.Player) return;
     clearTimer();
     timer = window.setTimeout(() => callbacks.error('YouTubeプレーヤーの応答がありません。通信・コンテンツブロッカーを確認して再読み込みしてください。'), 20000);
     player = new window.YT.Player('youtube-player', {
       videoId: VIDEO_ID, width: '100%', height: '100%',
-      playerVars: { playsinline: 1, controls: 1, autoplay: 0, origin: location.origin },
+      playerVars: { playsinline: 1, controls: 1, autoplay: 0, disablekb: 1, origin: location.origin },
       events: {
         onReady: event => {
           if (disposed) return;
@@ -57,8 +69,14 @@ export function createYouTubePlayer(callbacks: {
           }
           callbacks.ready(event.target);
         },
-        onStateChange: event => { if (!disposed) callbacks.state(event.data); },
+        onStateChange: event => {
+          if (disposed) return;
+          cancelAnimationFrame(focusFrame);
+          callbacks.state(event.data);
+          if (event.data === 1) returnKeyboardFocus();
+        },
         onError: event => {
+          cancelAnimationFrame(focusFrame);
           clearTimer();
           if (!disposed) callbacks.error(`YouTubeエラー ${event.data}：${ERRORS[event.data] ?? '動画を再生できません。通信状態を確認してください。'}`);
         },
@@ -77,6 +95,7 @@ export function createYouTubePlayer(callbacks: {
   }
   return () => {
     disposed = true;
+    cancelAnimationFrame(focusFrame);
     clearTimer();
     window.onYouTubeIframeAPIReady = undefined;
     player?.destroy();

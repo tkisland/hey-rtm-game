@@ -116,6 +116,7 @@ function readTime(): void {
   } catch { playing = false; message('動画の再生時刻を取得できません。プレーヤーを確認してください。'); }
 }
 const disposePlayer = createYouTubePlayer({
+  keyboardTarget: el('record-pads'),
   ready: instance => {
     if (failed) return;
     player = instance; clock.reset();
