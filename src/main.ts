@@ -166,6 +166,7 @@ function updateChartInfo(): void {
 }
 
 const disposePlayer = createYouTubePlayer({
+  keyboardTarget: canvas,
   ready: instance => {
     player = instance;
     failed = false;
