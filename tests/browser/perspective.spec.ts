@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('#restart')).toBeEnabled();
 });
 
-test('all six real button centers are the rendered PERFECT position, including input compensation', async ({ page }) => {
+test('all six visible receptors are the rendered PERFECT position above the input pads, including compensation', async ({ page }) => {
   for (const offset of [-300, 0, 300]) {
     await page.evaluate(({ chart, offset }) => {
       localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify(chart));
@@ -34,7 +34,7 @@ test('all six real button centers are the rendered PERFECT position, including i
       try {
         await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
         const field = canvas.getBoundingClientRect();
-        const targets = [...document.querySelectorAll('.lane-button')].map(button => {
+        const targets = [...document.querySelectorAll('.lane-receptor')].map(button => {
           const r = button.getBoundingClientRect(); return { x: r.x + r.width / 2 - field.x, y: r.y + r.height / 2 - field.y };
         });
         return { heads, targets };
@@ -72,7 +72,7 @@ test('outer held chord heads stay at the horizontal targets with a straight link
     try {
       renderer.draw(engine.notes, 13.3, 2, 0, 100, 120, 300);
       const r = canvas.getBoundingClientRect();
-      const targets = [...document.querySelectorAll('.lane-button')].map(button => { const b = button.getBoundingClientRect(); return { x: b.x + b.width / 2 - r.x, y: b.y + b.height / 2 - r.y }; });
+      const targets = [...document.querySelectorAll('.lane-receptor')].map(button => { const b = button.getBoundingClientRect(); return { x: b.x + b.width / 2 - r.x, y: b.y + b.height / 2 - r.y }; });
       return { heads, tails, link, targets };
     } finally {
       ctx.roundRect = original.round; ctx.fillRect = original.fill; ctx.setLineDash = original.dash;

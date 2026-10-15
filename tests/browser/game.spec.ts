@@ -131,7 +131,10 @@ test('horizontal controls share the requested lane colors and feedback appears a
   const judgement = (await page.locator('#judgement-0').boundingBox())!;
   const button = (await page.locator('.lane-button[data-lane="0"]').boundingBox())!;
   expect(judgement.y + judgement.height).toBeLessThanOrEqual(button.y);
-  expect(button.y - judgement.y).toBeLessThan(40);
+  const receptor = (await page.locator('.lane-receptor').first().boundingBox())!;
+  expect(judgement.y + judgement.height).toBeLessThan(receptor.y);
+  expect(receptor.y - judgement.y).toBeLessThan(40);
+  expect(receptor.y + receptor.height).toBeLessThan(button.y);
   const waitUntilGood = await page.evaluate(() => (12 + 60 / 140 + 0.125 - (window as any).testVideo.getCurrentTime()) * 1000);
   await page.waitForTimeout(Math.max(0, waitUntilGood));
   await page.keyboard.press('f');

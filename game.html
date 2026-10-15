@@ -58,36 +58,36 @@
         </section>
         <section class="game" aria-label="6レーンリズムゲーム">
           <div class="stage"><div class="surface-field">
-            <canvas id="game-canvas" tabindex="0" aria-label="横一列のボタンへ流れる6レーンのノーツ。ボタン中心が判定位置。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
+            <canvas id="game-canvas" tabindex="0" aria-label="6レーンのノーツ。ボタンより上の横線が判定位置。下の同じ色のボタンで入力。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
             <div class="scoreboard">
               <div><span class="metric-label">SCORE</span><strong id="score">000000</strong></div>
               <div class="combo-metric"><span class="metric-label">COMBO</span><strong id="combo">0</strong><span id="max-combo">MAX 0</span></div>
             </div>
-            <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LET’S PLAY!</span><strong>上の再生ボタンで開始</strong><span>ノーツがボタンの中心に重なったらタップ</span></div>
+            <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LET’S PLAY!</span><strong>上の再生ボタンで開始</strong><span>ノーツが横線に重なったら、下の同じ色をタップ</span></div>
             <section class="controls-dock" aria-label="リズム操作エリア">
               <p id="control-status">MVを再生してスタート</p>
               <div class="lane-buttons" aria-label="レーン入力">
-                <div class="lane-control">
+                <div class="lane-control"><i class="lane-receptor" aria-hidden="true"></i>
                   <output class="lane-judgement" id="judgement-0" aria-label="レーン1の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
                   <button class="lane-button" data-lane="0" aria-label="レーン1 S ピンク"><span>S</span><small>1</small></button>
                 </div>
-                <div class="lane-control">
+                <div class="lane-control"><i class="lane-receptor" aria-hidden="true"></i>
                   <output class="lane-judgement" id="judgement-1" aria-label="レーン2の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
                   <button class="lane-button" data-lane="1" aria-label="レーン2 D 黄緑"><span>D</span><small>2</small></button>
                 </div>
-                <div class="lane-control">
+                <div class="lane-control"><i class="lane-receptor" aria-hidden="true"></i>
                   <output class="lane-judgement" id="judgement-2" aria-label="レーン3の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
                   <button class="lane-button" data-lane="2" aria-label="レーン3 F 白"><span>F</span><small>3</small></button>
                 </div>
-                <div class="lane-control">
+                <div class="lane-control"><i class="lane-receptor" aria-hidden="true"></i>
                   <output class="lane-judgement" id="judgement-3" aria-label="レーン4の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
                   <button class="lane-button" data-lane="3" aria-label="レーン4 J 赤"><span>J</span><small>4</small></button>
                 </div>
-                <div class="lane-control">
+                <div class="lane-control"><i class="lane-receptor" aria-hidden="true"></i>
                   <output class="lane-judgement" id="judgement-4" aria-label="レーン5の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
                   <button class="lane-button" data-lane="4" aria-label="レーン5 K 紫"><span>K</span><small>5</small></button>
                 </div>
-                <div class="lane-control">
+                <div class="lane-control"><i class="lane-receptor" aria-hidden="true"></i>
                   <output class="lane-judgement" id="judgement-5" aria-label="レーン6の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
                   <button class="lane-button" data-lane="5" aria-label="レーン6 L 黄色"><span>L</span><small>6</small></button>
                 </div>

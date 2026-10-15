@@ -26,10 +26,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const [kind, error] of [['PERFECT', 0], ['GREAT', 0.065], ['GOOD', 0.12]] as const) {
-  test(`${kind} chord emits effects from both real buttons without moving them, then fades`, async ({ page }) => {
+  test(`${kind} chord emits effects from visible receptors above the thumb pads, then fades`, async ({ page }) => {
     await page.locator('.stage').scrollIntoViewIfNeeded();
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-    const targets = await page.locator('.lane-button').evaluateAll(buttons => {
+    const targets = await page.locator('.lane-receptor').evaluateAll(buttons => {
       const canvas = document.getElementById('game-canvas')!.getBoundingClientRect();
       return buttons.map(button => { const r = button.getBoundingClientRect(); return { x: r.x + r.width / 2 - canvas.x, y: r.y + r.height / 2 - canvas.y }; });
     });
@@ -46,7 +46,7 @@ for (const [kind, error] of [['PERFECT', 0], ['GREAT', 0.065], ['GOOD', 0.12]] a
       expect(ring).toBeTruthy(); expect(ring.y).toBeCloseTo(targets[lane].y, 1); expect(ring.alpha).toBeGreaterThan(0);
     }
     expect(await page.evaluate(() => (window as any).sparkLines)).toBeGreaterThan(0);
-    const after = await page.locator('.lane-button').evaluateAll(buttons => {
+    const after = await page.locator('.lane-receptor').evaluateAll(buttons => {
       const canvas = document.getElementById('game-canvas')!.getBoundingClientRect();
       return buttons.map(button => { const r = button.getBoundingClientRect(); return { x: r.x + r.width / 2 - canvas.x, y: r.y + r.height / 2 - canvas.y }; });
     });

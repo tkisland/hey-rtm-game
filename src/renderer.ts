@@ -56,6 +56,9 @@ export class Renderer {
       }
     }
     ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#0e1120'; ctx.fillRect(0, 0, w, h);
+    const padTop = field.pads[0].y - field.padHeight / 2 - 8;
+    ctx.fillStyle = '#090b16'; ctx.fillRect(0, padTop, w, h - padTop);
+    ctx.fillStyle = '#ffffff12'; ctx.fillRect(0, padTop, w, 1);
     const end = 1 + WINDOWS.GOOD;
     for (let lane = 0; lane < 6; lane++) {
       const color = LANE_COLORS[lane];

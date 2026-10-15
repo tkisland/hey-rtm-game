@@ -47,7 +47,10 @@ const judgements = Array.from({ length: 6 }, (_, lane) => element(`judgement-${l
 const judgementTimes = Array<number>(6).fill(-Infinity);
 const controlStatus = element('control-status');
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
-buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
+buttons.forEach((button, lane) => {
+  button.style.setProperty('--lane', LANE_COLORS[lane]);
+  button.parentElement!.style.setProperty('--lane', LANE_COLORS[lane]);
+});
 const unbindTargets = bindTargets(element<HTMLCanvasElement>('game-canvas'), buttons.map(button => button.parentElement!));
 const sound = new TapSound(() => { element('sound-status').textContent = 'タップ音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'; });
 sound.enabled = settings.sound;
@@ -366,7 +369,7 @@ function frame(now: number): void {
     stageHint.hidden = sample.playing || resultShown;
     const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : '上の再生ボタンで開始';
     stageHint.querySelector('strong')!.textContent = hint;
-    stageHint.querySelector('span:last-child')!.textContent = '長い帯は終点まで保持 · ◇は同時押し';
+    stageHint.querySelector('span:last-child')!.textContent = '横線で下の同じ色をタップ · 長い帯は終点まで保持';
   }
   judgements.forEach((feedback, lane) => {
     const holding = engine.notes.some(note => note.lane === lane && note.state === 'holding');
@@ -378,7 +381,7 @@ function frame(now: number): void {
   });
   const guidance = failed ? '動画を再生できません' : clockStale ? '動画時刻の更新待ち' : sample.playing
     ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
-      ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : 'TAP! · S D F / J K L'
+      ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : '横線に合わせて下のボタン · S D F / J K L'
     : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : 'MVを再生してスタート';
   if (controlStatus.textContent !== guidance) controlStatus.textContent = guidance;
   frames++;
