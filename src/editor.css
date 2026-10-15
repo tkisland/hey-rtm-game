@@ -56,5 +56,5 @@
 .preview-lanes > div.active { background:color-mix(in srgb,var(--lane) 22%,transparent); box-shadow:0 0 14px color-mix(in srgb,var(--lane) 40%,transparent); }
 .preview-lanes strong { font-size:11px; }
 .preview-lanes span { position:absolute; top:3px; right:5px; font-size:8px; }
-.preview-lanes output { position:absolute; top:-20px; font-size:10px; min-height:14px; color:#fff; }
+.preview-lanes output { position:absolute; top:calc(var(--receptor-y) - 30px); font-size:10px; min-height:14px; color:#fff; }
 @media (max-width:760px) { .preview-field { height:310px; } }

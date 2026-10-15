@@ -22,14 +22,17 @@ describe('perspective timing windows and horizontal targets', () => {
     for (const width of [298, 370, 404, 678]) for (const height of [180, 224, 310, 480, 520]) for (const travel of [1, 2, 4]) {
       const field = fieldGeometry(width, height);
       for (let lane = 0; lane < 6; lane++) {
-        const target = field.targets[lane];
-        expect(target.width).toBeGreaterThanOrEqual(44); expect(target.height).toBeGreaterThanOrEqual(44);
+        const target = field.targets[lane], pad = field.pads[lane];
+        expect(pad.width).toBeGreaterThanOrEqual(44); expect(pad.height).toBeGreaterThanOrEqual(60);
+        expect(pad.x).toBe(target.x); expect(pad.y - pad.height / 2).toBeGreaterThan(target.y + target.height / 2);
+        expect(pad.y + pad.height / 2).toBeLessThanOrEqual(height - 12);
         expect(target.x - target.width / 2).toBeGreaterThanOrEqual(0);
         expect(target.x + target.width / 2).toBeLessThanOrEqual(width);
         expect(target.y + target.height / 2).toBeLessThanOrEqual(height - 12);
         for (const band of timingBands(field, lane, travel)) {
           expect(band.top.y).toBeGreaterThan(field.origin);
           expect(band.bottom.y).toBeLessThanOrEqual(height - 8 + 1e-8);
+          expect(band.bottom.y).toBeLessThanOrEqual(pad.y - pad.height / 2 - 16 + 1e-8);
           for (const point of [band.top, band.bottom]) {
             expect(point.x - point.width / 2).toBeGreaterThanOrEqual(0);
             expect(point.x + point.width / 2).toBeLessThanOrEqual(width);

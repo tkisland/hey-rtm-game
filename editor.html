@@ -44,9 +44,9 @@
         <p id="preview-audio-status" class="field-help">ノーツ音は譜面の時刻で鳴ります。再生が始まらない場合はMV内の再生ボタンを押してください。</p>
         <p class="field-help">ノーツの中心が判定の基準です。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。自動再生は入力補正0msで表示します。</p>
         <div class="preview-field">
-          <canvas id="preview-canvas" aria-label="横一列のボタン位置へ流れる6レーンの譜面再生プレビュー。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
+          <canvas id="preview-canvas" aria-label="ボタンより上の水平な判定ラインへ流れる6レーンの譜面再生プレビュー。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
           <div id="preview-lanes" class="preview-lanes" aria-label="自動再生のレーン表示">
-            <div data-lane="0"><strong>S</strong><span>1</span><output>—</output></div><div data-lane="1"><strong>D</strong><span>2</span><output>—</output></div><div data-lane="2"><strong>F</strong><span>3</span><output>—</output></div><div data-lane="3"><strong>J</strong><span>4</span><output>—</output></div><div data-lane="4"><strong>K</strong><span>5</span><output>—</output></div><div data-lane="5"><strong>L</strong><span>6</span><output>—</output></div>
+            <div data-lane="0"><i class="lane-receptor" aria-hidden="true"></i><strong>S</strong><span>1</span><output>—</output></div><div data-lane="1"><i class="lane-receptor" aria-hidden="true"></i><strong>D</strong><span>2</span><output>—</output></div><div data-lane="2"><i class="lane-receptor" aria-hidden="true"></i><strong>F</strong><span>3</span><output>—</output></div><div data-lane="3"><i class="lane-receptor" aria-hidden="true"></i><strong>J</strong><span>4</span><output>—</output></div><div data-lane="4"><i class="lane-receptor" aria-hidden="true"></i><strong>K</strong><span>5</span><output>—</output></div><div data-lane="5"><i class="lane-receptor" aria-hidden="true"></i><strong>L</strong><span>6</span><output>—</output></div>
           </div>
         </div>
         <p class="field-help">再生中は打ち込みを止めます。編集するとプレビューを停止します。選択ノーツからの再生には、先にタイムラインでノーツを選んでください。</p>

@@ -4,24 +4,26 @@ export type HitZone = 'PERFECT' | 'GREAT' | 'GOOD';
 export interface Target { x: number; y: number; width: number; height: number }
 export interface FieldGeometry {
   width: number; height: number; origin: number; cell: number; margin: number;
-  near: number; approach: number; padWidth: number; padHeight: number; targets: Target[];
+  near: number; approach: number; padWidth: number; padHeight: number; targets: Target[]; pads: Target[];
 }
 export interface FieldPoint { x: number; y: number; width: number; scale: number }
 export function fieldGeometry(width: number, height: number): FieldGeometry {
   const margin = Math.min(8, width * 0.025), cell = (width - 2 * margin) / 6;
   const padWidth = Math.min(72, Math.max(44, cell * 0.86));
-  const padHeight = Math.min(62, Math.max(48, padWidth * 0.86));
+  const padHeight = Math.min(76, Math.max(60, height * 0.15));
   const origin = Math.min(78, height * 0.32);
-  // Fit late GOOD at the fastest supported speed (1s). Current speed/compensation
-  // never move the buttons; each timing-window edge is projected independently.
+  const padY = height - 16 - padHeight / 2;
+  // Keep even the latest GOOD above the thumb area, at the fastest supported speed (1s).
   const lateProgress = 1 + WINDOWS.GOOD;
-  const near = Math.max(origin, Math.min(height - 16 - padHeight / 2, (height - 8 + (lateProgress - 1) * origin) / lateProgress));
+  const lateBottom = padY - padHeight / 2 - 16;
+  const near = Math.max(origin, (lateBottom + (lateProgress - 1) * origin) / lateProgress);
   const approach = near - origin;
-  const field: FieldGeometry = { width, height, origin, cell, margin, near, approach, padWidth, padHeight, targets: [] };
+  const field: FieldGeometry = { width, height, origin, cell, margin, near, approach, padWidth, padHeight, targets: [], pads: [] };
   field.targets = Array.from({ length: 6 }, (_, lane) => {
     const point = project(field, lane, 1);
-    return { x: point.x, y: point.y, width: padWidth, height: padHeight };
+    return { x: point.x, y: point.y, width: padWidth, height: 20 };
   });
+  field.pads = field.targets.map(target => ({ ...target, y: padY, height: padHeight }));
   return field;
 }
 /** Equal vertical pixels per second in every lane, with only a mild visual taper. */
@@ -36,14 +38,15 @@ export function timingBands(field: FieldGeometry, lane: number, travel: number) 
     top: project(field, lane, 1 - WINDOWS[kind] / travel), bottom: project(field, lane, 1 + WINDOWS[kind] / travel),
   }));
 }
-/** Real buttons and readonly preview pads use exactly the renderer's target coordinates. */
+/** Bind thumb pads below the receptors; expose the receptor position for visible feedback. */
 export function bindTargets(canvas: HTMLCanvasElement, elements: HTMLElement[]): () => void {
   const update = () => {
     const rect = canvas.getBoundingClientRect(), field = fieldGeometry(rect.width, rect.height);
     elements.forEach((element, lane) => {
-      const target = field.targets[lane];
-      element.style.left = `${target.x}px`; element.style.top = `${target.y}px`;
-      element.style.width = `${target.width}px`; element.style.height = `${target.height}px`;
+      const target = field.targets[lane], pad = field.pads[lane];
+      element.style.left = `${pad.x}px`; element.style.top = `${pad.y}px`;
+      element.style.width = `${pad.width}px`; element.style.height = `${pad.height}px`;
+      element.style.setProperty('--receptor-y', `${target.y - pad.y + pad.height / 2}px`);
     });
   };
   const observer = new ResizeObserver(update); observer.observe(canvas); update();
