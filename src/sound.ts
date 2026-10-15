@@ -1,13 +1,14 @@
-export const TAP_DURATION = 0.075;
-const FREQUENCIES = [900, 960, 1020, 1080, 1140, 1200];
+export const TAP_DURATION = 0.24;
+const PITCHES = [0.98, 0.988, 0.996, 1.004, 1.012, 1.02];
+const PARTIALS = [3420, 4781, 6127, 7919, 9343, 10867];
 
-/** A deterministic, percussive click with a sharp noise attack and a short tonal body. */
+/** A short cymbal: bright filtered noise and inharmonic metal partials, without a pitched beep. */
 export function createTapSamples(sampleRate: number, lane: number) {
   const samples = new Float32Array(Math.ceil(sampleRate * TAP_DURATION));
-  const frequency = FREQUENCIES[lane] ?? FREQUENCIES[0];
+  const pitch = PITCHES[lane] ?? PITCHES[0];
   let seed = 12345 + lane * 7919, lowPass = 0, previousLowPass = 0, highPass = 0, peak = 0;
-  const lowPassRate = 1 - Math.exp(-2 * Math.PI * 4500 / sampleRate);
-  const highPassRate = Math.exp(-2 * Math.PI * 600 / sampleRate);
+  const lowPassRate = 1 - Math.exp(-2 * Math.PI * 10000 / sampleRate);
+  const highPassRate = Math.exp(-2 * Math.PI * 2600 / sampleRate);
   for (let i = 0; i < samples.length; i++) {
     const t = i / sampleRate;
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -15,12 +16,13 @@ export function createTapSamples(sampleRate: number, lane: number) {
     lowPass += lowPassRate * (noise - lowPass);
     highPass = highPassRate * (highPass + lowPass - previousLowPass);
     previousLowPass = lowPass;
-    const click = 0.55 * highPass * Math.exp(-t / 0.006);
-    const body = 0.45 * Math.sin(2 * Math.PI * frequency * t) * Math.exp(-t / 0.017)
-      + 0.18 * Math.sin(2 * Math.PI * frequency * 2.1 * t) * Math.exp(-t / 0.01);
-    const attack = Math.min(1, t / 0.001);
-    const release = Math.min(1, (samples.length - 1 - i) / (sampleRate * 0.003));
-    samples[i] = (click + body) * attack * release;
+    const shimmer = highPass * (0.7 * Math.exp(-t / 0.025) + 0.3 * Math.exp(-t / 0.065));
+    let metal = 0;
+    for (const frequency of PARTIALS) metal += Math.sin(2 * Math.PI * frequency * pitch * t);
+    metal *= 0.035 * Math.exp(-t / 0.045);
+    const attack = Math.min(1, t / 0.0004);
+    const release = Math.min(1, (samples.length - 1 - i) / (sampleRate * 0.012));
+    samples[i] = (shimmer + metal) * attack * release;
     peak = Math.max(peak, Math.abs(samples[i]));
   }
   if (peak) for (let i = 0; i < samples.length; i++) samples[i] *= 0.8 / peak;
@@ -107,7 +109,7 @@ export class TapSound {
   }
 
   private prepare(context: AudioContext): void {
-    this.buffers = FREQUENCIES.map((_, lane) => {
+    this.buffers = PITCHES.map((_, lane) => {
       const samples = createTapSamples(context.sampleRate, lane);
       const buffer = context.createBuffer(1, samples.length, context.sampleRate);
       buffer.copyToChannel(samples, 0);

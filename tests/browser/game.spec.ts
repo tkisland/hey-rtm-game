@@ -179,11 +179,13 @@ test('tap sound uses live Web Audio on user input, does not repeat, and can be m
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function (...args) {
       (window as any).tapStarts++;
+      (window as any).tapDuration = this.buffer?.duration;
       return start.apply(this, args);
     };
   });
   await page.keyboard.down('s');
   await expect.poll(() => page.evaluate(() => (window as any).tapStarts)).toBe(1);
+  expect(await page.evaluate(() => (window as any).tapDuration)).toBeCloseTo(0.24, 3);
   await page.keyboard.down('s');
   expect(await page.evaluate(() => (window as any).tapStarts)).toBe(1);
   await page.keyboard.up('s');

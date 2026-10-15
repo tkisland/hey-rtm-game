@@ -82,7 +82,7 @@ function showHit(hit: Hit, now: number): void {
   feedback.classList.remove('pop');
   void feedback.offsetWidth;
   feedback.classList.add('pop');
-  if (hit.judgement !== 'MISS') renderer.flash(hit.lane, now);
+  if (hit.judgement !== 'MISS') renderer.flash(hit.lane, now, hit.judgement);
   updateScore();
 }
 function clearResults(): void {
