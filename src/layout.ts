@@ -18,7 +18,8 @@ export function bindDockLayout(stage: HTMLElement, dock: HTMLElement): () => voi
       let naturalTop = 0;
       for (let node: HTMLElement | null = host; node; node = node.offsetParent as HTMLElement | null) naturalTop += node.offsetTop;
       const rect = host.getBoundingClientRect();
-      const height = Math.min(480, Math.max(Math.min(224, stableHeight - 12), stableHeight - naturalTop));
+      const minimumHeight = window.matchMedia('(orientation:portrait)').matches ? 248 : 224;
+      const height = Math.min(640, Math.max(Math.min(minimumHeight, stableHeight - 12), stableHeight - naturalTop));
       set('--playfield-height', stableHeight); set('--surface-height', height);
       set('--surface-top', stableHeight - height); set('--surface-left', rect.left); set('--surface-width', rect.width);
     });

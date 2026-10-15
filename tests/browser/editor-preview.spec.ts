@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { api } from './mock-video';
+import { DEFAULT_SETTINGS } from '../../src/settings';
 const chart = {
   videoId: 'pJDfWpZ7CI4', title: 'SUPER MOMMY GIRLS', bpm: 120, startTime: 3.5, beatOrigin: 3.5,
   notes: [
@@ -51,8 +52,9 @@ test('previews taps, holds and chords with pause/resume, without recording or ch
   await page.locator('#preview-first').click();
   await expect(page.locator('#record-toggle')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#preview-status')).toContainText('プレビュー再生中');
-  expect(await videoTime(page)).toBeGreaterThanOrEqual(1);
-  expect(await videoTime(page)).toBeLessThan(1.6);
+  const start = chart.notes[0].time - DEFAULT_SETTINGS.travel - .5;
+  expect(await videoTime(page)).toBeGreaterThanOrEqual(start);
+  expect(await videoTime(page)).toBeLessThan(start + .6);
   expect(await sounds(page)).toBe(0); // Audio unlock has no warm-up click.
   await expect.poll(() => sounds(page)).toBe(3);
   await expect(page.locator('#preview-lanes [data-lane="1"]')).toHaveAttribute('data-state', 'holding');
@@ -80,7 +82,8 @@ test('starts before the selected note and stops when a note is edited, retaining
   await importChart(page); await expect(page.locator('#preview-selected')).toBeDisabled();
   await selectNote(page, 2); await page.locator('#preview-selected').click();
   await expect(page.locator('#preview-status')).toContainText('プレビュー再生中');
-  expect(await videoTime(page)).toBeGreaterThanOrEqual(1.5); expect(await videoTime(page)).toBeLessThan(2.1);
+  const start = chart.notes[1].time - DEFAULT_SETTINGS.travel - .5;
+  expect(await videoTime(page)).toBeGreaterThanOrEqual(start); expect(await videoTime(page)).toBeLessThan(start + .6);
   await page.locator('#nudge-plus').click();
   await expect(page.locator('#preview-status')).toContainText('停止中');
   expect(await page.evaluate(() => (window as any).testVideo.state)).toBe(2);

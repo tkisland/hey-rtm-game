@@ -28,9 +28,9 @@
         <section id="settings-panel" class="panel settings-panel" aria-label="ゲーム設定" hidden>
           <div class="panel-heading"><h2>プレイ設定</h2><button id="settings-close" class="text-button">閉じる ×</button></div>
           <label class="chart-choice">使用する譜面<select id="chart-source"><option value="bundled">収録譜面</option><option value="test">動作確認用の仮譜面</option><option value="custom">エディターで保存した譜面</option></select></label>
-          <label for="travel">ノーツ落下時間 <output id="travel-value">2.00秒</output></label>
-          <input id="travel" type="range" min="1" max="4" step="0.25" value="2" />
-          <p class="field-help">小さいほど速く落下します。</p>
+          <label for="travel">ノーツ落下時間 <output id="travel-value">2.50秒</output></label>
+          <input id="travel" type="range" min="1" max="4" step="0.25" value="2.5" />
+          <p class="field-help">ノーツが現れてから判定ラインに届くまでの時間です。大きくすると早めに見えて余裕が増えます。初期値は2.5秒。保存済みの値は引き継ぎます。</p>
           <label for="note-size">ノーツの厚さ <output id="note-size-value">100%</output></label>
           <input id="note-size" type="range" min="50" max="150" step="10" value="100" />
           <p class="field-help">判定はノーツの中心で行います。薄い帯がGOOD（±160ms）、中間がGREAT（±100ms）、濃い帯がPERFECT（±50ms）。</p>

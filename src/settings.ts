@@ -2,7 +2,7 @@ import { DEFAULT_SONG, songStorageKey } from './songs';
 import type { Song } from './songs';
 
 export interface Settings { travel: number; offset: number; bpm: number; startTime: number; debug: boolean; sound: boolean; soundVolume: number; noteSize: number; inputOffset: number; soundDelay: number }
-export const DEFAULT_SETTINGS: Settings = { travel: 2, offset: 0, bpm: 140, startTime: 12, debug: false, sound: true, soundVolume: 70, noteSize: 100, inputOffset: 0, soundDelay: 0 };
+export const DEFAULT_SETTINGS: Settings = { travel: 2.5, offset: 0, bpm: 140, startTime: 12, debug: false, sound: true, soundVolume: 70, noteSize: 100, inputOffset: 0, soundDelay: 0 };
 export const INPUT_OFFSET_LIMIT_MS = 300;
 const STORAGE_KEY = 'hey-rhythm-settings-v1';
 function numeric(value: unknown, fallback: number, min: number, max: number, step: number): number {
@@ -11,7 +11,7 @@ function numeric(value: unknown, fallback: number, min: number, max: number, ste
 }
 export function normalizeSettings(value: Partial<Settings>): Settings {
   return {
-    travel: numeric(value.travel, 2, 1, 4, 0.25),
+    travel: numeric(value.travel, DEFAULT_SETTINGS.travel, 1, 4, 0.25),
     offset: numeric(value.offset, 0, -300, 300, 10),
     bpm: numeric(value.bpm, 140, 80, 200, 1),
     startTime: numeric(value.startTime, 12, 0, 3600, 0.1),

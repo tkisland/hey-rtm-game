@@ -25,7 +25,7 @@ describe('perspective timing windows and horizontal targets', () => {
         const target = field.targets[lane], pad = field.pads[lane];
         expect(pad.width).toBeGreaterThanOrEqual(44); expect(pad.height).toBeGreaterThanOrEqual(60);
         expect(pad.x).toBe(target.x); expect(pad.y - pad.height / 2).toBeGreaterThan(target.y + target.height / 2);
-        expect(pad.y + pad.height / 2).toBeLessThanOrEqual(height - 12);
+        expect(pad.y + pad.height / 2).toBeLessThanOrEqual(height - 44);
         expect(target.x - target.width / 2).toBeGreaterThanOrEqual(0);
         expect(target.x + target.width / 2).toBeLessThanOrEqual(width);
         expect(target.y + target.height / 2).toBeLessThanOrEqual(height - 12);
