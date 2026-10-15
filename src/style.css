@@ -1,6 +1,7 @@
 :root { color-scheme: dark; font-family: "Avenir Next", "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; background:#0c0d16; color:#f6f5ff; font-synthesis:none; --muted:#9293ac; --pink:#ff739c; }
 * { box-sizing:border-box; }
 body { margin:0; background:radial-gradient(ellipse at 50% 0%,#29213a88,transparent 50%),#0c0d16; min-height:100dvh; }
+body:not(.menu-page) { touch-action:manipulation; }
 button,input { font:inherit; }
 button { cursor:pointer; color:inherit; }
 button:disabled { opacity:.45; cursor:not-allowed; }
@@ -116,7 +117,7 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
 
 /* A single surface owns the runway, fixed targets, and pointer controls. */
 .game .stage { position:relative; height:clamp(360px,58svh,520px); touch-action:none; }
-.surface-field { position:absolute; inset:0 0 env(safe-area-inset-bottom,0px); }
+.surface-field { position:absolute; inset:0 0 env(safe-area-inset-bottom,0px); touch-action:none; }
 .game #game-canvas { position:absolute; inset:0; border-radius:12px; }
 .game .scoreboard { position:absolute; top:0; left:0; right:0; height:48px; z-index:3; padding:7px 14px; background:linear-gradient(#0e1120f5,#0e112088); border:0; pointer-events:none; }
 .game #score,.game #combo { font-size:21px; }
@@ -158,6 +159,12 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
   .song-heading,.video-section,.playback-info,.error-box { grid-column:1; }
   .game { grid-column:2; grid-row:1 / span 4; align-self:start; }
   .chart-choice,.settings-panel,.result,.game-toolbar,.game-notice,.debug-panel,footer { grid-column:1 / -1; }
+}
+@media (orientation:landscape) and (max-height:500px) {
+  body:not(.menu-page) .header { height:30px; margin-bottom:8px; }
+  .song-heading { margin-bottom:6px; }
+  .song-heading h1 { font-size:14px; }
+  .song-heading .eyebrow { font-size:7px; }
 }
 @media (prefers-reduced-motion:reduce) { .pop,.lane-judgement.pop { animation:none; } .lane-button { transition:none; } }
 

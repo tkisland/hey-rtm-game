@@ -167,19 +167,21 @@ function readTime(now: number): { time: number; playing: boolean } {
   }
 }
 function setState(next: number): void {
+  if (next !== state && next === PLAYER_STATE.PLAYING) void sound.unlock();
   if (next !== state && next !== PLAYER_STATE.PLAYING) sound.cancelPending();
   state = next;
   element('status-dot').classList.toggle('playing', next === PLAYER_STATE.PLAYING && !failed && !clockStale);
   const labels: Record<number, string> = {
     [-2]: 'YouTubeプレーヤーを読み込み中…',
-    [-1]: 'MVの再生ボタンを押してスタート',
+    [-1]: '上のボタンで音を準備して再生',
     [0]: '動画の再生が終了しました',
     [1]: 'MVと同期してプレイ中',
     [2]: '一時停止中 · スコアは保持されます',
     [3]: '動画を読み込み中 · ノーツを停止しています',
-    [5]: 'MVの再生ボタンを押してスタート',
+    [5]: '上のボタンで音を準備して再生',
   };
-  if (!failed) status.textContent = clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? 'MVの再生ボタンを押してスタート';
+  if (!failed) status.textContent = clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? '上のボタンで音を準備して再生';
+  element<HTMLButtonElement>('play-start').disabled = failed || next === -2 || next === PLAYER_STATE.PLAYING;
 }
 function showError(message: string): void {
   sound.cancelPending();
@@ -189,6 +191,7 @@ function showError(message: string): void {
   status.textContent = '動画を再生できないため、ゲームを停止しています';
   element('status-dot').classList.remove('playing');
   restart.disabled = true;
+  element<HTMLButtonElement>('play-start').disabled = true;
 }
 function updateChartInfo(): void {
   element('chart-info').textContent = `${source === 'custom' ? 'EDITOR CHART' : source === 'bundled' ? 'BUNDLED CHART' : 'TEST CHART'} · ${tempoLabel(engine.chart)} BPM · ${engine.chart.startTime.toFixed(source === 'bundled' ? 2 : 1)}秒〜 · ${engine.notes.length} NOTES`;
@@ -202,13 +205,9 @@ const disposePlayer = createYouTubePlayer({
     failed = false;
     element('player-error').hidden = true;
     restart.disabled = false;
+    element<HTMLButtonElement>('play-start').disabled = false;
     clock.reset();
     setState(instance.getPlayerState());
-    if (source !== 'test') {
-      restartTarget = Math.max(0, engine.chart.startTime - settings.travel - 0.5);
-      restartDeadline = performance.now() + 5000;
-      instance.seekTo(restartTarget, true);
-    }
   },
   state: next => { if (!failed) setState(next); },
   error: showError,
@@ -243,13 +242,20 @@ const unbindInput = bindInput(buttons, hit, lanes => {
 restart.addEventListener('click', () => {
   if (!player || failed) return;
   sound.cancelPending();
+  void sound.unlock();
   engine.reset(activeChart());
   clearResults(); updateChartInfo(); clock.reset();
-  restartTarget = Math.max(0, engine.chart.startTime - settings.travel - 0.5);
+  restartTarget = 0;
   restartDeadline = performance.now() + 5000;
   notice.textContent = '再生が始まらない場合は、YouTubeプレーヤー内の再生ボタンを押してください。';
   try { player.seekTo(restartTarget, true); player.playVideo(); }
   catch { restartTarget = null; showError('リスタートできませんでした。プレーヤーを再読み込みしてください。'); }
+}, { signal });
+element('play-start').addEventListener('click', () => {
+  if (!player || failed) return;
+  void sound.unlock();
+  try { player.playVideo(); }
+  catch { notice.textContent = 'YouTubeプレーヤー内の再生ボタンを押してください。'; }
 }, { signal });
 
 function showSettings(open: boolean): void {
@@ -350,7 +356,7 @@ function frame(now: number): void {
     stageHint.querySelector('span:last-child')!.textContent = '上のエラーメッセージをご確認ください';
   } else {
     stageHint.hidden = sample.playing || resultShown;
-    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : 'MVの再生ボタンで開始';
+    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : '上の再生ボタンで開始';
     stageHint.querySelector('strong')!.textContent = hint;
     stageHint.querySelector('span:last-child')!.textContent = '長い帯は終点まで保持 · ◇は同時押し';
   }
