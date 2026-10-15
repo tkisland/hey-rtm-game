@@ -390,7 +390,7 @@ function frame(now: number): void {
   });
   const holds = new Set(preview.notes.filter(note => note.state === 'holding').map(note => note.lane));
   previewRenderer.pressed = previewing ? holds : new Set();
-  previewRenderer.draw(preview.notes, time, settings.travel, now, settings.noteSize, model.chart.bpm);
+  previewRenderer.draw(preview.notes, time, settings.travel, now, settings.noteSize, model.chart.bpm, 0, previewing && playing && seekTarget === null);
   previewLanes.forEach((lane, i) => {
     const holding = previewing && holds.has(i), recent = previewing && now - previewFeedback[i] < 180;
     lane.classList.toggle('active', holding || recent);

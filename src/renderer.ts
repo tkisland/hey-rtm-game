@@ -41,7 +41,7 @@ export class Renderer {
     this.polygon([{ x: top.x - top.width * factor, y: top.y }, { x: top.x + top.width * factor, y: top.y },
       { x: bottom.x + bottom.width * factor, y: bottom.y }, { x: bottom.x - bottom.width * factor, y: bottom.y }]);
   }
-  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, bpm = 140, inputOffsetMs = 0): void {
+  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, bpm = 140, inputOffsetMs = 0, playing = true): void {
     if (this.canvas.width !== Math.round(this.field.width * (window.devicePixelRatio || 1))) this.resize();
     const ctx = this.ctx, field = this.field, w = field.width, h = field.height;
     // Match the input clock so every compensated PERFECT arrives at a fixed button.
@@ -123,7 +123,36 @@ export class Renderer {
         this.polygon([{ x: head.x, y: head.y - r }, { x: head.x + r, y: head.y }, { x: head.x, y: head.y + r }, { x: head.x - r, y: head.y }]); ctx.stroke();
       }
     }
+    if (playing) this.drawHoldEffects(notes, judgeTime);
     this.drawHitEffects(now);
+  }
+  private drawHoldEffects(notes: PlayNote[], time: number): void {
+    const ctx = this.ctx, field = this.field, reduced = this.reducedMotion.matches;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const note of notes) {
+      if (note.state !== 'holding' || !this.pressed.has(note.lane)) continue;
+      const target = field.targets[note.lane], color = LANE_COLORS[note.lane];
+      const elapsed = Math.max(0, time - note.time);
+      ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.globalAlpha = reduced ? 0.2 : 0.2 + Math.sin(elapsed * 8) * 0.04;
+      ctx.beginPath(); ctx.ellipse(target.x, target.y, target.width * 0.36, target.height * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.65; ctx.stroke();
+      if (reduced) continue;
+      // Fixed-size streams use the song clock: no particle accumulation or frame-rate dependence.
+      for (let i = 0; i < 12; i++) {
+        const p = (elapsed * 1000 + i * 73) % 640 / 640;
+        const angle = -Math.PI * (0.18 + (i % 5) * 0.16);
+        const distance = p * (28 + (i % 4) * 9);
+        const originX = target.x + (i % 3 - 1) * target.width * 0.12;
+        const x = Math.max(3, Math.min(field.width - 3, originX + Math.cos(angle) * distance));
+        const y = target.y + Math.sin(angle) * distance - p * 10 + p * p * 12;
+        const length = 2 + (1 - p) * 3;
+        ctx.globalAlpha = (1 - p) * 0.9;
+        ctx.strokeStyle = i % 3 === 0 ? '#ffffff' : color;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length); ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
   private drawHitEffects(now: number): void {
     const ctx = this.ctx, field = this.field, reduced = this.reducedMotion.matches;
