@@ -4,7 +4,7 @@ import { WINDOWS, GameEngine } from '../src/engine';
 import { compensateInput } from '../src/timing';
 import { emptyChart } from '../src/editor-model';
 
-describe('perspective timing windows and V targets', () => {
+describe('perspective timing windows and horizontal targets', () => {
   it.each(['PERFECT', 'GREAT', 'GOOD'] as const)('projects both %s boundaries onto the matching engine boundary', kind => {
     for (const offset of [-300, 0, 300]) for (const height of [224, 480]) for (const travel of [1, 4]) for (let lane = 0; lane < 6; lane++) {
       const field = fieldGeometry(370, height), band = timingBands(field, lane, travel).find(band => band.kind === kind)!;
@@ -38,12 +38,12 @@ describe('perspective timing windows and V targets', () => {
       }
     }
   });
-  it('uses mirrored V-shaped targets, fixed independently of speed and input correction', () => {
+  it('uses horizontal mirrored targets, fixed independently of speed and input correction', () => {
     const field = fieldGeometry(370, 480);
     for (let lane = 0; lane < 3; lane++) {
       const left = field.targets[lane], right = field.targets[5 - lane];
       expect(left.y).toBe(right.y); expect(left.x + right.x).toBeCloseTo(field.width);
-      if (lane < 2) expect(left.y).toBeLessThan(field.targets[lane + 1].y);
+      expect(left.y).toBe(field.targets[0].y);
     }
     for (const offset of [-300, 0, 300]) for (const travel of [1, 2, 4]) for (let lane = 0; lane < 6; lane++) {
       const point = project(field, lane, 1 + (compensateInput(12 + offset / 1000, offset) - 12) / travel);
@@ -68,8 +68,8 @@ describe('perspective timing windows and V targets', () => {
       for (let lane = 0; lane < 6; lane++) for (const progress of [0, 0.2, 0.8, 1, 1.1]) {
         const before = project(field, lane, progress), after = project(field, lane, progress + 0.05 / travel);
         distances.push(after.y - before.y);
-        // Simultaneous notes retain the target V's shape throughout their approach.
-        expect(before.y - project(field, 2, progress).y).toBeCloseTo(field.targets[lane].y - field.targets[2].y, 8);
+        // Simultaneous notes share one horizontal line throughout their approach.
+        expect(before.y).toBeCloseTo(project(field, 2, progress).y, 8);
       }
       expect(distances[0]).toBeGreaterThan(0);
       distances.forEach(distance => expect(distance).toBeCloseTo(distances[0], 8));

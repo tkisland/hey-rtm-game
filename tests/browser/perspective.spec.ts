@@ -52,7 +52,7 @@ test('all six real button centers are the rendered PERFECT position, including i
   }
 });
 
-test('outer held chord heads stay at the V targets with a straight link across empty lanes', async ({ page }) => {
+test('outer held chord heads stay at the horizontal targets with a straight link across empty lanes', async ({ page }) => {
   const result = await page.locator('#game-canvas').evaluate(async (canvas: HTMLCanvasElement) => {
     const { Renderer } = await import('/src/renderer.ts'), { GameEngine } = await import('/src/engine.ts');
     const engine = new GameEngine({ videoId: 'pJDfWpZ7CI4', title: 'test', bpm: 120, startTime: 12,

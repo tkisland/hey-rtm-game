@@ -118,14 +118,10 @@ test('video time moves the canvas, overdue notes MISS once, and pause retains ju
   expect(await page.evaluate(() => (window as any).testVideo.options.playerVars)).toMatchObject({ origin: 'http://127.0.0.1:5173', playsinline: 1, controls: 1, autoplay: 0 });
 });
 
-test('V controls share the requested lane colors and feedback appears at each button', async ({ page }) => {
+test('horizontal controls share the requested lane colors and feedback appears at each button', async ({ page }) => {
   await page.locator('.lane-buttons').scrollIntoViewIfNeeded();
   const boxes = await Promise.all(Array.from({ length: 6 }, (_, lane) => page.locator(`.lane-button[data-lane="${lane}"]`).boundingBox()));
-  expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
-  expect(boxes[1]!.y).toBeLessThan(boxes[2]!.y);
-  expect(boxes[2]!.y).toBeCloseTo(boxes[3]!.y, 0);
-  expect(boxes[3]!.y).toBeGreaterThan(boxes[4]!.y);
-  expect(boxes[4]!.y).toBeGreaterThan(boxes[5]!.y);
+  boxes.forEach(box => expect(box!.y).toBeCloseTo(boxes[0]!.y, 1));
   const colors = await page.locator('.lane-button').evaluateAll(buttons => buttons.map(button => (button as HTMLElement).style.getPropertyValue('--lane')));
   expect(colors).toEqual(['#ff739c', '#b9f56c', '#f5f5ff', '#ff5b66', '#bd9bff', '#ffe779']);
   await seekPlay(page, 12);

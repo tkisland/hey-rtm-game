@@ -78,7 +78,7 @@ export class Renderer {
       ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(target.x - target.width / 2, target.y); ctx.lineTo(target.x + target.width / 2, target.y); ctx.stroke(); ctx.lineWidth = 1;
     }
-    // Each moving curve is one musical beat across all lanes, in the same clock as notes.
+    // Each moving guide is one musical beat across all lanes, in the same clock as notes.
     if (chart) for (const marker of beatsBetween(chart, judgeTime - WINDOWS.GOOD, judgeTime + travel)) {
       const p = progressAt(marker.time);
       const points = [-0.49, 0, 1, 2, 3, 4, 5, 5.49].map(lane => project(field, lane, p));

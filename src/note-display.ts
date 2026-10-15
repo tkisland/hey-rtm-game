@@ -18,7 +18,7 @@ export function noteThickness(size: number, spacing: number, base: number): numb
 
 type Point = { x: number; y: number };
 
-/** Interpolate actual heads, with continuous tangents and no overshoot at the V's bottom. */
+/** Interpolate actual heads with continuous tangents and no overshoot at local extrema. */
 export function chordCurve(points: readonly Point[]): { control1: Point; control2: Point; end: Point }[] {
   if (points.length < 2) return [];
   const widths = points.slice(1).map((point, i) => point.x - points[i].x);
