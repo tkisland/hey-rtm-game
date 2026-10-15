@@ -1,7 +1,7 @@
 import type { PlayNote } from './engine';
 import { WINDOWS } from './engine';
 import { LANE_COLORS } from './colors';
-import { chordGroups, noteThickness } from './note-display';
+import { chordCurve, chordGroups, noteThickness } from './note-display';
 import type { ChartNote } from './chart';
 import { fieldGeometry, project, timingBands } from './field-geometry';
 import type { FieldGeometry, FieldPoint } from './field-geometry';
@@ -79,23 +79,19 @@ export class Renderer {
       ctx.beginPath(); ctx.moveTo(target.x - target.width / 2, target.y); ctx.lineTo(target.x + target.width / 2, target.y); ctx.stroke(); ctx.lineWidth = 1;
     }
     const active = (note: ChartNote) => { const state = (note as PlayNote).state; return state === 'pending' || state === 'holding'; };
-    // Chord connections follow the same V-shaped surface and each note's actual head.
+    // Connect actual heads only: a straight two-note link, or a smooth multi-note curve.
     for (const group of this.chords) {
       const headProgress = (note: ChartNote) => (note as PlayNote).state === 'holding' ? 1 : progressAt(note.time);
       const visible = group.filter(note => active(note) && headProgress(note) >= 0 && headProgress(note) <= 1 + WINDOWS.GOOD / travel + 1e-8)
-        .sort((a, b) => a.lane - b.lane);
+        .sort((a, b) => a.lane - b.lane)
+        .filter((note, i, notes) => i === 0 || note.lane !== notes[i - 1].lane);
       if (visible.length < 2) continue;
       ctx.strokeStyle = '#ffe779aa'; ctx.setLineDash([3, 3]); ctx.beginPath();
-      const start = project(field, visible[0].lane, headProgress(visible[0]));
+      const points = visible.map(note => project(field, note.lane, headProgress(note)));
+      const start = points[0];
       ctx.moveTo(start.x, start.y);
-      for (let i = 1; i < visible.length; i++) {
-        const previous = visible[i - 1], next = visible[i];
-        // Include empty intervening lanes so even a two-note chord follows the V.
-        for (let lane = previous.lane + 1; lane <= next.lane; lane++) {
-          const weight = (lane - previous.lane) / (next.lane - previous.lane);
-          const p = headProgress(previous) * (1 - weight) + headProgress(next) * weight;
-          const point = project(field, lane, p); ctx.lineTo(point.x, point.y);
-        }
+      for (const segment of chordCurve(points)) {
+        ctx.bezierCurveTo(segment.control1.x, segment.control1.y, segment.control2.x, segment.control2.y, segment.end.x, segment.end.y);
       }
       ctx.stroke(); ctx.setLineDash([]);
     }
