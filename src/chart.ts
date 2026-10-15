@@ -16,6 +16,7 @@ export interface HoldNote extends NoteBase {
   sourceEndTime?: number;
 }
 export type ChartNote = TapNote | HoldNote;
+export interface TempoChange { time: number; bpm: number }
 export interface Chart {
   videoId: string;
   title: string;
@@ -23,6 +24,8 @@ export interface Chart {
   startTime: number;
   /** Video timestamp of a reference quarter-note beat, independent of the first note. */
   beatOrigin?: number;
+  /** Absolute video timestamps; note times already incorporate the MIDI tempo map. */
+  tempoChanges?: TempoChange[];
   notes: ChartNote[];
 }
 export const VIDEO_ID = DEFAULT_SONG.videoId;

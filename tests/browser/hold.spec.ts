@@ -11,7 +11,7 @@ async function loadEditor(page: Page, data: unknown = chart) {
   await expect(page.locator('#editor-notice')).toContainText('読み込みました');
 }
 async function loadGame(page: Page, data: unknown = chart) {
-  await page.goto('/game.html');
+  await page.goto('/game.html?chart=test');
   await page.evaluate(data => localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify(data)), data);
   await page.goto('/game.html?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
   await page.locator('#game-canvas').click();

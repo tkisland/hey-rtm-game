@@ -4,6 +4,8 @@ import { LANE_COLORS } from './colors';
 import { CUSTOM_CHART_KEY, EDITOR_KEY, loadChart, storeChart } from './editor-model';
 import { findSong, SONGS, songStorageKey, songUrl } from './songs';
 import type { Song } from './songs';
+import { bundledChart } from './bundled-charts';
+import { tempoLabel } from './tempo';
 
 const list = document.getElementById('song-list')!;
 const search = document.getElementById('song-search') as HTMLInputElement;
@@ -21,17 +23,17 @@ function render(): void {
   document.getElementById('song-count')!.textContent = `${songs.length}曲 / 全${SONGS.length}曲`;
   document.getElementById('song-empty')!.hidden = songs.length > 0;
   songs.forEach(song => {
-    const saved = savedChart(song), card = node('article', 'song-card'); card.dataset.song = song.id;
+    const saved = savedChart(song), bundled = bundledChart(song), card = node('article', 'song-card'); card.dataset.song = song.id;
     const artwork = node('div', 'song-art'); artwork.setAttribute('aria-hidden', 'true');
     artwork.append(node('span', 'cover-number', String(SONGS.indexOf(song) + 1).padStart(2, '0')), node('strong', 'cover-title', song.title));
     const lanes = node('div', 'cover-lanes');
     for (const color of LANE_COLORS) { const lane = node('i', ''); lane.style.setProperty('--color', color); lanes.append(lane); }
     artwork.append(lanes);
     const body = node('div', 'song-card-body');
-    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', `6 LANES · テスト譜面 ${song.bpm} BPM`));
+    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · SMG001 · ${tempoLabel(bundled)} BPM · ${bundled.notes.length} NOTES` : `6 LANES · テスト譜面 ${song.bpm} BPM`));
     body.append(node('p', 'saved-summary', saved ? `保存譜面あり · ${saved.notes.length} NOTES` : '保存譜面はまだありません。編集から作成できます。'));
     const actions = node('div', 'song-actions');
-    const play = node('a', 'song-play', 'テスト譜面で遊ぶ'); play.href = songUrl(song, 'game');
+    const play = node('a', 'song-play', bundled ? '収録譜面で遊ぶ' : 'テスト譜面で遊ぶ'); play.href = songUrl(song, 'game', bundled ? 'bundled' : 'test');
     const custom = node('button', 'song-saved', '保存譜面で遊ぶ'); custom.type = 'button'; custom.disabled = !saved;
     custom.addEventListener('click', () => {
       const latest = savedChart(song);
@@ -40,14 +42,16 @@ function render(): void {
       location.href = songUrl(song, 'game', true);
     });
     const edit = node('a', 'song-edit', '譜面を編集 →'); edit.href = songUrl(song, 'editor');
-    actions.append(play, custom, edit); body.append(actions); card.append(artwork, body); list.append(card);
+    actions.append(play, custom, edit);
+    if (bundled) { const practice = node('a', 'song-practice', 'テスト譜面で遊ぶ'); practice.href = songUrl(song, 'game', 'test'); actions.append(practice); }
+    body.append(actions); card.append(artwork, body); list.append(card);
   });
 }
 const params = new URLSearchParams(location.search), legacy = params.get('chart');
 if (params.has('missing-song')) showNotice('指定された曲が見つかりませんでした。楽曲一覧から選び直してください。');
-if (legacy === 'custom' || legacy === 'test') {
+if (legacy === 'custom' || legacy === 'test' || legacy === 'bundled') {
   const song = findSong(params.get('song'));
-  if (song) location.replace(songUrl(song, 'game', legacy === 'custom'));
+  if (song) location.replace(songUrl(song, 'game', legacy === 'custom' ? true : legacy));
   else showNotice('指定された曲が見つかりませんでした。楽曲一覧から選び直してください。');
 }
 search.addEventListener('input', render, { signal: listeners.signal });

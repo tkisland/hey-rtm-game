@@ -22,7 +22,7 @@
           <h2>拍の設定</h2>
           <div class="editor-fields"><label>BPM<input id="editor-bpm" type="number" min="40" max="300" step="0.01" value="140" /></label><label>拍の基準（動画の秒数）<input id="beat-origin" type="number" min="0" max="7200" step="0.001" value="12" /></label></div>
           <button id="set-origin" class="edit-button" disabled>現在位置を拍の基準にする</button>
-          <p class="field-help">BPM140は仮の値です。曲を聴いてBPMと1拍目の位置を合わせてください。</p>
+          <p id="tempo-info" class="field-help">開始時点のBPMと拍の基準を合わせてください。</p>
           <div class="editor-fields"><label>クオンタイズ<select id="division"><option value="1">4分音符</option><option value="2">8分音符</option><option value="4" selected>16分音符</option></select></label><label>対象<select id="quantize-target"><option value="all">すべてのノーツ</option><option value="selected">選択したノーツ</option></select></label></div>
           <label class="editor-check"><input id="from-source" type="checkbox" checked /> 元の入力時刻からそろえる</label>
           <button id="quantize" class="edit-button primary">拍にそろえる</button>
@@ -105,7 +105,7 @@
       </section>
       <section class="panel" aria-label="保存と試遊">
         <h2>保存と試遊</h2><p id="save-status" class="field-help" role="status"></p>
-        <div class="editor-actions"><button id="try-game" class="edit-button primary">ゲームで試す</button><button id="export-chart" class="edit-button">JSONを書き出す</button><label class="edit-button">JSONを読み込む<input id="import-chart" type="file" accept=".json,application/json" /></label><button id="new-chart" class="edit-button">新しい空の譜面</button></div>
+        <div class="editor-actions"><button id="try-game" class="edit-button primary">ゲームで試す</button><button id="load-bundled-chart" class="edit-button" hidden>収録譜面を読み込む</button><button id="export-chart" class="edit-button">JSONを書き出す</button><label class="edit-button">JSONを読み込む<input id="import-chart" type="file" accept=".json,application/json" /></label><button id="new-chart" class="edit-button">新しい空の譜面</button></div>
         <p class="field-help">編集内容はこのブラウザに自動保存します。他の端末に移す・バックアップする場合はJSONを書き出してください。試遊用の譜面は「ゲームで試す」で更新されます。読み込みと空の譜面への変更も「元に戻す」で戻せます。</p>
       </section>
       <p id="editor-notice" class="editor-notice" role="status">BPMと拍の基準を合わせて、短い区間から打ち込んでみましょう。</p>

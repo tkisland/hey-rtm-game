@@ -16,6 +16,8 @@ import { EditorPreview, previewStart } from './editor-preview';
 import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
 import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
+import { bundledChart } from './bundled-charts';
+import { beatToTime, bpmAt, tempoLabel, timeToBeat } from './tempo';
 
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
   const node = document.getElementById(id); if (!node) throw new Error(`Missing editor element: ${id}`);
@@ -32,6 +34,7 @@ el('editor-song-title').textContent = `${song.title} / CHART EDITOR`;
 el<HTMLAnchorElement>('back-to-game').href = songUrl(song, 'game');
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
 const model = new EditorModel(loadChart(editorKey, false, song) ?? emptyChart(song));
+const bundled = bundledChart(song);
 const clock = new VideoClock();
 const sound = new TapSound(() => message('確認音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'));
 let settings = loadSettings(); sound.volume = settings.soundVolume; sound.delay = settings.soundDelay;
@@ -194,6 +197,7 @@ function refreshList(): void {
 }
 function refresh(): void {
   input('editor-bpm').value = String(model.chart.bpm); input('beat-origin').value = String(model.chart.beatOrigin ?? model.chart.startTime);
+  el('tempo-info').textContent = model.chart.tempoChanges?.length ? `${tempoLabel(model.chart)} BPM · ${model.chart.tempoChanges.length}箇所のテンポ変更を拍グリッド・スナップ・クオンタイズに反映します。BPM欄は開始時点の値です。` : '開始時点のBPMと拍の基準を合わせてください。BPM140はテスト用の仮の値です。';
   el('note-count').textContent = `${model.chart.notes.length} NOTES`;
   el<HTMLButtonElement>('undo').disabled = !model.canUndo; el<HTMLButtonElement>('redo').disabled = !model.canRedo;
   el<HTMLButtonElement>('quantize').disabled = !model.chart.notes.length;
@@ -336,6 +340,10 @@ const unbindInput = bindInput(buttons, lane => {
 el('record-pads').addEventListener('pointerdown', event => { if (event.pointerType === 'mouse' && event.target === el('record-pads')) el('record-pads').focus({ preventScroll: true }); }, { signal });
 el('record-toggle').addEventListener('click', () => { setArmed(!armed); el('record-pads').focus({ preventScroll: true }); }, { signal });
 const on = (id: string, callback: () => void) => el(id).addEventListener('click', callback, { signal });
+el('load-bundled-chart').hidden = !bundled;
+on('load-bundled-chart', () => {
+  if (bundled) edit(() => { model.replace(bundled); setView(Math.max(0, bundled.startTime - 1)); message('収録譜面を読み込みました。「元に戻す」で前の編集内容に戻せます。'); });
+});
 on('select-range', () => chooseRange({ start: input('range-start').valueAsNumber, end: input('range-end').valueAsNumber }));
 on('select-view-range', () => chooseRange({ start: viewStart, end: Math.min(MAX_TIME, viewStart + viewSpan) }));
 on('clear-range', () => chooseRange(null)); on('copy-range', copyRange); on('delete-range', deleteRange); on('paste-range', pasteRange);
@@ -369,7 +377,7 @@ function moveSelected(delta?: number): void {
 input('note-time').addEventListener('change', () => moveSelected(), { signal }); select('note-lane').addEventListener('change', () => moveSelected(), { signal });
 select('note-type').addEventListener('change', () => {
   const note = model.selectedNote; if (!note) return;
-  edit(() => model.changeType(select('note-type').value as 'tap' | 'hold', note.type === 'hold' ? note.endTime : note.time + 60 / model.chart.bpm));
+  edit(() => model.changeType(select('note-type').value as 'tap' | 'hold', note.type === 'hold' ? note.endTime : beatToTime(model.chart, timeToBeat(model.chart, note.time) + 1)));
 }, { signal });
 input('note-end').addEventListener('change', () => { const note = model.selectedNote; if (note) edit(() => model.resize(note.id, input('note-end').valueAsNumber)); }, { signal });
 on('add-chord', () => edit(() => model.addChord(Number(select('chord-lane').value))));
@@ -382,7 +390,7 @@ on('add-note', () => {
   edit(() => {
     const length = input('add-length').valueAsNumber;
     if (select('add-type').value === 'hold' && (!Number.isFinite(length) || length < 0.25 || length > 16)) throw new Error('長押しの長さは0.25〜16拍にしてください。');
-    return model.add(time, Number(select('add-lane').value), false, select('add-type').value === 'hold' ? time + length * 60 / model.chart.bpm : undefined);
+    return model.add(time, Number(select('add-lane').value), false, select('add-type').value === 'hold' ? beatToTime(model.chart, timeToBeat(model.chart, time) + length) : undefined);
   });
 });
 input('view-start').addEventListener('change', () => { const value = input('view-start').valueAsNumber; setView(Number.isFinite(value) ? value : viewStart, true); }, { signal });
@@ -484,7 +492,7 @@ function frame(now: number): void {
   const holds = new Set(preview.notes.filter(note => note.state === 'holding').map(note => note.lane));
   previewSound.syncHolds(previewing && playing && seekTarget === null ? holds : new Set(), now);
   previewRenderer.pressed = previewing ? holds : new Set();
-  previewRenderer.draw(preview.notes, time, settings.travel, now, settings.noteSize, model.chart.bpm, 0, previewing && playing && seekTarget === null);
+  previewRenderer.draw(preview.notes, time, settings.travel, now, settings.noteSize, bpmAt(model.chart, time), 0, previewing && playing && seekTarget === null);
   previewLanes.forEach((lane, i) => {
     const holding = previewing && holds.has(i), recent = previewing && now - previewFeedback[i] < 180;
     lane.classList.toggle('active', holding || recent);

@@ -16,6 +16,8 @@ import { PLAYER_STATE, VideoClock, stateName } from './sync';
 import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
 import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
+import { bundledChart } from './bundled-charts';
+import { bpmAt, tempoLabel } from './tempo';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -33,8 +35,10 @@ element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'editor');
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
 let settings = loadSettings(song);
 const customChart = loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song);
-let custom = new URLSearchParams(location.search).get('chart') === 'custom' && customChart !== null;
-const activeChart = () => custom && customChart ? customChart : generateChart(settings.bpm, settings.startTime, song);
+const bundled = bundledChart(song), requested = new URLSearchParams(location.search).get('chart');
+type Source = 'bundled' | 'custom' | 'test';
+let source: Source = requested === 'test' ? 'test' : requested === 'custom' ? customChart ? 'custom' : 'test' : bundled ? 'bundled' : 'test';
+const activeChart = () => source === 'custom' && customChart ? customChart : source === 'bundled' && bundled ? bundled : generateChart(settings.bpm, settings.startTime, song);
 const engine = new GameEngine(activeChart());
 const clock = new VideoClock();
 const renderer = new Renderer(element<HTMLCanvasElement>('game-canvas'));
@@ -187,7 +191,7 @@ function showError(message: string): void {
   restart.disabled = true;
 }
 function updateChartInfo(): void {
-  element('chart-info').textContent = `${custom ? 'EDITOR CHART' : 'TEST CHART'} · ${engine.chart.bpm} BPM · ${engine.chart.startTime.toFixed(1)}秒〜 · ${engine.notes.length} NOTES`;
+  element('chart-info').textContent = `${source === 'custom' ? 'EDITOR CHART' : source === 'bundled' ? 'BUNDLED CHART' : 'TEST CHART'} · ${tempoLabel(engine.chart)} BPM · ${engine.chart.startTime.toFixed(source === 'bundled' ? 2 : 1)}秒〜 · ${engine.notes.length} NOTES`;
 }
 
 const disposePlayer = createYouTubePlayer({
@@ -200,7 +204,7 @@ const disposePlayer = createYouTubePlayer({
     restart.disabled = false;
     clock.reset();
     setState(instance.getPlayerState());
-    if (custom) {
+    if (source !== 'test') {
       restartTarget = Math.max(0, engine.chart.startTime - settings.travel - 0.5);
       restartDeadline = performance.now() + 5000;
       instance.seekTo(restartTarget, true);
@@ -286,7 +290,7 @@ function changeSettings(): void {
   if (settings.sound && settings.soundVolume > 0 && engine.notes.some(note => note.state === 'holding')) void sound.unlock();
   const saved = saveSettings(settings, song);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
-  if (!custom && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
+  if (source === 'test' && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
 }
 travel.addEventListener('input', changeSettings, { signal });
 offset.addEventListener('input', changeSettings, { signal });
@@ -311,18 +315,19 @@ element('sound-test').addEventListener('click', () => sound.play(0), { signal })
 reflectSettings(); updateChartInfo();
 const chartSource = element<HTMLSelectElement>('chart-source');
 chartSource.querySelector<HTMLOptionElement>('option[value="custom"]')!.disabled = !customChart;
+chartSource.querySelector<HTMLOptionElement>('option[value="bundled"]')!.disabled = !bundled;
 function reflectChartSource(): void {
-  chartSource.value = custom ? 'custom' : 'test';
-  bpm.disabled = custom; startTime.disabled = custom;
-  element('chart-settings-help').textContent = custom ? '編集譜面のBPM・時刻は「譜面編集」で変更できます。' : 'BPM・開始時刻は次のリスタートから反映されます。';
-  notice.textContent = custom ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
+  chartSource.value = source;
+  bpm.disabled = source !== 'test'; startTime.disabled = source !== 'test';
+  element('chart-settings-help').textContent = source === 'test' ? 'BPM・開始時刻は次のリスタートから反映されます。' : source === 'bundled' ? '収録譜面のテンポと時刻を使用します。全体のずれは「ノーツ全体の位置」で調整できます。' : '編集譜面のBPM・時刻は「譜面編集」で変更できます。';
+  notice.textContent = source === 'bundled' ? '収録譜面 SMG001 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長押しです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
 }
 reflectChartSource();
 if (!customChart && new URLSearchParams(location.search).get('chart') === 'custom') notice.textContent = '編集譜面を読み込めませんでした。「譜面編集」でノーツを追加し「ゲームで試す」を押してください。仮譜面を表示しています。';
 chartSource.addEventListener('change', () => {
-  custom = chartSource.value === 'custom' && customChart !== null;
+  source = chartSource.value === 'custom' && customChart ? 'custom' : chartSource.value === 'bundled' && bundled ? 'bundled' : 'test';
   const url = new URL(location.href);
-  if (custom) url.searchParams.set('chart', 'custom'); else url.searchParams.delete('chart');
+  url.searchParams.set('chart', source);
   history.replaceState(null, '', url);
   engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
   if (player && !failed) restart.click();
@@ -338,7 +343,7 @@ function frame(now: number): void {
     showResults();
   }
   syncHoldSound(sample.playing, now);
-  renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, engine.chart.bpm, settings.inputOffset, sample.playing);
+  renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, bpmAt(engine.chart, sample.time), settings.inputOffset, sample.playing);
   if (failed) {
     stageHint.hidden = false;
     stageHint.querySelector('strong')!.textContent = '動画を再生できません';
@@ -370,7 +375,7 @@ function frame(now: number): void {
     element('debug-game-time').textContent = `${(smoothedVideoTime - settings.offset / 1000).toFixed(3)} s`;
     element('debug-clock').textContent = clockStale ? '更新待ち' : sample.playing ? '補間中' : '停止';
     element('debug-state').textContent = failed ? 'ERROR' : stateName(state);
-    element('debug-bpm').textContent = String(engine.chart.bpm);
+    element('debug-bpm').textContent = String(Math.round(bpmAt(engine.chart, sample.time) * 100) / 100);
     element('debug-offset').textContent = `${settings.offset} ms`;
     element('debug-input-offset').textContent = `${settings.inputOffset} ms`;
     element('debug-input-time').textContent = `${compensateInput(smoothedVideoTime - settings.offset / 1000, settings.inputOffset).toFixed(3)} s`;
