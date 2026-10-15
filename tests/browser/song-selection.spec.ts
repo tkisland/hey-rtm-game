@@ -75,14 +75,14 @@ test('old custom links still work, while unknown song IDs return to selection wi
 });
 
 test('song settings are separate while input correction remains shared', async ({ page }) => {
-  await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled(); await page.locator('#settings-toggle').click();
+  await page.goto('/game.html?chart=test'); await expect(page.locator('#restart')).toBeEnabled(); await page.locator('#settings-toggle').click();
   await page.locator('#bpm').fill('150'); await page.locator('#bpm').blur();
   await page.locator('#offset').fill('200'); await page.locator('#offset').dispatchEvent('input');
   await page.goto('/game.html?song=second-song'); await expect(page.locator('#restart')).toBeEnabled(); await page.locator('#settings-toggle').click();
   await expect(page.locator('#bpm')).toHaveValue('120'); await expect(page.locator('#offset')).toHaveValue('0');
   await page.locator('#bpm').fill('160'); await page.locator('#bpm').blur();
   await page.locator('#input-offset').fill('75'); await page.locator('#input-offset').dispatchEvent('input');
-  await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled(); await page.locator('#settings-toggle').click();
+  await page.goto('/game.html?chart=test'); await expect(page.locator('#restart')).toBeEnabled(); await page.locator('#settings-toggle').click();
   await expect(page.locator('#bpm')).toHaveValue('150'); await expect(page.locator('#offset')).toHaveValue('200'); await expect(page.locator('#input-offset')).toHaveValue('75');
   await page.goto('/game.html?song=second-song'); await expect(page.locator('#restart')).toBeEnabled(); await page.locator('#settings-toggle').click();
   await expect(page.locator('#bpm')).toHaveValue('160');

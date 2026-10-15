@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { api, seekPlay } from './mock-video';
 const chart = { videoId: 'pJDfWpZ7CI4', title: 'SUPER MOMMY GIRLS', bpm: 120, startTime: 12, beatOrigin: 12, notes: [{ id: 1, time: 12, lane: 0, type: 'tap' }, { id: 2, time: 14, lane: 3, type: 'tap' }] };
 async function game(page: Page, notes: unknown = chart.notes) {
-  await page.goto('/game.html');
+  await page.goto('/game.html?chart=test');
   await page.evaluate(data => localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify(data)), { ...chart, notes });
   await page.goto('/game.html?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
 }

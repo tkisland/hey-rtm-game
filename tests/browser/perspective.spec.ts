@@ -7,7 +7,7 @@ const chart = {
 };
 test.beforeEach(async ({ page }) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
-  await page.goto('/game.html');
+  await page.goto('/game.html?chart=test');
   await expect(page.locator('#restart')).toBeEnabled();
 });
 

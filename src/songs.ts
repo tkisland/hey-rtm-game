@@ -5,19 +5,20 @@ export interface Song {
   videoId: string;
   bpm: number;
   startTime: number;
+  chartId?: string;
 }
 export const DEFAULT_SONG: Song = {
   id: 'super-mommy-girls', title: 'SUPER MOMMY GIRLS', artist: 'Hey!Mommy!',
-  videoId: 'pJDfWpZ7CI4', bpm: 140, startTime: 12,
+  videoId: 'pJDfWpZ7CI4', bpm: 140, startTime: 12, chartId: 'smg001',
 };
 /** Register additional songs here; routing and storage use the stable ID. */
 export const SONGS: readonly Song[] = [DEFAULT_SONG];
 export function findSong(id: string | null): Song | undefined {
   return id === null ? DEFAULT_SONG : SONGS.find(song => song.id === id);
 }
-export function songUrl(song: Song, page: 'game' | 'editor', custom = false): string {
+export function songUrl(song: Song, page: 'game' | 'editor', chart: boolean | 'test' | 'bundled' = false): string {
   const query = new URLSearchParams({ song: song.id });
-  if (custom && page === 'game') query.set('chart', 'custom');
+  if (chart && page === 'game') query.set('chart', chart === true ? 'custom' : chart);
   return `./${page}.html?${query}`;
 }
 export function songStorageKey(base: string, song: Song): string {

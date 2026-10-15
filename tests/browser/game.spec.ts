@@ -3,7 +3,7 @@ import { api, seekPlay } from './mock-video';
 
 test.beforeEach(async ({ page }) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ contentType: 'application/javascript', body: api }));
-  await page.goto('/game.html');
+  await page.goto('/game.html?chart=test');
   await expect(page.locator('#restart')).toBeEnabled();
 });
 

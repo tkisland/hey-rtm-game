@@ -26,6 +26,7 @@
 .song-play { flex:1; color:#25111e; background:#ff9cba; border:1px solid #ffb5cc; }
 .song-saved { flex:1; color:#efe7ff; background:#bda7f714; border:1px solid #bda7f74d; }
 .song-actions .song-edit { width:100%; padding:12px 0; text-align:left; color:#c3b1f2; min-height:44px; }
+.song-actions .song-practice { width:100%; padding:12px 0; text-align:left; color:var(--muted); font-size:11px; }
 .empty-library { padding:40px 16px; text-align:center; color:#b9b8ce; border:1px dashed #ffffff30; border-radius:12px; }
 .library-help { font-size:11px; line-height:1.9; color:var(--muted); margin:25px 0; max-width:660px; }
 @media(max-width:480px) { .menu-label { font-size:8px; letter-spacing:0; } .menu-heading { padding-top:18px; } .song-card-body { padding:18px; } .song-actions > * { flex-basis:100%; } }

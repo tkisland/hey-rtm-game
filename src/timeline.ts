@@ -1,8 +1,9 @@
 import type { Chart, ChartNote } from './chart';
 import { LANE_COLORS } from './colors';
 import { chordGroups, noteThickness } from './note-display';
-import { inRange, MAX_TIME, MIN_HOLD, quantizeTime } from './editor-model';
+import { inRange, MAX_TIME, MIN_HOLD } from './editor-model';
 import type { Division, TimeRange } from './editor-model';
+import { beatToTime, bpmAt, snapTime, timeToBeat } from './tempo';
 
 const LEFT = 42, TOP = 30;
 export interface TimelineState { chart: Chart; selected: number | null; range: TimeRange | null; rangeMode: boolean; noteSize: number; start: number; span: number; division: Division; snap: boolean; time: number }
@@ -57,11 +58,11 @@ export class Timeline {
       const original = this.state.chart.notes.find(note => note.id === drag.id); if (!original) return;
       if (drag.mode === 'end' && original.type === 'hold' && drag.preview.type === 'hold') {
         const value = original.endTime + (x - drag.x) / (this.width - LEFT) * this.state.span;
-        const snapped = this.state.snap ? quantizeTime(value, this.state.chart.bpm, this.state.chart.beatOrigin ?? 0, this.state.division) : Math.round(value * 1000) / 1000;
+        const snapped = this.state.snap ? snapTime(this.state.chart, value, this.state.division) : Math.round(value * 1000) / 1000;
         drag.preview.endTime = Math.max(original.time + MIN_HOLD, Math.min(MAX_TIME, snapped)); return;
       }
       const time = Math.min(MAX_TIME, Math.max(0, original.time + (x - drag.x) / (this.width - LEFT) * this.state.span));
-      drag.preview.time = this.state.snap ? quantizeTime(time, this.state.chart.bpm, this.state.chart.beatOrigin ?? 0, this.state.division) : Math.round(time * 1000) / 1000;
+      drag.preview.time = this.state.snap ? snapTime(this.state.chart, time, this.state.division) : Math.round(time * 1000) / 1000;
       if (drag.preview.type === 'hold' && original.type === 'hold') {
         drag.preview.time = Math.min(MAX_TIME - (original.endTime - original.time), drag.preview.time);
         drag.preview.endTime = original.endTime + drag.preview.time - original.time;
@@ -96,7 +97,7 @@ export class Timeline {
   private timeAt(x: number): number { return Math.min(MAX_TIME, Math.max(0, this.state.start + (x - LEFT) / (this.width - LEFT) * this.state.span)); }
   private rangeTime(x: number): number {
     const time = this.timeAt(x);
-    return this.state.snap ? quantizeTime(time, this.state.chart.bpm, this.state.chart.beatOrigin ?? 0, this.state.division) : Math.round(time * 1000) / 1000;
+    return this.state.snap ? snapTime(this.state.chart, time, this.state.division) : Math.round(time * 1000) / 1000;
   }
   private laneAt(y: number): number { return Math.max(0, Math.min(5, Math.floor((y - TOP) / ((this.height - TOP) / 6)))); }
   draw(state: TimelineState): void {
@@ -116,11 +117,10 @@ export class Timeline {
       ctx.fillStyle = `${LANE_COLORS[lane]}0c`; ctx.fillRect(LEFT, TOP + lane * row, this.width - LEFT, row - 1);
       ctx.fillStyle = LANE_COLORS[lane]; ctx.fillText(`${lane + 1} ${'SDFJKL'[lane]}`, 6, TOP + (lane + 0.5) * row + 4);
     }
-    const step = 60 / state.chart.bpm / state.division, origin = state.chart.beatOrigin ?? 0;
-    const first = Math.ceil((state.start - origin) / step);
+    const first = Math.ceil(timeToBeat(state.chart, state.start) * state.division);
     ctx.save(); ctx.beginPath(); ctx.rect(LEFT, 0, this.width - LEFT, this.height); ctx.clip();
     for (let i = first; ; i++) {
-      const time = origin + i * step; if (time > state.start + state.span) break;
+      const time = beatToTime(state.chart, i / state.division); if (time > state.start + state.span) break;
       const x = this.xAt(time), beat = i % state.division === 0;
       ctx.strokeStyle = beat ? '#bda7f788' : i % 2 === 0 ? '#ffffff35' : '#ffffff15'; ctx.beginPath(); ctx.moveTo(x, TOP); ctx.lineTo(x, this.height); ctx.stroke();
     }
@@ -144,7 +144,7 @@ export class Timeline {
       const end = note.type === 'hold' ? ghost ? note.sourceEndTime ?? note.endTime : note.endTime : start;
       const x = this.xAt(start), endX = this.xAt(end), y = TOP + (note.lane + 0.5) * row;
       if (endX < LEFT - 8 || x > this.width + 8) return;
-      const spacing = Math.min(step, this.gaps.get(note.id) ?? Infinity) / state.span * (this.width - LEFT);
+      const spacing = Math.min(60 / bpmAt(state.chart, start) / state.division, this.gaps.get(note.id) ?? Infinity) / state.span * (this.width - LEFT);
       const width = noteThickness(state.noteSize, spacing, 12), color = LANE_COLORS[note.lane];
       const selected = note.id === state.selected || Boolean(range && inRange(note, range));
       ctx.strokeStyle = ghost ? `${color}60` : selected ? '#fff' : color;

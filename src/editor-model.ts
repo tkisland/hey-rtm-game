@@ -1,6 +1,7 @@
 import { DEFAULT_SONG } from './songs';
 import type { Song } from './songs';
 import type { Chart, ChartNote } from './chart';
+import { beatToTime, snapTime, timeToBeat } from './tempo';
 
 export const EDITOR_KEY = 'hey-rhythm-editor-v1';
 export const CUSTOM_CHART_KEY = 'hey-rhythm-custom-chart-v1';
@@ -17,7 +18,7 @@ export function inRange(note: ChartNote, range: TimeRange): boolean {
 export function validateRange(range: TimeRange): void {
   if (!finite(range.start, 0, MAX_TIME) || !finite(range.end, 0, MAX_TIME) || range.end <= range.start) throw new Error('範囲の終了は開始より後の0〜7200秒で指定してください。');
 }
-export const copyChart = (chart: Chart): Chart => ({ ...chart, notes: chart.notes.map(note => ({ ...note })) });
+export const copyChart = (chart: Chart): Chart => ({ ...chart, ...(chart.tempoChanges ? { tempoChanges: chart.tempoChanges.map(change => ({ ...change })) } : {}), notes: chart.notes.map(note => ({ ...note })) });
 export const emptyChart = (song: Song = DEFAULT_SONG): Chart => ({ videoId: song.videoId, title: song.title, bpm: song.bpm, startTime: 0, beatOrigin: song.startTime, notes: [] });
 const finite = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -30,6 +31,15 @@ export function parseChart(text: string, requireNotes = false, song: Song = DEFA
   if (!object(value) || value.videoId !== song.videoId) throw new Error(`選択中の「${song.title}」と動画IDが一致する譜面を読み込んでください。`);
   if (typeof value.title !== 'string' || value.title.length > 200 || !finite(value.bpm, 40, 300) || !finite(value.startTime, 0, MAX_TIME)) throw new Error('タイトル・BPM（40〜300）・開始時刻を確認してください。');
   if (value.beatOrigin !== undefined && !finite(value.beatOrigin, 0, MAX_TIME)) throw new Error('拍の基準時刻を確認してください。');
+  const tempoChanges: { time: number; bpm: number }[] = [];
+  if (value.tempoChanges !== undefined) {
+    if (!Array.isArray(value.tempoChanges) || value.tempoChanges.length > 128) throw new Error('テンポ変更は時刻順に128件以内で指定してください。');
+    let previous = value.beatOrigin ?? value.startTime;
+    for (const change of value.tempoChanges) {
+      if (!object(change) || !finite(change.time, 0, MAX_TIME) || change.time <= previous || !finite(change.bpm, 40, 300)) throw new Error('テンポ変更は拍の基準より後の時刻順、BPM40〜300で指定してください。');
+      tempoChanges.push({ time: change.time, bpm: change.bpm }); previous = change.time;
+    }
+  }
   if (!Array.isArray(value.notes) || value.notes.length > MAX_NOTES || (requireNotes && !value.notes.length)) throw new Error(`ノーツ数は${requireNotes ? '1' : '0'}〜${MAX_NOTES}個にしてください。`);
   const ids = new Set<number>();
   const notes: ChartNote[] = value.notes.map(item => {
@@ -43,7 +53,7 @@ export function parseChart(text: string, requireNotes = false, song: Song = DEFA
     return { ...base, type: 'tap' };
   });
   notes.sort((a, b) => a.time - b.time || a.lane - b.lane || a.id - b.id);
-  return { videoId: song.videoId, title: value.title, bpm: value.bpm, startTime: notes[0]?.time ?? value.startTime, beatOrigin: value.beatOrigin ?? value.startTime, notes };
+  return { videoId: song.videoId, title: value.title, bpm: value.bpm, startTime: notes[0]?.time ?? value.startTime, beatOrigin: value.beatOrigin ?? value.startTime, ...(value.tempoChanges === undefined ? {} : { tempoChanges }), notes };
 }
 export function loadChart(key: string, requireNotes = false, song: Song = DEFAULT_SONG): Chart | null {
   try { const value = localStorage.getItem(key); return value ? parseChart(value, requireNotes, song) : null; } catch { return null; }
@@ -79,6 +89,7 @@ export class EditorModel {
   replace(chart: Chart): boolean { return this.commit(copyChart(chart)); }
   metadata(bpm: number, origin: number): boolean {
     if (!finite(bpm, 40, 300) || !finite(origin, 0, MAX_TIME)) throw new Error('BPMは40〜300、拍の基準は0〜7200秒で指定してください。');
+    if (this.chart.tempoChanges?.some(change => change.time <= origin)) throw new Error('拍の基準は最初のテンポ変更より前にしてください。');
     return this.commit({ ...copyChart(this.chart), bpm, beatOrigin: origin });
   }
   add(time: number, lane: number, recorded = false, endTime?: number): number {
@@ -176,12 +187,11 @@ export class EditorModel {
     const chart = copyChart(this.chart);
     chart.notes.forEach(note => {
       if (selectedOnly && note.id !== this.selected) return;
-      const origin = chart.beatOrigin ?? chart.startTime;
-      const start = quantizeTime(fromSource ? note.sourceTime ?? note.time : note.time, chart.bpm, origin, division);
+      const start = snapTime(chart, fromSource ? note.sourceTime ?? note.time : note.time, division);
       if (note.type === 'hold') {
-        let end = quantizeTime(fromSource ? note.sourceEndTime ?? note.endTime : note.endTime, chart.bpm, origin, division);
+        let end = snapTime(chart, fromSource ? note.sourceEndTime ?? note.endTime : note.endTime, division);
         // Short captures keep at least one subdivision rather than collapsing to a tap.
-        if (end - start < MIN_HOLD) end = start + 60 / chart.bpm / division;
+        if (end - start < MIN_HOLD) end = beatToTime(chart, timeToBeat(chart, start) + 1 / division);
         if (end > MAX_TIME) throw new Error('クオンタイズ後の長押しの終点が7200秒を超えます。');
         note.endTime = end;
       }

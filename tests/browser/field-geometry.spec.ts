@@ -35,7 +35,7 @@ async function bands(page: Page, selector: string) {
   });
 }
 async function range(page: Page, id: string, value: string) { await page.locator(`#${id}`).fill(value); await page.locator(`#${id}`).dispatchEvent('input'); }
-test.beforeEach(async ({ page }) => { await page.route('https://www.youtube.com/iframe_api', r => r.fulfill({ body: api })); await page.goto('/game.html'); });
+test.beforeEach(async ({ page }) => { await page.route('https://www.youtube.com/iframe_api', r => r.fulfill({ body: api })); await page.goto('/game.html?chart=test'); });
 test('actual rendered centers at each perspective-band edge match the engine judgement', async ({ page }) => {
   const results = await page.evaluate(async () => {
     const { Renderer } = await import('/src/renderer.ts'), { GameEngine } = await import('/src/engine.ts'), { compensateInput } = await import('/src/timing.ts');
