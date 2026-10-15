@@ -111,7 +111,7 @@ test('targets and timing bands stay fixed when changing correction or thickness,
   expect(fast[0][2].y - fast[0][0].y).toBeGreaterThan(slow[0][2].y - slow[0][0].y);
   expect(await targets()).toEqual(before);
 });
-test('editor preview uses the same V targets and zero-correction bands', async ({ page }) => {
+test('editor preview uses the same horizontal targets and zero-correction bands', async ({ page }) => {
   await page.locator('#settings-toggle').click();
   await range(page, 'input-offset', '300');
   await page.goto('/editor.html');
@@ -121,7 +121,13 @@ test('editor preview uses the same V targets and zero-correction bands', async (
   await range(page, 'editor-input-offset', '-300');
   expect(await bands(page, '#preview-canvas')).toEqual(before);
   const geometry = await page.locator('#preview-lanes').evaluate(node => [...node.children].map(child => { const r = child.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }));
-  expect(geometry[0].y).toBeLessThan(geometry[1].y);
-  expect(geometry[1].y).toBeLessThan(geometry[2].y);
-  expect(geometry[2].y).toBe(geometry[3].y);
+  geometry.forEach(point => expect(point.y).toBeCloseTo(geometry[0].y, 1));
+  const inputButtons = await page.locator('.lane-buttons .lane-button').evaluateAll(nodes => nodes.map(node => {
+    const r = node.getBoundingClientRect(); return { x: r.x, y: r.y };
+  }));
+  expect(inputButtons).toHaveLength(6);
+  inputButtons.forEach((point, lane) => {
+    expect(point.y).toBeCloseTo(inputButtons[0].y, 1);
+    if (lane > 0) expect(point.x).toBeGreaterThan(inputButtons[lane - 1].x);
+  });
 });

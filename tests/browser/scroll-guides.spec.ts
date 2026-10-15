@@ -27,6 +27,7 @@ test('rendered notes in all six lanes move the same distance per frame throughou
     } finally { ctx.roundRect = original; renderer.destroy(); }
   });
   frames.forEach(frame => expect(frame).toHaveLength(6));
+  frames.forEach(frame => frame.forEach(head => expect(head.y).toBeCloseTo(frame[0].y, 7)));
   const distance = frames[1][0].y - frames[0][0].y;
   expect(distance).toBeGreaterThan(0);
   for (let i = 1; i < frames.length; i++) for (let lane = 0; lane < 6; lane++) {
@@ -36,7 +37,7 @@ test('rendered notes in all six lanes move the same distance per frame throughou
   }
 });
 
-for (const editor of [false, true]) test(`${editor ? 'editor preview' : 'game'} beat curves move with notes through a tempo change and respect the appropriate clock`, async ({ page }) => {
+for (const editor of [false, true]) test(`${editor ? 'editor preview' : 'game'} horizontal beat guides move with notes through a tempo change and respect the appropriate clock`, async ({ page }) => {
   await page.addInitScript(chart => {
     localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify(chart));
     localStorage.setItem('hey-rhythm-editor-v1', JSON.stringify(chart));
@@ -73,6 +74,7 @@ for (const editor of [false, true]) test(`${editor ? 'editor preview' : 'game'} 
     await page.waitForTimeout(80);
     const snapshot = await page.evaluate(id => (window as any).scrollFrames[id], editor ? 'preview-canvas' : 'game-canvas');
     expect(snapshot.heads).toHaveLength(6); expect(snapshot.guides.length).toBeGreaterThan(2);
+    snapshot.guides.forEach((guide: { x: number; y: number }[]) => guide.forEach(point => expect(point.y).toBeCloseTo(guide[0].y, 7)));
     // A quarter-note guide must pass through all six simultaneous heads. Resetting beat
     // phase at 18.6266s, using a fixed BPM, or omitting either compensation breaks this.
     const matching = snapshot.guides.find((guide: { x: number; y: number }[]) => snapshot.heads.every((head: { x: number; y: number }, lane: number) =>

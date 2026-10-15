@@ -4,7 +4,7 @@ export type HitZone = 'PERFECT' | 'GREAT' | 'GOOD';
 export interface Target { x: number; y: number; width: number; height: number }
 export interface FieldGeometry {
   width: number; height: number; origin: number; cell: number; margin: number;
-  near: number; step: number; approach: number; padWidth: number; padHeight: number; targets: Target[];
+  near: number; approach: number; padWidth: number; padHeight: number; targets: Target[];
 }
 export interface FieldPoint { x: number; y: number; width: number; scale: number }
 export function fieldGeometry(width: number, height: number): FieldGeometry {
@@ -16,10 +16,8 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
   // never move the buttons; each timing-window edge is projected independently.
   const lateProgress = 1 + WINDOWS.GOOD;
   const near = Math.max(origin, Math.min(height - 16 - padHeight / 2, (height - 8 + (lateProgress - 1) * origin) / lateProgress));
-  const step = Math.min(24, cell * 0.45, Math.max(0, (near - origin - 24) / 2));
-  // Fit the entire approach in every lane; the V is a fixed offset, never a speed multiplier.
-  const approach = near - origin - 2 * step;
-  const field: FieldGeometry = { width, height, origin, cell, margin, near, step, approach, padWidth, padHeight, targets: [] };
+  const approach = near - origin;
+  const field: FieldGeometry = { width, height, origin, cell, margin, near, approach, padWidth, padHeight, targets: [] };
   field.targets = Array.from({ length: 6 }, (_, lane) => {
     const point = project(field, lane, 1);
     return { x: point.x, y: point.y, width: padWidth, height: padHeight };
@@ -30,9 +28,8 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
 export function project(field: FieldGeometry, lane: number, progress: number): FieldPoint {
   const scale = 0.82 + 0.18 * Math.min(1, Math.max(0, progress));
   const targetX = field.margin + (lane + 0.5) * field.cell;
-  const targetY = field.near - field.step * Math.max(0, Math.abs(lane - 2.5) - 0.5);
   return { x: field.width / 2 + (targetX - field.width / 2) * scale,
-    y: targetY + (progress - 1) * field.approach, width: field.padWidth * 0.86 * scale, scale };
+    y: field.near + (progress - 1) * field.approach, width: field.padWidth * 0.86 * scale, scale };
 }
 export function timingBands(field: FieldGeometry, lane: number, travel: number) {
   return (['GOOD', 'GREAT', 'PERFECT'] as const).map(kind => ({ kind,
