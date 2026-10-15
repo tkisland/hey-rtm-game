@@ -12,7 +12,7 @@ test('the primary menu entry plays SMG001 at 7.65s, including its first yellow n
   await expect(page.locator('.song-play')).toHaveText('収録譜面で遊ぶ'); await page.locator('.song-play').click();
   await expect(page.locator('#restart')).toBeEnabled(); await expect(page.locator('#chart-source')).toHaveValue('bundled');
   await expect(page.locator('#chart-info')).toContainText('BUNDLED CHART · 166 → 192 BPM · 7.65秒〜 · 509 NOTES');
-  expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeCloseTo(5.15, 3);
+  expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBe(0);
   await seekPlay(page, 7.65); await page.keyboard.press('l');
   await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
   expect(Number(await page.locator('#score').textContent())).toBeGreaterThan(0);

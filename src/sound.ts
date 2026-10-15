@@ -1,6 +1,27 @@
 export const TAP_DURATION = 0.24;
+export const MAX_LATE_TAP_MS = 80;
+const SAMPLE_RATE = 48000;
 const PITCHES = [0.98, 0.988, 0.996, 1.004, 1.012, 1.02];
 const PARTIALS = [3420, 4781, 6127, 7919, 9343, 10867];
+const tapSamples: Float32Array<ArrayBuffer>[] = [], holdSamples: Float32Array<ArrayBuffer>[] = [];
+let warming = false;
+
+/** Synthesize one lane per idle task, before gameplay; no AudioContext or audible warm-up. */
+function warmSamples(): void {
+  if (warming) return;
+  warming = true;
+  let lane = 0;
+  const next = () => {
+    tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane);
+    holdSamples[lane] ??= createHoldSamples(SAMPLE_RATE, lane);
+    if (++lane < PITCHES.length) schedule();
+  };
+  const schedule = () => {
+    if (window.requestIdleCallback) window.requestIdleCallback(next, { timeout: 500 });
+    else window.setTimeout(next, 0);
+  };
+  schedule();
+}
 
 /** A short cymbal: bright filtered noise and inharmonic metal partials, without a pitched beep. */
 export function createTapSamples(sampleRate: number, lane: number) {
@@ -68,7 +89,13 @@ export class TapSound {
   private delayMs = 0;
   private generation = 0;
   private visibilityChanged = () => { if (document.hidden) this.cancelPending(); };
-  constructor(private onUnavailable: () => void) { document.addEventListener('visibilitychange', this.visibilityChanged); }
+  private activate = (event: Event) => { if (event.isTrusted && !document.hidden) void this.unlock(); };
+  constructor(private onUnavailable: () => void) {
+    warmSamples();
+    document.addEventListener('visibilitychange', this.visibilityChanged);
+    document.addEventListener('pointerdown', this.activate, { capture: true, passive: true });
+    document.addEventListener('keydown', this.activate, { capture: true });
+  }
 
   get enabled(): boolean { return this.active; }
   set enabled(enabled: boolean) { this.active = enabled; if (!enabled) this.cancelPending(); this.updateVolume(); }
@@ -108,8 +135,8 @@ export class TapSound {
       if (voice.source || context.state !== 'running') continue;
       try {
         if (!this.holdBuffers[lane]) {
-          const samples = createHoldSamples(context.sampleRate, lane);
-          const buffer = context.createBuffer(1, samples.length, context.sampleRate);
+          const samples = holdSamples[lane] ??= createHoldSamples(SAMPLE_RATE, lane);
+          const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
           buffer.copyToChannel(samples, 0); this.holdBuffers[lane] = buffer;
         }
         const source = context.createBufferSource(), gain = context.createGain();
@@ -177,20 +204,19 @@ export class TapSound {
       const context = this.context;
       if (!this.master) this.prepare(context);
       const remaining = () => Math.max(0, delay - (performance.now() - requestedAt)) / 1000;
-      if (context.state === 'running') this.click(context, lane, remaining());
+      const playCurrent = () => {
+        // Do not replay a backlog when an output device / suspended context starts late.
+        if (generation === this.generation && this.enabled && this.volume > 0 && !this.disposed && !document.hidden &&
+            context.state === 'running' && performance.now() - requestedAt <= delay + MAX_LATE_TAP_MS) this.click(context, lane, remaining());
+      };
+      if (context.state === 'running') playCurrent();
       else void context.resume().then(() => {
-        if (generation === this.generation && this.enabled && this.volume > 0 && !this.disposed && context.state === 'running') this.click(context, lane, remaining());
+        playCurrent();
       }).catch(() => { if (generation === this.generation && !this.disposed) this.onUnavailable(); });
     } catch { this.onUnavailable(); }
   }
 
   private prepare(context: AudioContext): void {
-    this.buffers = PITCHES.map((_, lane) => {
-      const samples = createTapSamples(context.sampleRate, lane);
-      const buffer = context.createBuffer(1, samples.length, context.sampleRate);
-      buffer.copyToChannel(samples, 0);
-      return buffer;
-    });
     const compressor = context.createDynamicsCompressor();
     compressor.threshold.value = -14;
     compressor.knee.value = 12;
@@ -213,6 +239,12 @@ export class TapSound {
   }
 
   private click(context: AudioContext, lane: number, delay: number): void {
+    lane = Number.isInteger(lane) && lane >= 0 && lane < 6 ? lane : 0;
+    if (!this.buffers[lane]) {
+      const samples = tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane);
+      const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
+      buffer.copyToChannel(samples, 0); this.buffers[lane] = buffer;
+    }
     // Keep all six simultaneous inputs audible, but bound node growth during rapid tapping.
     if (this.voices.size >= 12) {
       const oldest = this.voices.keys().next().value!;
@@ -231,6 +263,8 @@ export class TapSound {
     this.disposed = true;
     this.cancelPending();
     document.removeEventListener('visibilitychange', this.visibilityChanged);
+    document.removeEventListener('pointerdown', this.activate, true);
+    document.removeEventListener('keydown', this.activate, true);
     this.voices.clear();
     if (this.context) void this.context.close().catch(() => {});
   }

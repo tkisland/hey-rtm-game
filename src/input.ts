@@ -33,6 +33,9 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
       render('cancel');
     }, { signal });
     button.addEventListener('contextmenu', event => event.preventDefault(), { signal });
+    // Safari may still recognize double-tap zoom from compatibility touch events.
+    button.addEventListener('touchend', event => event.preventDefault(), { signal, passive: false });
+    button.addEventListener('dblclick', event => event.preventDefault(), { signal });
     // Assistive technology and native Enter/Space activation have no pointerdown.
     button.addEventListener('click', event => { if (event.detail === 0 && !blocked()) onHit(lane); }, { signal });
   });
