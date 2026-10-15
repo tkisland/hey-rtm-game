@@ -1,4 +1,5 @@
-import { VIDEO_ID } from './chart';
+import { DEFAULT_SONG } from './songs';
+import type { Song } from './songs';
 import type { Chart, ChartNote } from './chart';
 
 export const EDITOR_KEY = 'hey-rhythm-editor-v1';
@@ -17,16 +18,16 @@ export function validateRange(range: TimeRange): void {
   if (!finite(range.start, 0, MAX_TIME) || !finite(range.end, 0, MAX_TIME) || range.end <= range.start) throw new Error('範囲の終了は開始より後の0〜7200秒で指定してください。');
 }
 export const copyChart = (chart: Chart): Chart => ({ ...chart, notes: chart.notes.map(note => ({ ...note })) });
-export const emptyChart = (): Chart => ({ videoId: VIDEO_ID, title: 'SUPER MOMMY GIRLS', bpm: 140, startTime: 0, beatOrigin: 12, notes: [] });
+export const emptyChart = (song: Song = DEFAULT_SONG): Chart => ({ videoId: song.videoId, title: song.title, bpm: song.bpm, startTime: 0, beatOrigin: song.startTime, notes: [] });
 const finite = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** Validate before replacing a document. Ignore unknown properties; never trust imported HTML. */
-export function parseChart(text: string, requireNotes = false): Chart {
+export function parseChart(text: string, requireNotes = false, song: Song = DEFAULT_SONG): Chart {
   if (new TextEncoder().encode(text).byteLength > MAX_JSON_BYTES) throw new Error('JSONは1MB以内にしてください。');
   let value: unknown;
   try { value = JSON.parse(text); } catch { throw new Error('JSONの形式を確認してください。'); }
-  if (!object(value) || value.videoId !== VIDEO_ID) throw new Error('このエディターはSUPER MOMMY GIRLSの動画IDに対応しています。');
+  if (!object(value) || value.videoId !== song.videoId) throw new Error(`選択中の「${song.title}」と動画IDが一致する譜面を読み込んでください。`);
   if (typeof value.title !== 'string' || value.title.length > 200 || !finite(value.bpm, 40, 300) || !finite(value.startTime, 0, MAX_TIME)) throw new Error('タイトル・BPM（40〜300）・開始時刻を確認してください。');
   if (value.beatOrigin !== undefined && !finite(value.beatOrigin, 0, MAX_TIME)) throw new Error('拍の基準時刻を確認してください。');
   if (!Array.isArray(value.notes) || value.notes.length > MAX_NOTES || (requireNotes && !value.notes.length)) throw new Error(`ノーツ数は${requireNotes ? '1' : '0'}〜${MAX_NOTES}個にしてください。`);
@@ -42,10 +43,10 @@ export function parseChart(text: string, requireNotes = false): Chart {
     return { ...base, type: 'tap' };
   });
   notes.sort((a, b) => a.time - b.time || a.lane - b.lane || a.id - b.id);
-  return { videoId: VIDEO_ID, title: value.title, bpm: value.bpm, startTime: notes[0]?.time ?? value.startTime, beatOrigin: value.beatOrigin ?? value.startTime, notes };
+  return { videoId: song.videoId, title: value.title, bpm: value.bpm, startTime: notes[0]?.time ?? value.startTime, beatOrigin: value.beatOrigin ?? value.startTime, notes };
 }
-export function loadChart(key: string, requireNotes = false): Chart | null {
-  try { const value = localStorage.getItem(key); return value ? parseChart(value, requireNotes) : null; } catch { return null; }
+export function loadChart(key: string, requireNotes = false, song: Song = DEFAULT_SONG): Chart | null {
+  try { const value = localStorage.getItem(key); return value ? parseChart(value, requireNotes, song) : null; } catch { return null; }
 }
 export function storeChart(key: string, chart: Chart): boolean {
   try { localStorage.setItem(key, JSON.stringify(chart)); return true; } catch { return false; }

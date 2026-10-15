@@ -15,6 +15,7 @@ import { bindTargets } from './field-geometry';
 import { EditorPreview, previewStart } from './editor-preview';
 import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
+import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
 
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
   const node = document.getElementById(id); if (!node) throw new Error(`Missing editor element: ${id}`);
@@ -22,7 +23,15 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 const input = (id: string) => el<HTMLInputElement>(id);
 const select = (id: string) => el<HTMLSelectElement>(id);
-const model = new EditorModel(loadChart(EDITOR_KEY) ?? emptyChart());
+const song = findSong(new URLSearchParams(location.search).get('song'));
+if (!song) location.replace('./?missing-song=1');
+else {
+const editorKey = songStorageKey(EDITOR_KEY, song), customKey = songStorageKey(CUSTOM_CHART_KEY, song);
+document.title = `譜面エディター — ${song.title}`;
+el('editor-song-title').textContent = `${song.title} / CHART EDITOR`;
+el<HTMLAnchorElement>('back-to-game').href = songUrl(song, 'game');
+document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
+const model = new EditorModel(loadChart(editorKey, false, song) ?? emptyChart(song));
 const clock = new VideoClock();
 const sound = new TapSound(() => message('確認音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'));
 let settings = loadSettings(); sound.volume = settings.soundVolume; sound.delay = settings.soundDelay;
@@ -143,7 +152,7 @@ function setArmed(value: boolean): void {
 }
 function save(): void {
   clearTimeout(saveTimer);
-  el('save-status').textContent = storeChart(EDITOR_KEY, model.chart) ? '編集内容をこのブラウザに保存しました。' : 'ブラウザに保存できません。JSONを書き出して保存してください。';
+  el('save-status').textContent = storeChart(editorKey, model.chart) ? '編集内容をこのブラウザに保存しました。' : 'ブラウザに保存できません。JSONを書き出して保存してください。';
 }
 function changed(): void {
   preview.sync(model.chart);
@@ -273,7 +282,7 @@ const disposePlayer = createYouTubePlayer({
     el('player-status').textContent = '動画を再生できません';
     for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note', 'paste-now', 'editor-playback-rate']) el<HTMLInputElement>(id).disabled = true;
   },
-});
+}, song);
 function reflectRate(rejected = false): void {
   if (!player || failed) return;
   const control = select('editor-playback-rate');
@@ -390,17 +399,17 @@ input('import-chart').addEventListener('change', async () => {
   stopPreview(); setArmed(false);
   try {
     if (file.size > 1024 * 1024) throw new Error('JSONは1MB以内にしてください。');
-    const chart = parseChart(await file.text());
+    const chart = parseChart(await file.text(), false, song);
     model.replace(chart); setView(Math.max(0, chart.startTime - 1)); changed(); message('JSONを読み込みました。「元に戻す」で前の譜面に戻せます。');
   } catch (error) { message(error instanceof Error ? error.message : 'JSONを読み込めませんでした。'); }
   input('import-chart').value = '';
 }, { signal });
-on('new-chart', () => { edit(() => model.replace(emptyChart())); setView(0); message('空の譜面にしました。「元に戻す」で前の譜面に戻せます。'); });
+on('new-chart', () => { edit(() => model.replace(emptyChart(song))); setView(0); message('空の譜面にしました。「元に戻す」で前の譜面に戻せます。'); });
 on('try-game', () => {
   stopPreview(); setArmed(false); save();
   if (!model.chart.notes.length) return;
-  if (!storeChart(CUSTOM_CHART_KEY, model.chart)) { message('試遊用の譜面を保存できません。ブラウザのストレージ設定を確認してください。JSONの書き出しは利用できます。'); return; }
-  location.href = './?chart=custom';
+  if (!storeChart(customKey, model.chart)) { message('試遊用の譜面を保存できません。ブラウザのストレージ設定を確認してください。JSONの書き出しは利用できます。'); return; }
+  location.href = songUrl(song, 'game', true);
 });
 window.addEventListener('keydown', event => {
   if (calibration.active) return;
@@ -498,3 +507,4 @@ function frame(now: number): void {
 }
 frameId = requestAnimationFrame(frame);
 if (import.meta.hot) import.meta.hot.dispose(() => { disposed = true; cancelAnimationFrame(frameId); clearTimeout(saveTimer); save(); listeners.abort(); unbindInput(); timeline.destroy(); previewRenderer.destroy(); unbindPreviewTargets(); previewSound.destroy(); sound.destroy(); calibration.destroy(); disposePlayer(); });
+}

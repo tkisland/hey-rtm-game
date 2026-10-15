@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('F/J/K/L do not activate player shortcuts even while the isolated iframe has focus', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('#restart')).toBeEnabled();
+  await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
   await page.frameLocator('iframe').locator('#surface').click();
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('IFRAME');
   expect(await page.evaluate(() => { try { document.querySelector('iframe')!.contentWindow!.document; return false; } catch { return true; } })).toBe(true);
@@ -42,7 +42,7 @@ test('F/J/K/L do not activate player shortcuts even while the isolated iframe ha
 });
 
 test('PC playback returns focus to the game for F input; touch playback retains player focus', async ({ page }, info) => {
-  await page.goto('/'); await expect(page.locator('#restart')).toBeEnabled();
+  await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
   // Establish the player-focus precondition before its play action.
   await page.frameLocator('iframe').locator('#surface').click();
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('IFRAME');
@@ -81,7 +81,7 @@ test('editor playback returns PC focus to the recording pads and touch input sti
 });
 
 test('playback notifications do not steal focus from settings fields', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('#restart')).toBeEnabled();
+  await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
   await page.locator('#settings-toggle').click(); await page.locator('#bpm').focus();
   await page.evaluate(() => {
     const video = (window as any).testVideo; video.setState(3); video.playVideo();

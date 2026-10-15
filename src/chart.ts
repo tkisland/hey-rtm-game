@@ -1,3 +1,6 @@
+import { DEFAULT_SONG } from './songs';
+import type { Song } from './songs';
+
 interface NoteBase {
   id: number;
   /** Absolute time in seconds from the beginning of the video. */
@@ -22,11 +25,11 @@ export interface Chart {
   beatOrigin?: number;
   notes: ChartNote[];
 }
-export const VIDEO_ID = 'pJDfWpZ7CI4';
+export const VIDEO_ID = DEFAULT_SONG.videoId;
 export const TEST_DURATION = 30;
 
 /** A deterministic practice pattern, not a transcription of the song. */
-export function generateChart(bpm = 140, startTime = 12): Chart {
+export function generateChart(bpm = DEFAULT_SONG.bpm, startTime = DEFAULT_SONG.startTime, song: Song = DEFAULT_SONG): Chart {
   const beat = 60 / bpm;
   const notes: ChartNote[] = [];
   const lanes = [0, 2, 4, 1, 3, 5, 2, 0, 5, 3, 1, 4];
@@ -52,5 +55,5 @@ export function generateChart(bpm = 140, startTime = 12): Chart {
   }
   notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
   notes.forEach((note, i) => { note.id = i + 1; });
-  return { videoId: VIDEO_ID, title: 'SUPER MOMMY GIRLS', bpm, startTime, notes };
+  return { videoId: song.videoId, title: song.title, bpm, startTime, notes };
 }

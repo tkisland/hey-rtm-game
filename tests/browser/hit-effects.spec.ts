@@ -22,7 +22,7 @@ test.beforeEach(async ({ page }) => {
       return move.apply(this, args);
     };
   });
-  await page.goto('/?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
+  await page.goto('/game.html?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
 });
 
 for (const [kind, error] of [['PERFECT', 0], ['GREAT', 0.065], ['GOOD', 0.12]] as const) {

@@ -1,3 +1,6 @@
+import { DEFAULT_SONG, songStorageKey } from './songs';
+import type { Song } from './songs';
+
 export interface Settings { travel: number; offset: number; bpm: number; startTime: number; debug: boolean; sound: boolean; soundVolume: number; noteSize: number; inputOffset: number; soundDelay: number }
 export const DEFAULT_SETTINGS: Settings = { travel: 2, offset: 0, bpm: 140, startTime: 12, debug: false, sound: true, soundVolume: 70, noteSize: 100, inputOffset: 0, soundDelay: 0 };
 export const INPUT_OFFSET_LIMIT_MS = 300;
@@ -20,13 +23,27 @@ export function normalizeSettings(value: Partial<Settings>): Settings {
     soundDelay: numeric(value.soundDelay, 0, 0, 300, 5),
   };
 }
-export function loadSettings(): Settings {
+function readSettings(key: string): Partial<Settings> {
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-    return normalizeSettings(parsed && typeof parsed === 'object' ? parsed : {});
-  } catch { return { ...DEFAULT_SETTINGS }; }
+    const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch { return {}; }
 }
-export function saveSettings(settings: Settings): boolean {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); return true; }
+export function loadSettings(song: Song = DEFAULT_SONG): Settings {
+  const shared = normalizeSettings(readSettings(STORAGE_KEY));
+  if (song.id === DEFAULT_SONG.id) return shared;
+  const scoped = readSettings(songStorageKey('hey-rhythm-song-settings-v1', song));
+  return normalizeSettings({ ...shared, bpm: scoped.bpm ?? song.bpm, startTime: scoped.startTime ?? song.startTime, offset: scoped.offset ?? 0 });
+}
+export function saveSettings(settings: Settings, song: Song = DEFAULT_SONG): boolean {
+  try {
+    if (song.id === DEFAULT_SONG.id) localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    else {
+      const previous = loadSettings();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...settings, bpm: previous.bpm, startTime: previous.startTime, offset: previous.offset }));
+      localStorage.setItem(songStorageKey('hey-rhythm-song-settings-v1', song), JSON.stringify({ bpm: settings.bpm, startTime: settings.startTime, offset: settings.offset }));
+    }
+    return true;
+  }
   catch { return false; }
 }

@@ -57,7 +57,7 @@ test.beforeEach(async ({ page }) => { await page.route('https://www.youtube.com/
 
 test('reference taps replace the input correction, preserve other settings, and are shared with the editor', async ({ page }, info) => {
   await clockAdapter(page);
-  await page.goto('/');
+  await page.goto('/game.html');
   await page.evaluate(() => localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({ inputOffset: 140, soundDelay: 150, sound: false, soundVolume: 0, noteSize: 80 })));
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
   await page.evaluate(() => (window as any).testVideo.playVideo());
@@ -103,7 +103,7 @@ test('editor calibration stops recording and ignores duplicate and held keyboard
 });
 
 test('failed, cancelled and interrupted measurements never overwrite saved correction', async ({ page }) => {
-  await clockAdapter(page); await page.goto('/');
+  await clockAdapter(page); await page.goto('/game.html');
   await page.locator('#settings-toggle').click();
   await page.locator('#input-offset').fill('120'); await page.locator('#input-offset').dispatchEvent('input');
   await page.locator('#auto-calibrate').click();
@@ -128,7 +128,7 @@ test('failed, cancelled and interrupted measurements never overwrite saved corre
 });
 
 test('real audio reference uses its own clock and closes all nodes on cancel', async ({ page }) => {
-  await page.goto('/'); await page.locator('#settings-toggle').click();
+  await page.goto('/game.html'); await page.locator('#settings-toggle').click();
   await page.evaluate(() => {
     (window as any).realReferences = [];
     (window as any).cancelledReferences = 0;
@@ -147,7 +147,7 @@ test('real audio reference uses its own clock and closes all nodes on cancel', a
 });
 
 test('audio startup failure can retry and a cancelled resume cannot schedule late tones', async ({ page }) => {
-  await clockAdapter(page); await page.goto('/'); await page.locator('#settings-toggle').click();
+  await clockAdapter(page); await page.goto('/game.html'); await page.locator('#settings-toggle').click();
   await page.evaluate(() => {
     (window as any).originalResume = AudioContext.prototype.resume;
     AudioContext.prototype.resume = () => Promise.reject(new Error('test audio failure'));

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#11121e" />
+    <meta name="description" content="Hey!Mommy!の公式MVで遊ぶ、6レーンのファンメイド・リズムゲーム試作版。" />
+    <title>HEY! RHYTHM! — GAME</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="header">
+        <a class="wordmark" href="./" aria-label="HEY! RHYTHM! ホーム">HEY! <span>RHYTHM!</span><i>✦</i></a>
+        <div class="header-actions"><a href="./" class="editor-link">選曲</a><a id="open-editor" href="./editor.html" class="editor-link">譜面編集</a><button id="settings-toggle" class="icon-button" aria-controls="settings-panel" aria-expanded="false">⚙ <span>設定</span></button></div>
+      </header>
+      <main>
+        <section class="song-heading" aria-label="楽曲情報">
+          <div><p id="song-artist" class="eyebrow">OFFICIAL MV</p><h1 id="song-title">楽曲を読み込み中…</h1></div>
+          <span class="badge">PROTOTYPE</span>
+        </section>
+        <section class="video-section" aria-label="YouTube公式ミュージックビデオ">
+          <div class="video-frame"><div id="youtube-player"></div></div>
+        </section>
+        <div class="playback-info"><span class="status-dot" id="status-dot"></span><p id="player-status" role="status">YouTubeプレーヤーを読み込み中…</p><a href="https://www.youtube.com/watch?v=pJDfWpZ7CI4" target="_blank" rel="noopener">YouTube ↗</a></div>
+        <div id="player-error" class="error-box" role="alert" hidden></div>
+        <section id="settings-panel" class="panel settings-panel" aria-label="ゲーム設定" hidden>
+          <div class="panel-heading"><h2>プレイ設定</h2><button id="settings-close" class="text-button">閉じる ×</button></div>
+          <label class="chart-choice">使用する譜面<select id="chart-source"><option value="test">動作確認用の仮譜面</option><option value="custom">エディターで保存した譜面</option></select></label>
+          <label for="travel">ノーツ落下時間 <output id="travel-value">2.00秒</output></label>
+          <input id="travel" type="range" min="1" max="4" step="0.25" value="2" />
+          <p class="field-help">小さいほど速く落下します。</p>
+          <label for="note-size">ノーツの厚さ <output id="note-size-value">100%</output></label>
+          <input id="note-size" type="range" min="50" max="150" step="10" value="100" />
+          <p class="field-help">判定はノーツの中心で行います。薄い帯がGOOD（±160ms）、中間がGREAT（±100ms）、濃い帯がPERFECT（±50ms）。</p>
+          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。長い帯は終点まで保持、◇は同時押しです。</p>
+          <label for="offset">ノーツ全体の位置 <output id="offset-value">0 ms</output></label>
+          <input id="offset" type="range" min="-300" max="300" step="10" value="0" />
+          <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>
+          <button id="auto-calibrate" class="restart-button">基準音で自動調整</button>
+          <p class="field-help">一定間隔の音に合わせてタップし、入力補正の目安を測定します。ゲームと譜面エディターで共通です。</p>
+          <label for="input-offset">入力の遅れ補正 <output id="input-offset-value">0 ms</output></label>
+          <input id="input-offset" type="range" min="-300" max="300" step="5" value="0" />
+          <p class="field-help">＋は遅い入力を早い時刻として判定、−は早い入力を遅い時刻として判定します。例：いつも＋80ms遅いなら＋80msに。ボタンの位置を固定したまま、ノーツの到達時刻を補正します。</p>
+          <div class="settings-grid"><label for="bpm">仮BPM<input id="bpm" type="number" min="80" max="200" step="1" value="140" /></label><label for="start-time">譜面開始（秒）<input id="start-time" type="number" min="0" max="3600" step="0.1" value="12" /></label></div>
+          <p id="chart-settings-help" class="field-help">BPM・開始時刻は次のリスタートから反映されます。</p>
+          <label class="check-label"><input id="sound-toggle" type="checkbox" checked /> タップ音</label>
+          <p id="sound-status" class="field-help">入力時はシンバル風の「シャン」、長押し成立中は「ジリリ」という持続音を鳴らします。</p>
+          <label for="sound-volume">タップ音量 <output id="sound-volume-value">70%</output></label>
+          <input id="sound-volume" type="range" min="0" max="100" step="5" value="70" />
+          <label for="sound-delay">タップ音の追加遅延 <output id="sound-delay-value">0 ms</output></label>
+          <input id="sound-delay" type="range" min="0" max="300" step="5" value="0" />
+          <p class="field-help">入力からタップ音を鳴らすまでの追加待ち時間です。0msが最短です。端末やBluetoothの遅れは短縮できません。曲との位置ずれは「ノーツ全体の位置」、判定のずれは「入力の遅れ補正」で調整します。</p>
+          <div class="game-toolbar"><button id="sound-test" class="restart-button">タップ音を試す</button><button id="timing-reset" class="text-button">入力補正・音の遅延を0に戻す</button></div>
+          <label class="check-label"><input id="debug-toggle" type="checkbox" /> デバッグ表示</label>
+          <p id="storage-status" class="field-help">設定はこのブラウザに保存されます。</p>
+        </section>
+        <section class="game" aria-label="6レーンリズムゲーム">
+          <div class="stage"><div class="surface-field">
+            <canvas id="game-canvas" tabindex="0" aria-label="奥からV字のボタンへ流れる6レーンのノーツ。ボタン中心が判定位置。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
+            <div class="scoreboard">
+              <div><span class="metric-label">SCORE</span><strong id="score">000000</strong></div>
+              <div class="combo-metric"><span class="metric-label">COMBO</span><strong id="combo">0</strong><span id="max-combo">MAX 0</span></div>
+            </div>
+            <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LET’S PLAY!</span><strong>MVの再生ボタンで開始</strong><span>ノーツがボタンの中心に重なったらタップ</span></div>
+            <section class="controls-dock" aria-label="リズム操作エリア">
+              <p id="control-status">MVを再生してスタート</p>
+              <div class="lane-buttons" aria-label="レーン入力">
+                <div class="lane-control">
+                  <output class="lane-judgement" id="judgement-0" aria-label="レーン1の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+                  <button class="lane-button" data-lane="0" aria-label="レーン1 S ピンク"><span>S</span><small>1</small></button>
+                </div>
+                <div class="lane-control">
+                  <output class="lane-judgement" id="judgement-1" aria-label="レーン2の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+                  <button class="lane-button" data-lane="1" aria-label="レーン2 D 黄緑"><span>D</span><small>2</small></button>
+                </div>
+                <div class="lane-control">
+                  <output class="lane-judgement" id="judgement-2" aria-label="レーン3の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+                  <button class="lane-button" data-lane="2" aria-label="レーン3 F 白"><span>F</span><small>3</small></button>
+                </div>
+                <div class="lane-control">
+                  <output class="lane-judgement" id="judgement-3" aria-label="レーン4の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+                  <button class="lane-button" data-lane="3" aria-label="レーン4 J 赤"><span>J</span><small>4</small></button>
+                </div>
+                <div class="lane-control">
+                  <output class="lane-judgement" id="judgement-4" aria-label="レーン5の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+                  <button class="lane-button" data-lane="4" aria-label="レーン5 K 紫"><span>K</span><small>5</small></button>
+                </div>
+                <div class="lane-control">
+                  <output class="lane-judgement" id="judgement-5" aria-label="レーン6の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>
+                  <button class="lane-button" data-lane="5" aria-label="レーン6 L 黄色"><span>L</span><small>6</small></button>
+                </div>
+              </div>
+            </section>
+          </div></div>
+        </section>
+        <section id="result" class="panel result" aria-label="プレイ結果" tabindex="-1" hidden>
+          <p class="eyebrow">TEST PLAY COMPLETE</p><h2>おつかれさまでした！</h2>
+          <div class="result-headline"><strong id="result-score">0</strong><span>SCORE</span><span id="result-combo"></span></div>
+          <div id="result-counts" class="result-counts"></div><p id="result-accuracy" class="field-help"></p>
+          <p class="field-help">MVはそのまま再生されます。もう一度遊ぶならリスタート！</p>
+          <a href="./" class="restart-button">ほかの曲を選ぶ</a>
+        </section>
+        <div class="game-toolbar"><p id="chart-info">TEST CHART · 140 BPM · 12秒〜</p><button id="restart" class="restart-button" disabled>↻ 最初からやり直す</button></div>
+        <p id="game-notice" class="game-notice" role="status">仮譜面です。実際の楽曲のリズムとは一致しません。PCではゲーム部分をクリックしてからキー入力してください。</p>
+        <section id="debug-panel" class="panel debug-panel" aria-label="同期デバッグ" hidden><h2>SYNC MONITOR</h2><dl><dt>YouTube時刻</dt><dd id="debug-time">0.000 s</dd><dt>ゲーム時刻（補間＋オフセット）</dt><dd id="debug-game-time">0.000 s</dd><dt>補間状態</dt><dd id="debug-clock">停止</dd><dt>状態</dt><dd id="debug-state">LOADING</dd><dt>適用中BPM</dt><dd id="debug-bpm">140</dd><dt>オフセット</dt><dd id="debug-offset">0 ms</dd><dt>入力の遅れ補正</dt><dd id="debug-input-offset">0 ms</dd><dt>補正後の判定時刻</dt><dd id="debug-input-time">0.000 s</dd><dt>タップ音の追加遅延</dt><dd id="debug-sound-delay">0 ms</dd><dt>FPS</dt><dd id="debug-fps">—</dd><dt>直近の入力誤差</dt><dd id="debug-error">—</dd><dt>最後の判定</dt><dd id="debug-judgement">—</dd></dl></section>
+        <footer><span>FANMADE · UNOFFICIAL</span><p>Hey!Mommy! 非公式ファンメイド試作版<br />音声・映像はYouTube公式プレーヤーで再生します。</p></footer>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

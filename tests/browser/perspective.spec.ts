@@ -7,7 +7,7 @@ const chart = {
 };
 test.beforeEach(async ({ page }) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
-  await page.goto('/');
+  await page.goto('/game.html');
   await expect(page.locator('#restart')).toBeEnabled();
 });
 
@@ -17,7 +17,7 @@ test('all six real button centers are the rendered PERFECT position, including i
       localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify(chart));
       localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({ inputOffset: offset, sound: false }));
     }, { chart, offset });
-    await page.goto('/?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
+    await page.goto('/game.html?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await page.evaluate(offset => {
       const video = (window as any).testVideo;
