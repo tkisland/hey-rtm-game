@@ -1,6 +1,7 @@
 import './style.css';
 import { LANE_COLORS } from './colors';
 import { bindDockLayout } from './layout';
+import { bindTargets } from './field-geometry';
 import { TapSound } from './sound';
 import { createCalibrationDialog } from './calibration-dialog';
 import { compensateInput } from './timing';
@@ -33,6 +34,7 @@ const judgementTimes = Array<number>(6).fill(-Infinity);
 const controlStatus = element('control-status');
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
 buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
+const unbindTargets = bindTargets(element<HTMLCanvasElement>('game-canvas'), buttons.map(button => button.parentElement!));
 const sound = new TapSound(() => { element('sound-status').textContent = 'タップ音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'; });
 sound.enabled = settings.sound;
 sound.volume = settings.soundVolume;
@@ -326,7 +328,9 @@ function frame(now: number): void {
     stageHint.querySelector('span:last-child')!.textContent = '長い帯は終点まで保持 · ◇は同時押し';
   }
   judgements.forEach((feedback, lane) => {
-    if (engine.notes.some(note => note.lane === lane && note.state === 'holding')) {
+    const holding = engine.notes.some(note => note.lane === lane && note.state === 'holding');
+    buttons[lane].classList.toggle('holding', holding);
+    if (holding) {
       feedback.hidden = false;
       if (feedback.querySelector('.judgement-label')!.textContent !== 'HOLD') feedback.querySelector('.judgement-label')!.textContent = 'HOLD';
     } else if (now - judgementTimes[lane] > 800) feedback.hidden = true;
@@ -360,6 +364,6 @@ frameId = requestAnimationFrame(frame);
 function dispose(): void {
   disposed = true;
   cancelAnimationFrame(frameId);
-  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); unbindLayout();
+  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); unbindTargets(); unbindLayout();
 }
 if (import.meta.hot) import.meta.hot.dispose(dispose);

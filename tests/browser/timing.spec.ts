@@ -73,7 +73,11 @@ test('queued audio is cancelled on OFF, zero volume, changed delay and restart',
   await range(page, 'sound-delay', '300'); await page.locator('#sound-test').click(); await page.locator('#sound-toggle').uncheck(); await expect.poll(() => stops(page)).toBe(1);
   await page.locator('#sound-toggle').check(); await page.locator('#sound-test').click(); await range(page, 'sound-volume', '0'); await expect.poll(() => stops(page)).toBe(2);
   await range(page, 'sound-volume', '70'); await page.locator('#sound-test').click(); await range(page, 'sound-delay', '250'); await expect.poll(() => stops(page)).toBe(3);
-  await page.locator('#sound-test').click(); await page.locator('#settings-close').click(); await page.locator('#restart').click(); await expect.poll(() => stops(page)).toBe(4);
+  // Restart within the queued 250ms; scrolling to the relocated button can outlast the sound.
+  await page.evaluate(() => {
+    for (const id of ['sound-test', 'settings-close', 'restart']) document.getElementById(id)!.click();
+  });
+  await expect.poll(() => stops(page)).toBe(4);
 });
 
 test('paused or seeked playback cancels future clicks and settings still work when storage fails', async ({ page }) => {

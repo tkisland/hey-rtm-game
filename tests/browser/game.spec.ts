@@ -163,8 +163,11 @@ test('mobile dock remains reachable on small screens, resize and scroll', async 
   }
   await page.setViewportSize({ width: 390, height: 600 });
   await expect.poll(() => page.locator('#game-canvas').evaluate(canvas => {
-    const line = canvas.getBoundingClientRect().bottom - 25;
-    return line < document.querySelector('.controls-dock')!.getBoundingClientRect().top;
+    const field = canvas.getBoundingClientRect();
+    return [...document.querySelectorAll('.lane-button')].every(button => {
+      const r = button.getBoundingClientRect();
+      return r.left >= field.left && r.right <= field.right && r.top >= field.top && r.bottom <= field.bottom;
+    });
   })).toBe(true);
   await page.screenshot({ path: info.outputPath('mobile-controls.png') });
 });
@@ -237,7 +240,7 @@ test('mobile browser chrome height changes do not resize the runway or switch co
     const rect = canvas.getBoundingClientRect();
     return { top: rect.top, height: rect.height, line: rect.bottom - 25 };
   });
-  await expect.poll(async () => (await geometry()).height).toBe(64);
+  await expect.poll(async () => (await geometry()).height).toBeGreaterThanOrEqual(224);
   const before = await geometry();
   for (const height of [700, 650, 600, 700, 844]) {
     await page.setViewportSize({ width: 390, height });

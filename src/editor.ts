@@ -11,6 +11,7 @@ import { compensateInput } from './timing';
 import { VideoClock } from './sync';
 import { Timeline } from './timeline';
 import { Renderer } from './renderer';
+import { bindTargets } from './field-geometry';
 import { EditorPreview, previewStart } from './editor-preview';
 import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
@@ -45,6 +46,7 @@ el('preview-volume-value').textContent = `${settings.soundVolume}%`;
 let previewing = false, previewEndMessage = '';
 let previewTarget: { time: number; includeExact: boolean } | null = null;
 const previewLanes = [...el('preview-lanes').querySelectorAll<HTMLElement>('[data-lane]')];
+const unbindPreviewTargets = bindTargets(el<HTMLCanvasElement>('preview-canvas'), previewLanes);
 const previewFeedback = Array<number>(6).fill(-Infinity), previewLabels = Array<string>(6).fill('—');
 previewLanes.forEach((lane, i) => lane.style.setProperty('--lane', LANE_COLORS[i]));
 function clearPreviewEffects(): void {
@@ -410,4 +412,4 @@ function frame(now: number): void {
   frameId = requestAnimationFrame(frame);
 }
 frameId = requestAnimationFrame(frame);
-if (import.meta.hot) import.meta.hot.dispose(() => { disposed = true; cancelAnimationFrame(frameId); clearTimeout(saveTimer); save(); listeners.abort(); unbindInput(); timeline.destroy(); previewRenderer.destroy(); previewSound.destroy(); sound.destroy(); calibration.destroy(); disposePlayer(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { disposed = true; cancelAnimationFrame(frameId); clearTimeout(saveTimer); save(); listeners.abort(); unbindInput(); timeline.destroy(); previewRenderer.destroy(); unbindPreviewTargets(); previewSound.destroy(); sound.destroy(); calibration.destroy(); disposePlayer(); });
