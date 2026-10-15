@@ -8,6 +8,14 @@ export const MAX_TIME = 7200;
 export const MIN_HOLD = 0.03;
 const MAX_JSON_BYTES = 1024 * 1024;
 export type Division = 1 | 2 | 4;
+export interface TimeRange { start: number; end: number }
+export interface NoteClipboard extends TimeRange { notes: ChartNote[] }
+export function inRange(note: ChartNote, range: TimeRange): boolean {
+  return note.time >= range.start - 1e-8 && note.time < range.end - 1e-8;
+}
+export function validateRange(range: TimeRange): void {
+  if (!finite(range.start, 0, MAX_TIME) || !finite(range.end, 0, MAX_TIME) || range.end <= range.start) throw new Error('範囲の終了は開始より後の0〜7200秒で指定してください。');
+}
 export const copyChart = (chart: Chart): Chart => ({ ...chart, notes: chart.notes.map(note => ({ ...note })) });
 export const emptyChart = (): Chart => ({ videoId: VIDEO_ID, title: 'SUPER MOMMY GIRLS', bpm: 140, startTime: 0, beatOrigin: 12, notes: [] });
 const finite = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
@@ -125,6 +133,44 @@ export class EditorModel {
     return this.commit(chart);
   }
   remove(): boolean { return this.commit({ ...copyChart(this.chart), notes: this.chart.notes.filter(note => note.id !== this.selected) }); }
+  copyRange(range: TimeRange): NoteClipboard {
+    validateRange(range);
+    const notes = this.chart.notes.filter(note => inRange(note, range)).map(note => ({ ...note }));
+    if (!notes.length) throw new Error('選択範囲にノーツがありません。');
+    return { ...range, notes };
+  }
+  removeRange(range: TimeRange): number {
+    validateRange(range);
+    const notes = this.chart.notes.filter(note => !inRange(note, range));
+    const removed = this.chart.notes.length - notes.length;
+    if (removed) this.commit({ ...copyChart(this.chart), notes });
+    return removed;
+  }
+  pasteRange(clipboard: NoteClipboard, at: number): number {
+    validateRange(clipboard);
+    if (!finite(at, 0, MAX_TIME) || at + clipboard.end - clipboard.start > MAX_TIME + 1e-8) throw new Error('貼り付けた範囲が0〜7200秒に収まる位置を指定してください。');
+    if (!clipboard.notes.length) throw new Error('先に範囲をコピーしてください。');
+    if (this.chart.notes.length + clipboard.notes.length > MAX_NOTES) throw new Error(`ノーツは最大${MAX_NOTES}個です。`);
+    const firstId = Math.max(0, ...this.chart.notes.map(note => note.id)) + 1;
+    if (!Number.isSafeInteger(firstId + clipboard.notes.length - 1)) throw new Error('ノーツIDの上限に達しました。');
+    const delta = at - clipboard.start;
+    const pasted = clipboard.notes.map((original, i) => {
+      const note = { ...original, id: firstId + i, time: Math.max(0, original.time + delta) };
+      if (note.type === 'hold') note.endTime += delta;
+      if (note.time > MAX_TIME + 1e-8 || (note.type === 'hold' && note.endTime > MAX_TIME + 1e-8)) throw new Error('長押しの終点も含め、7200秒以内に貼り付けてください。');
+      note.time = Math.min(MAX_TIME, note.time); if (note.type === 'hold') note.endTime = Math.min(MAX_TIME, note.endTime);
+      if (note.sourceTime !== undefined) note.sourceTime += delta;
+      if (note.type === 'hold' && note.sourceEndTime !== undefined) note.sourceEndTime += delta;
+      // The playable times stay intact when provenance would fall outside the document.
+      if ((note.sourceTime !== undefined && !finite(note.sourceTime, 0, MAX_TIME)) ||
+        (note.type === 'hold' && note.sourceEndTime !== undefined && !finite(note.sourceEndTime, 0, MAX_TIME))) {
+        delete note.sourceTime; if (note.type === 'hold') delete note.sourceEndTime;
+      }
+      return note;
+    });
+    this.commit({ ...copyChart(this.chart), notes: [...this.chart.notes, ...pasted] }); this.selected = null;
+    return pasted.length;
+  }
   quantize(division: Division, selectedOnly: boolean, fromSource: boolean): boolean {
     const chart = copyChart(this.chart);
     chart.notes.forEach(note => {

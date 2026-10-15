@@ -1,16 +1,17 @@
 import type { Chart, ChartNote } from './chart';
 import { LANE_COLORS } from './colors';
 import { chordGroups, noteThickness } from './note-display';
-import { MAX_TIME, MIN_HOLD, quantizeTime } from './editor-model';
-import type { Division } from './editor-model';
+import { inRange, MAX_TIME, MIN_HOLD, quantizeTime } from './editor-model';
+import type { Division, TimeRange } from './editor-model';
 
 const LEFT = 42, TOP = 30;
-export interface TimelineState { chart: Chart; selected: number | null; noteSize: number; start: number; span: number; division: Division; snap: boolean; time: number }
+export interface TimelineState { chart: Chart; selected: number | null; range: TimeRange | null; rangeMode: boolean; noteSize: number; start: number; span: number; division: Division; snap: boolean; time: number }
 export class Timeline {
   private ctx: CanvasRenderingContext2D;
   private width = 0;
   private height = 0;
   private drag: { pointer: number; id: number; x: number; y: number; moved: boolean; mode: 'move' | 'end'; preview: ChartNote } | null = null;
+  private rangeDrag: { pointer: number; start: number; end: number } | null = null;
   private state!: TimelineState;
   private cachedChart: Chart | null = null;
   private chords: ChartNote[][] = [];
@@ -18,19 +19,25 @@ export class Timeline {
   private gaps = new Map<number, number>();
   private listeners = new AbortController();
   private observer: ResizeObserver;
-  get dragging(): boolean { return this.drag !== null; }
-  constructor(private canvas: HTMLCanvasElement, callbacks: { select(id: number | null): void; move(id: number, time: number, lane: number): void; resize(id: number, endTime: number): void; seek(time: number): void }) {
+  get dragging(): boolean { return this.drag !== null || this.rangeDrag !== null; }
+  constructor(private canvas: HTMLCanvasElement, callbacks: { select(id: number | null): void; range(range: TimeRange): void; move(id: number, time: number, lane: number): void; resize(id: number, endTime: number): void; seek(time: number): void }) {
     const context = canvas.getContext('2d'); if (!context) throw new Error('Canvasを使用できません。');
     this.ctx = context;
     this.observer = new ResizeObserver(() => this.resize()); this.observer.observe(canvas);
     this.resize();
     const signal = this.listeners.signal;
     canvas.addEventListener('pointerdown', event => {
-      if (!this.state || this.drag || (event.pointerType === 'mouse' && event.button !== 0)) return;
+      if (!this.state || this.dragging || (event.pointerType === 'mouse' && event.button !== 0)) return;
       event.preventDefault();
       if (event.pointerType === 'mouse') canvas.focus({ preventScroll: true });
       const { x, y } = this.position(event);
       if (y < TOP && x >= LEFT) { callbacks.seek(this.timeAt(x)); return; }
+      if (this.state.rangeMode || event.shiftKey) {
+        if (x < LEFT) return;
+        const time = this.rangeTime(x);
+        this.rangeDrag = { pointer: event.pointerId, start: time, end: time };
+        canvas.setPointerCapture(event.pointerId); return;
+      }
       const lane = this.laneAt(y);
       const distance = (note: ChartNote) => Math.min(Math.abs(this.xAt(note.time) - x), note.type === 'hold' ? Math.abs(this.xAt(note.endTime) - x) : Infinity);
       const matches = this.state.chart.notes.filter(note => note.lane === lane && (distance(note) <= 10 || (note.type === 'hold' && x >= this.xAt(note.time) && x <= this.xAt(note.endTime))));
@@ -42,6 +49,7 @@ export class Timeline {
       }
     }, { signal });
     canvas.addEventListener('pointermove', event => {
+      if (this.rangeDrag?.pointer === event.pointerId) { this.rangeDrag.end = this.rangeTime(this.position(event).x); return; }
       const drag = this.drag; if (!drag || drag.pointer !== event.pointerId) return;
       const { x, y } = this.position(event);
       if (Math.hypot(x - drag.x, y - drag.y) < 3 && !drag.moved) return;
@@ -61,6 +69,11 @@ export class Timeline {
       drag.preview.lane = this.laneAt(y);
     }, { signal });
     canvas.addEventListener('pointerup', event => {
+      if (this.rangeDrag?.pointer === event.pointerId) {
+        const { start } = this.rangeDrag, end = this.rangeTime(this.position(event).x); this.rangeDrag = null;
+        if (start !== end) callbacks.range({ start: Math.min(start, end), end: Math.max(start, end) });
+        return;
+      }
       const drag = this.drag; if (!drag || drag.pointer !== event.pointerId) return;
       this.drag = null;
       if (drag.moved) {
@@ -68,7 +81,7 @@ export class Timeline {
         else callbacks.move(drag.id, drag.preview.time, drag.preview.lane);
       }
     }, { signal });
-    const cancel = () => { this.drag = null; };
+    const cancel = () => { this.drag = null; this.rangeDrag = null; };
     canvas.addEventListener('pointercancel', cancel, { signal });
     canvas.addEventListener('lostpointercapture', cancel, { signal });
   }
@@ -81,6 +94,10 @@ export class Timeline {
   private position(event: PointerEvent): { x: number; y: number } { const rect = this.canvas.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top }; }
   private xAt(time: number): number { return LEFT + (time - this.state.start) / this.state.span * (this.width - LEFT); }
   private timeAt(x: number): number { return Math.min(MAX_TIME, Math.max(0, this.state.start + (x - LEFT) / (this.width - LEFT) * this.state.span)); }
+  private rangeTime(x: number): number {
+    const time = this.timeAt(x);
+    return this.state.snap ? quantizeTime(time, this.state.chart.bpm, this.state.chart.beatOrigin ?? 0, this.state.division) : Math.round(time * 1000) / 1000;
+  }
   private laneAt(y: number): number { return Math.max(0, Math.min(5, Math.floor((y - TOP) / ((this.height - TOP) / 6)))); }
   draw(state: TimelineState): void {
     this.state = state;
@@ -111,6 +128,12 @@ export class Timeline {
     for (let time = Math.ceil(state.start / labelStep) * labelStep; time <= state.start + state.span; time += labelStep) {
       ctx.fillStyle = '#aaaac1'; ctx.fillText(`${time.toFixed(1)}s`, this.xAt(time) + 3, 19);
     }
+    const range = this.rangeDrag ? { start: Math.min(this.rangeDrag.start, this.rangeDrag.end), end: Math.max(this.rangeDrag.start, this.rangeDrag.end) } : state.range;
+    if (range) {
+      const left = this.xAt(range.start), width = this.xAt(range.end) - left;
+      ctx.fillStyle = '#bda7f72b'; ctx.fillRect(left, TOP, width, this.height - TOP);
+      ctx.strokeStyle = '#cbb9ff'; ctx.strokeRect(left, TOP, width, this.height - TOP);
+    }
     for (const group of this.chords) {
       const x = this.xAt(group[0].time);
       ctx.strokeStyle = '#ffe77999'; ctx.setLineDash([3, 3]); ctx.beginPath();
@@ -123,8 +146,9 @@ export class Timeline {
       if (endX < LEFT - 8 || x > this.width + 8) return;
       const spacing = Math.min(step, this.gaps.get(note.id) ?? Infinity) / state.span * (this.width - LEFT);
       const width = noteThickness(state.noteSize, spacing, 12), color = LANE_COLORS[note.lane];
-      ctx.strokeStyle = ghost ? `${color}60` : note.id === state.selected ? '#fff' : color;
-      ctx.fillStyle = color; ctx.lineWidth = note.id === state.selected && !ghost ? 2 : 1;
+      const selected = note.id === state.selected || Boolean(range && inRange(note, range));
+      ctx.strokeStyle = ghost ? `${color}60` : selected ? '#fff' : color;
+      ctx.fillStyle = color; ctx.lineWidth = selected && !ghost ? 2 : 1;
       if (note.type === 'hold') {
         const left = Math.max(LEFT - 8, x), right = Math.min(this.width + 8, endX);
         if (!ghost) { ctx.fillStyle = `${color}40`; ctx.fillRect(left, y - 7, right - left, 14); }

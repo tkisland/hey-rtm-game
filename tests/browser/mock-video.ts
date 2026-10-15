@@ -17,6 +17,12 @@ window.YT = { Player: class {
   getPlayerState() { return this.state; }
   getDuration() { return 220; }
   getPlaybackRate() { return this.rate; }
+  getAvailablePlaybackRates() { return [0.5, 0.75, 1]; }
+  setPlaybackRate(rate) {
+    if (!this.getAvailablePlaybackRates().includes(rate)) return;
+    this.time = this.getCurrentTime(); this.anchor = performance.now(); this.rate = rate;
+    this.options.events.onPlaybackRateChange?.({target:this,data:rate});
+  }
   seekTo(t) { this.time = t; this.anchor = performance.now(); }
   setState(state) { this.time = this.getCurrentTime(); this.anchor = performance.now(); this.state = state; this.options.events.onStateChange({target:this,data:state}); }
   playVideo() { this.setState(1); }

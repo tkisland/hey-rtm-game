@@ -83,7 +83,10 @@ test('drags a timeline note across lanes as one undoable edit, with optional sna
   await page.locator('#undo').click(); data = await saved(page);
   expect(data.notes.find((n: any) => n.id === 1)).toMatchObject({ time: 10.149, lane: 0 });
   await page.locator('#drag-snap').check();
-  await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + (box.width - 42) * 0.15, y, { steps: 4 }); await page.mouse.up();
+  await page.locator('#timeline').scrollIntoViewIfNeeded();
+  const current = (await page.locator('#timeline').boundingBox())!;
+  const startX = current.x + 42 + 0.149 / 2 * (current.width - 42), startY = current.y + 30 + (current.height - 30) / 12;
+  await page.mouse.move(startX, startY); await page.mouse.down(); await page.mouse.move(startX + (current.width - 42) * 0.15, startY, { steps: 4 }); await page.mouse.up();
   await expect(page.locator('#note-time')).toHaveValue('10.445');
 });
 

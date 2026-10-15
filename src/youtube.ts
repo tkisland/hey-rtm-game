@@ -4,6 +4,8 @@ export interface YouTubePlayer {
   getPlayerState(): number;
   getDuration(): number;
   getPlaybackRate(): number;
+  getAvailablePlaybackRates(): number[];
+  setPlaybackRate(rate: number): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   playVideo(): void;
   pauseVideo(): void;
@@ -15,7 +17,7 @@ interface PlayerOptions {
   width: string;
   height: string;
   playerVars: Record<string, string | number>;
-  events: { onReady(event: PlayerEvent): void; onStateChange(event: PlayerEvent): void; onError(event: PlayerEvent): void };
+  events: { onReady(event: PlayerEvent): void; onStateChange(event: PlayerEvent): void; onError(event: PlayerEvent): void; onPlaybackRateChange(event: PlayerEvent): void; onApiChange(): void };
 }
 declare global {
   interface Window {
@@ -35,6 +37,7 @@ export function createYouTubePlayer(callbacks: {
   keyboardTarget?: HTMLElement;
   ready(player: YouTubePlayer): void;
   state(state: number): void;
+  rate?(rate: number): void;
   error(message: string): void;
 }): () => void {
   let disposed = false;
@@ -76,6 +79,8 @@ export function createYouTubePlayer(callbacks: {
           callbacks.state(event.data);
           if (event.data === 1) returnKeyboardFocus();
         },
+        onPlaybackRateChange: event => { if (!disposed) callbacks.rate?.(event.data); },
+        onApiChange: () => { if (!disposed && player) callbacks.rate?.(player.getPlaybackRate()); },
         onError: event => {
           cancelAnimationFrame(focusFrame);
           clearTimer();

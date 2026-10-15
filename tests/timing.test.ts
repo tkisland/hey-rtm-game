@@ -43,3 +43,9 @@ it('defaults older preferences to zero and validates timing ranges and steps', (
   expect(normalizeSettings({ inputOffset: 83, soundDelay: 102 })).toMatchObject({ inputOffset: 85, soundDelay: 100 });
   expect(normalizeSettings({ inputOffset: NaN, soundDelay: Infinity })).toEqual(DEFAULT_SETTINGS);
 });
+it('scales real input latency into video time when recording at slower playback rates', () => {
+  expect(compensateInput(12, 100, 0.5)).toBeCloseTo(11.95);
+  expect(compensateInput(12, 100, 0.75)).toBeCloseTo(11.925);
+  expect(compensateInput(12, -100, 0.5)).toBeCloseTo(12.05);
+  expect(compensateInput(12, 100)).toBeCloseTo(11.9);
+});
