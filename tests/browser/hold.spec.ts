@@ -74,8 +74,10 @@ test('two touch holds are judged independently when one finger lifts early', asy
   await seekPlay(page, 12); await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: touches });
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD'); await expect(page.locator('#judgement-3 .judgement-label')).toHaveText('HOLD');
   await expect(page.locator('#score')).toHaveText('000000');
+  await expect(page.locator('.lane-button.holding')).toHaveCount(2);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [touches[0]] });
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS'); await expect(page.locator('.lane-button.pressed')).toHaveCount(1);
+  await expect(page.locator('.lane-button.holding')).toHaveCount(1);
   await expect(page.locator('#judgement-3 .judgement-label')).toHaveText(/PERFECT|GREAT/); await expect(page.locator('#combo')).toHaveText('1');
   const score = Number(await page.locator('#score').textContent()); expect(score).toBeGreaterThanOrEqual(700); expect(score).toBeLessThanOrEqual(1000);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await expect(page.locator('#score')).toHaveText(String(score).padStart(6, '0'));
