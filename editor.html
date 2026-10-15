@@ -14,7 +14,10 @@
       <div class="song-heading"><div><p class="eyebrow">SUPER MOMMY GIRLS / CHART EDITOR</p><h1>ノーツ・タイミングエディター</h1></div></div>
       <p class="field-help">① MVに合わせて打ち込む → ② 拍にそろえる → ③ ノーツを微調整 → ④ 譜面の再生確認・ゲームで試す</p>
       <div class="editor-top">
-        <section aria-label="公式MV"><div class="video-frame"><div id="youtube-player"></div></div><div class="playback-info"><p id="player-status" role="status">YouTubeプレーヤーを読み込み中…</p><a href="https://www.youtube.com/watch?v=pJDfWpZ7CI4" target="_blank" rel="noopener">YouTube ↗</a></div><div id="player-error" class="error-box" role="alert" hidden></div></section>
+        <section aria-label="公式MV"><div class="video-frame"><div id="youtube-player"></div></div><div class="playback-info"><p id="player-status" role="status">YouTubeプレーヤーを読み込み中…</p><a href="https://www.youtube.com/watch?v=pJDfWpZ7CI4" target="_blank" rel="noopener">YouTube ↗</a></div><div id="player-error" class="error-box" role="alert" hidden></div>
+          <label class="editor-rate">エディターの再生速度<select id="editor-playback-rate" disabled><option value="0.5">0.5倍</option><option value="0.75">0.75倍</option><option value="1" selected>1倍（通常）</option></select></label>
+          <p id="rate-status" class="field-help" role="status">低速で打ち込み・再生確認できます。譜面は原曲の時刻で保存し、ゲームは1倍で再生します。</p>
+        </section>
         <section class="panel" aria-label="拍とクオンタイズ">
           <h2>拍の設定</h2>
           <div class="editor-fields"><label>BPM<input id="editor-bpm" type="number" min="40" max="300" step="0.01" value="140" /></label><label>拍の基準（動画の秒数）<input id="beat-origin" type="number" min="0" max="7200" step="0.001" value="12" /></label></div>
@@ -76,8 +79,18 @@
         <div class="editor-fields timeline-fields"><label>表示開始（秒）<input id="view-start" type="number" min="0" max="7200" step="0.1" value="0" /></label><label>表示幅<select id="view-span"><option value="2">2秒</option><option value="4" selected>4秒</option><option value="8">8秒</option><option value="16">16秒</option><option value="32">32秒</option></select></label><label class="editor-check"><input id="drag-snap" type="checkbox" checked /> ドラッグを拍にそろえる</label></div>
         <div class="editor-actions"><button id="view-prev" class="edit-button">← 前の範囲</button><button id="view-now" class="edit-button">再生位置を表示</button><button id="view-next" class="edit-button">次の範囲 →</button></div>
         <label class="editor-check">ノーツ幅 <output id="editor-note-size-value">100%</output></label><input id="editor-note-size" aria-label="ノーツ幅" type="range" min="50" max="150" step="10" value="100" />
-        <canvas id="timeline" tabindex="0" aria-label="6レーンの編集タイムライン。ノーツを選択してドラッグで時刻とレーンを変更。上の時間目盛りを押すとシーク。"></canvas>
+        <div class="editor-fields"><label>タイムラインの操作<select id="timeline-mode"><option value="notes">ノーツを移動</option><option value="range">範囲を選択</option></select></label></div>
+        <p id="range-status" class="field-help" role="status">「範囲を選択」に切り替えて横にドラッグ、または下の範囲編集で秒数を指定します。</p>
+        <canvas id="timeline" tabindex="0" aria-label="6レーンの編集タイムライン。ノーツを選択してドラッグで時刻とレーンを変更。範囲選択モードでは横にドラッグして時間範囲を選択。上の時間目盛りを押すとシーク。"></canvas>
+        <details id="range-panel" class="range-tools"><summary>範囲のコピー・貼り付け・削除</summary>
+          <div class="editor-fields"><label>範囲の開始（秒）<input id="range-start" type="number" min="0" max="7200" step="0.001" value="0" /></label><label>範囲の終了（秒）<input id="range-end" type="number" min="0" max="7200" step="0.001" value="4" /></label></div>
+          <div class="editor-actions"><button id="select-range" class="edit-button">この範囲を選択</button><button id="select-view-range" class="edit-button">表示範囲を選択</button><button id="clear-range" class="edit-button" disabled>範囲選択を解除</button></div>
+          <div class="editor-actions"><button id="copy-range" class="edit-button" disabled>範囲をコピー</button><button id="delete-range" class="edit-button" disabled>範囲を削除</button></div>
+          <div class="editor-fields"><label>貼り付け位置（秒）<input id="paste-time" type="number" min="0" max="7200" step="0.001" value="0" /></label><button id="paste-now" class="edit-button" disabled>再生位置を使う</button><button id="paste-range" class="edit-button" disabled>ここに貼り付け</button></div>
+          <p id="clipboard-status" class="field-help" role="status">コピーはこのページ内で保持します。全6レーンで、始点が開始以上・終了未満のノーツが対象です。長押しは終点まで、休符・同時押しもそのままコピーします。</p>
+        </details>
         <p class="field-help">色付きノーツをドラッグして移動。薄い輪郭は元の入力位置、縦線は拍です。上の秒数目盛りを押すとMVをシークします。長押しは帯の右端をドラッグすると終点を変更できます。◇と連結線は同時押し。細かい調整は下の数値欄でもできます。</p>
+        <p class="field-help">PCではShift＋ドラッグでも範囲選択できます。タイムラインにフォーカスした状態でCtrl / ⌘＋Cでコピー、Ctrl / ⌘＋Vで指定位置へ貼り付け、Deleteで範囲削除、Escで選択解除。コピー・貼り付けのボタンはスマホでも使えます。</p>
         <div id="selected-empty" class="field-help">タイムラインか一覧でノーツを選択してください。</div>
         <div id="selected-panel" hidden>
           <div class="editor-fields"><label>選択ノーツの時刻（秒）<input id="note-time" type="number" min="0" max="7200" step="0.001" /></label><label>レーン<select id="note-lane"><option value="0">1 · S · ピンク</option><option value="1">2 · D · 黄緑</option><option value="2">3 · F · 白</option><option value="3">4 · J · 赤</option><option value="4">5 · K · 紫</option><option value="5">6 · L · 黄色</option></select></label></div>

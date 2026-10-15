@@ -7,6 +7,9 @@
 .editor-fields { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:12px 0; }
 .editor-fields > label { flex:1; min-width:140px; font-size:12px; }
 .editor-fields input[type="number"] { margin-top:6px; }
+.editor-rate { display:block; max-width:260px; margin-top:12px; font-size:12px; }
+.range-tools { border:1px solid #bda7f744; border-radius:8px; padding:12px; margin-top:12px; background:#bda7f708; }
+.range-tools .editor-fields { margin:8px 0; }
 .editor-page select { font:inherit; display:block; width:100%; padding:9px; margin-top:6px; border:1px solid #ffffff26; border-radius:5px; background:#10111c; color:#fff; }
 .edit-button { display:inline-block; font:inherit; font-size:12px; text-decoration:none; border:1px solid #ffffff26; background:#ffffff09; color:#ddddef; padding:10px 12px; border-radius:6px; cursor:pointer; min-height:40px; }
 .edit-button.primary { color:#ffc4d5; border-color:#ff739c66; background:#ff739c18; }

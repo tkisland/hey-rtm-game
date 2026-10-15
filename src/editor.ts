@@ -1,8 +1,8 @@
 import './style.css';
 import './editor.css';
 import { LANE_COLORS } from './colors';
-import { CUSTOM_CHART_KEY, EDITOR_KEY, EditorModel, MAX_TIME, MIN_HOLD, emptyChart, loadChart, parseChart, storeChart } from './editor-model';
-import type { Division } from './editor-model';
+import { CUSTOM_CHART_KEY, EDITOR_KEY, EditorModel, MAX_TIME, MIN_HOLD, emptyChart, inRange, loadChart, parseChart, storeChart, validateRange } from './editor-model';
+import type { Division, NoteClipboard, TimeRange } from './editor-model';
 import { bindInput } from './input';
 import { loadSettings, normalizeSettings, saveSettings } from './settings';
 import { TapSound } from './sound';
@@ -35,6 +35,8 @@ let viewStart = Math.max(0, model.chart.startTime - 1), viewSpan = 4, saveTimer 
 const captures = new Map<number, number>();
 let pressed = new Set<number>();
 let seekTarget: number | null = null, seekDeadline = 0;
+let selectedRange: TimeRange | null = null, clipboard: NoteClipboard | null = null;
+let playbackRate = 1, rateRequest: { rate: number; deadline: number } | null = null;
 const division = (): Division => Number(select('division').value) as Division;
 const message = (text: string) => { el('editor-notice').textContent = text; };
 const preview = new EditorPreview(); preview.sync(model.chart);
@@ -83,11 +85,53 @@ function playPreview(position?: number): void {
   refreshPreviewControls();
 }
 const timeline = new Timeline(el<HTMLCanvasElement>('timeline'), {
-  select: id => { model.selected = id; refreshSelection(); refreshList(); },
+  select: id => selectNote(id),
+  range: range => chooseRange(range),
   move: (id, seconds, lane) => edit(() => model.move(id, seconds, lane)),
   resize: (id, end) => edit(() => model.resize(id, end)),
   seek: seconds => seek(seconds),
 });
+function refreshRange(): void {
+  const count = selectedRange ? model.chart.notes.filter(note => inRange(note, selectedRange!)).length : 0;
+  el('range-status').textContent = selectedRange ? `${selectedRange.start.toFixed(3)}〜${selectedRange.end.toFixed(3)}秒 · ${count}個のノーツを選択` : '「範囲を選択」に切り替えて横にドラッグ、または下の範囲編集で秒数を指定します。';
+  for (const id of ['copy-range', 'delete-range']) el<HTMLButtonElement>(id).disabled = count === 0;
+  el<HTMLButtonElement>('clear-range').disabled = selectedRange === null;
+  el<HTMLButtonElement>('paste-range').disabled = clipboard === null;
+}
+function selectNote(id: number | null): void {
+  selectedRange = null; model.selected = id; refreshRange(); refreshSelection(); refreshList();
+}
+function chooseRange(range: TimeRange | null): void {
+  try {
+    if (range) validateRange(range);
+    selectedRange = range; model.selected = null;
+    if (range) {
+      el<HTMLDetailsElement>('range-panel').open = true;
+      input('range-start').value = range.start.toFixed(3); input('range-end').value = range.end.toFixed(3);
+      select('timeline-mode').value = 'range'; input('follow').checked = false;
+    }
+    refreshRange(); refreshSelection(); refreshList();
+  } catch (error) { message(error instanceof Error ? error.message : '範囲を確認してください。'); }
+}
+function copyRange(): void {
+  if (!selectedRange) return;
+  try {
+    clipboard = model.copyRange(selectedRange);
+    el('clipboard-status').textContent = `${clipboard.notes.length}個をコピー済み · 区間の長さ ${(clipboard.end - clipboard.start).toFixed(3)}秒（このページ内で保持）`;
+    message('範囲をコピーしました。貼り付け位置を指定してください。'); refreshRange();
+  } catch (error) { message(error instanceof Error ? error.message : '範囲をコピーできませんでした。'); }
+}
+function pasteRange(): void {
+  if (!clipboard) return;
+  edit(() => {
+    const at = input('paste-time').valueAsNumber, count = model.pasteRange(clipboard!, at);
+    chooseRange({ start: at, end: at + clipboard!.end - clipboard!.start }); setView(Math.max(0, at - 0.25));
+    message(`${count}個のノーツを貼り付けました。「元に戻す」でまとめて戻せます。`);
+  });
+}
+function deleteRange(): void {
+  if (selectedRange) edit(() => { const count = model.removeRange(selectedRange!); message(`${count}個のノーツを削除しました。「元に戻す」でまとめて戻せます。`); });
+}
 function setArmed(value: boolean): void {
   if (value) stopPreview(false);
   if (!value) captures.clear();
@@ -133,7 +177,7 @@ function refreshList(): void {
     const cell = document.createElement('td'), button = document.createElement('button');
     button.textContent = `#${note.id}`; button.setAttribute('aria-label', `ノーツ${note.id}を選択`);
     // Rebuilt lists don't retain listeners or old document closures.
-    button.onclick = () => { model.selected = note.id; refreshSelection(); refreshList(); };
+    button.onclick = () => selectNote(note.id);
     cell.append(button); row.append(cell);
     for (const value of [note.time.toFixed(3), `${note.lane + 1} · ${'SDFJKL'[note.lane]}`, note.type === 'hold' ? `長押し → ${note.endTime.toFixed(3)}` : 'タップ', note.sourceTime?.toFixed(3) ?? '—']) { const td = document.createElement('td'); td.textContent = value; row.append(td); }
     body.append(row);
@@ -145,7 +189,7 @@ function refresh(): void {
   el<HTMLButtonElement>('undo').disabled = !model.canUndo; el<HTMLButtonElement>('redo').disabled = !model.canRedo;
   el<HTMLButtonElement>('quantize').disabled = !model.chart.notes.length;
   el<HTMLButtonElement>('try-game').disabled = !model.chart.notes.length;
-  refreshSelection(); refreshList();
+  refreshSelection(); refreshList(); refreshRange();
   let overlaps = 0;
   for (let lane = 0; lane < 6; lane++) {
     let end = -Infinity, previousStart = -Infinity;
@@ -176,7 +220,15 @@ function seek(seconds: number): boolean {
 function readTime(): void {
   if (!player || failed) { playing = false; return; }
   try {
-    const sample = clock.sample(player.getCurrentTime(), player.getPlayerState(), performance.now(), player.getPlaybackRate());
+    const rate = player.getPlaybackRate();
+    if (rate !== playbackRate) {
+      cancelCaptures(); sound.cancelPending(); previewSound.cancelPending(); lastAudition = null; clock.reset();
+      playbackRate = rate; reflectRate();
+    }
+    if (rateRequest && (rate === rateRequest.rate || performance.now() >= rateRequest.deadline)) {
+      const rejected = rate !== rateRequest.rate; rateRequest = null; reflectRate(rejected);
+    }
+    const sample = clock.sample(player.getCurrentTime(), player.getPlayerState(), performance.now(), rate);
     time = sample.time;
     if (sample.seek) {
       sound.cancelPending(); previewSound.cancelPending(); clearPreviewEffects();
@@ -203,10 +255,12 @@ const disposePlayer = createYouTubePlayer({
   ready: instance => {
     if (failed) return;
     player = instance; clock.reset();
-    for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note']) el<HTMLButtonElement>(id).disabled = false;
+    for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note', 'paste-now']) el<HTMLButtonElement>(id).disabled = false;
+    reflectRate();
     el('player-status').textContent = 'MVの再生ボタンを押してください';
     refreshPreviewControls();
   },
+  rate: () => { if (player && !failed) { readTime(); reflectRate(); } },
   state: next => {
     if (next !== 1) { sound.cancelPending(); previewSound.cancelPending(); }
     if (next === 0 && previewing) { stopPreview(false); previewEndMessage = 'MVの再生が終了しました。'; }
@@ -217,9 +271,28 @@ const disposePlayer = createYouTubePlayer({
     failed = true; playing = false; setArmed(false); stopPreview(false);
     el('player-error').hidden = false; el('player-error').textContent = `${text} JSONの読み込み・編集・保存は引き続き使えます。`;
     el('player-status').textContent = '動画を再生できません';
-    for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note']) el<HTMLButtonElement>(id).disabled = true;
+    for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note', 'paste-now', 'editor-playback-rate']) el<HTMLInputElement>(id).disabled = true;
   },
 });
+function reflectRate(rejected = false): void {
+  if (!player || failed) return;
+  const control = select('editor-playback-rate');
+  const available = player.getAvailablePlaybackRates();
+  const actual = player.getPlaybackRate();
+  if (![...control.options].some(option => Number(option.value) === actual)) control.add(new Option(`${actual}倍（MV）`, String(actual)));
+  for (const option of control.options) option.disabled = !available.includes(Number(option.value));
+  control.disabled = !available.some(rate => [0.5, 0.75, 1].includes(rate));
+  control.value = String(rateRequest?.rate ?? actual);
+  el('rate-status').textContent = rateRequest ? `${rateRequest.rate}倍への変更を待っています…` :
+    `${rejected ? '指定速度に切り替えられませんでした。' : ''}現在${actual}倍 · 打ち込み・再生確認に共通。譜面は原曲の時刻で保存し、ゲームは1倍で再生します。`;
+}
+select('editor-playback-rate').addEventListener('change', () => {
+  if (!player || failed) return;
+  readTime(); cancelCaptures(); sound.cancelPending(); previewSound.cancelPending(); lastAudition = null;
+  rateRequest = { rate: Number(select('editor-playback-rate').value), deadline: performance.now() + 2000 };
+  try { player.setPlaybackRate(rateRequest.rate); reflectRate(); }
+  catch { rateRequest = null; reflectRate(true); }
+}, { signal });
 function cancelCaptures(): void {
   if (!captures.size) return;
   captures.clear(); message('未完了の長押しを破棄しました。再生を確認してもう一度打ち込んでください。');
@@ -228,7 +301,7 @@ const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')
 buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
 const unbindInput = bindInput(buttons, lane => {
   if (calibration.active || previewing) return;
-  readTime(); const captured = Math.max(0, compensateInput(time, settings.inputOffset)), record = armed && playing;
+  readTime(); const captured = Math.max(0, compensateInput(time, settings.inputOffset, playbackRate)), record = armed && playing;
   if (input('editor-sound').checked) sound.play(lane);
   if (!record) return;
   if (select('record-type').value === 'hold') {
@@ -246,7 +319,7 @@ const unbindInput = bindInput(buttons, lane => {
   for (const lane of released) {
     const start = captures.get(lane); captures.delete(lane);
     if (start === undefined || !armed || !playing) continue;
-    const end = Math.max(0, compensateInput(time, settings.inputOffset));
+    const end = Math.max(0, compensateInput(time, settings.inputOffset, playbackRate));
     if (end - start < MIN_HOLD) { message('長押しは30ms以上保持してください。'); continue; }
     try { model.add(start, lane, true, end); changed(); } catch (error) { message(error instanceof Error ? error.message : '長押しを記録できませんでした。'); }
   }
@@ -254,6 +327,11 @@ const unbindInput = bindInput(buttons, lane => {
 el('record-pads').addEventListener('pointerdown', event => { if (event.pointerType === 'mouse' && event.target === el('record-pads')) el('record-pads').focus({ preventScroll: true }); }, { signal });
 el('record-toggle').addEventListener('click', () => { setArmed(!armed); el('record-pads').focus({ preventScroll: true }); }, { signal });
 const on = (id: string, callback: () => void) => el(id).addEventListener('click', callback, { signal });
+on('select-range', () => chooseRange({ start: input('range-start').valueAsNumber, end: input('range-end').valueAsNumber }));
+on('select-view-range', () => chooseRange({ start: viewStart, end: Math.min(MAX_TIME, viewStart + viewSpan) }));
+on('clear-range', () => chooseRange(null)); on('copy-range', copyRange); on('delete-range', deleteRange); on('paste-range', pasteRange);
+on('paste-now', () => { readTime(); input('paste-time').value = time.toFixed(3); });
+select('timeline-mode').addEventListener('change', () => { if (select('timeline-mode').value === 'notes') chooseRange(null); else el<HTMLDetailsElement>('range-panel').open = true; }, { signal });
 on('preview-play', () => playPreview());
 on('preview-first', () => playPreview(previewStart(undefined, preview.first, settings.travel)));
 on('preview-selected', () => { if (model.selectedNote) playPreview(previewStart(model.selectedNote, preview.first, settings.travel)); });
@@ -331,6 +409,12 @@ window.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.code === 'KeyZ' || event.code === 'KeyY')) {
     event.preventDefault(); edit(() => event.code === 'KeyY' || event.shiftKey ? model.redo() : model.undo()); return;
   }
+  if (document.activeElement === el('timeline')) {
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === 'KeyC' && selectedRange) { event.preventDefault(); copyRange(); return; }
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === 'KeyV' && clipboard) { event.preventDefault(); pasteRange(); return; }
+    if (event.code === 'Escape' && selectedRange) { event.preventDefault(); chooseRange(null); return; }
+    if ((event.code === 'Delete' || event.code === 'Backspace') && selectedRange) { event.preventDefault(); deleteRange(); return; }
+  }
   if (document.activeElement === el('timeline') && model.selectedNote) {
     if (event.code === 'Delete' || event.code === 'Backspace') { event.preventDefault(); edit(() => model.remove()); }
     if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') { event.preventDefault(); moveSelected((event.code === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 0.001 : 0.01)); }
@@ -401,7 +485,7 @@ function frame(now: number): void {
   if (previewing && playing && seekTarget === null && time >= preview.end + 0.35) {
     stopPreview(); previewEndMessage = 'プレビュー完了 · 譜面の最後まで再生しました。';
   }
-  timeline.draw({ chart: model.chart, noteSize: settings.noteSize, selected: model.selected, start: viewStart, span: viewSpan, division: division(), snap: input('drag-snap').checked, time });
+  timeline.draw({ chart: model.chart, noteSize: settings.noteSize, selected: model.selected, range: selectedRange, rangeMode: select('timeline-mode').value === 'range', start: viewStart, span: viewSpan, division: division(), snap: input('drag-snap').checked, time });
   if (now - lastUi > 100) {
     refreshPreviewControls();
     const previewStatus = failed ? '動画を再生できません。編集・保存は引き続き使えます。' : !model.chart.notes.length ? 'ノーツを追加すると再生できます。'

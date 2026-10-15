@@ -184,6 +184,7 @@ const disposePlayer = createYouTubePlayer({
   keyboardTarget: canvas,
   ready: instance => {
     player = instance;
+    instance.setPlaybackRate(1);
     failed = false;
     element('player-error').hidden = true;
     restart.disabled = false;
