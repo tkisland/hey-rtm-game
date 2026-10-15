@@ -3,10 +3,10 @@ import { expect, it } from 'vitest';
 import { readMidi, convertMidi } from '../scripts/midi-to-chart.mjs';
 import { GameEngine } from '../src/engine';
 import { parseChart } from '../src/editor-model';
-import smg from '../src/charts/smg001.json';
+import smg from '../src/charts/smg002.json';
 
-const input = readFileSync(new URL('../charts/source/game-SMG001.mid', import.meta.url));
-const config = JSON.parse(readFileSync(new URL('../charts/source/game-SMG001.config.json', import.meta.url), 'utf8'));
+const input = readFileSync(new URL('../charts/source/game-SMG002.mid', import.meta.url));
+const config = JSON.parse(readFileSync(new URL('../charts/source/game-SMG002.config.json', import.meta.url), 'utf8'));
 function vlq(value: number): number[] {
   const bytes = [value & 127]; while ((value >>= 7)) bytes.unshift((value & 127) | 128); return bytes;
 }
@@ -28,6 +28,19 @@ it('reproduces all 509 uploaded notes with the confirmed lanes and the 7.65s ori
   const groups = new Map<number, number>();
   for (const note of chart.notes) groups.set(note.time, (groups.get(note.time) ?? 0) + 1);
   expect([...groups.values()].filter(count => count === 2)).toHaveLength(32);
+});
+it('updates the 17 revised hold endings while preserving every onset, lane and note type from SMG001', () => {
+  const previous = convertMidi(readFileSync(new URL('../charts/source/game-SMG001.mid', import.meta.url)), config);
+  const chart = convertMidi(input, config);
+  const heads = (notes: typeof chart.notes) => notes.map(({ id, time, lane, type }: any) => ({ id, time, lane, type }));
+  expect(heads(chart.notes)).toEqual(heads(previous.notes));
+  expect(chart.tempoChanges).toEqual(previous.tempoChanges);
+  const changed = chart.notes.filter((note: any, i: number) => note.endTime !== previous.notes[i].endTime);
+  expect(changed.map((note: any) => note.id)).toEqual([139, 140, 141, 142, 145, 146, 147, 148, 244, 265, 266, 267, 361, 362, 365, 366, 367]);
+  expect(changed.every((note: any) => note.type === 'hold')).toBe(true);
+  for (const [left, right] of [[139, 140], [141, 142], [145, 146], [147, 148], [266, 267], [366, 367]]) {
+    expect(chart.notes[left - 1].endTime).toBe(chart.notes[right - 1].endTime);
+  }
 });
 it('uses an inclusive 1.5-beat tick threshold and integrates tempos through a hold', () => {
   const data = midi([[0, 0xff, 0x51, 3, 7, 0xa1, 0x20, 0, 0x90, 38, 100, 0, 40, 100,

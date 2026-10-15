@@ -3,7 +3,7 @@ import { beatsBetween, beatToTime, bpmAt, snapTime, tempoLabel, timeToBeat } fro
 import { copyChart, EditorModel, emptyChart, parseChart } from '../src/editor-model';
 import { bundledChart } from '../src/bundled-charts';
 import { DEFAULT_SONG } from '../src/songs';
-import smg from '../src/charts/smg001.json';
+import smg from '../src/charts/smg002.json';
 
 const chart = () => parseChart(JSON.stringify(smg), true);
 it('enumerates whole beats through a tempo change without resetting phase or duplicating boundaries', () => {

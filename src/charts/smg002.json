@@ -1,6 +1,6 @@
 {
   "videoId": "pJDfWpZ7CI4",
-  "title": "SUPER MOMMY GIRLS — SMG001",
+  "title": "SUPER MOMMY GIRLS — SMG002",
   "bpm": 166.000359667,
   "startTime": 7.65,
   "beatOrigin": 7.65,
@@ -844,28 +844,28 @@
       "time": 74.761398469,
       "lane": 0,
       "type": "hold",
-      "endTime": 75.696945344
+      "endTime": 75.698898469
     },
     {
       "id": 140,
       "time": 74.761398469,
       "lane": 5,
       "type": "hold",
-      "endTime": 75.708664094
+      "endTime": 75.698898469
     },
     {
       "id": 141,
       "time": 76.011398469,
       "lane": 2,
       "type": "hold",
-      "endTime": 76.977544302
+      "endTime": 76.948898469
     },
     {
       "id": 142,
       "time": 76.011398469,
       "lane": 3,
       "type": "hold",
-      "endTime": 76.987960969
+      "endTime": 76.948898469
     },
     {
       "id": 143,
@@ -884,28 +884,28 @@
       "time": 77.573898469,
       "lane": 1,
       "type": "hold",
-      "endTime": 78.187179719
+      "endTime": 78.198898469
     },
     {
       "id": 146,
       "time": 77.573898469,
       "lane": 4,
       "type": "hold",
-      "endTime": 78.21517451
+      "endTime": 78.198898469
     },
     {
       "id": 147,
       "time": 78.511398469,
       "lane": 0,
       "type": "hold",
-      "endTime": 79.415044302
+      "endTime": 79.448898469
     },
     {
       "id": 148,
       "time": 78.511398469,
       "lane": 5,
       "type": "hold",
-      "endTime": 79.55501826
+      "endTime": 79.448898469
     },
     {
       "id": 149,
@@ -1483,7 +1483,7 @@
       "time": 114.761398469,
       "lane": 5,
       "type": "hold",
-      "endTime": 115.62142451
+      "endTime": 115.698898469
     },
     {
       "id": 245,
@@ -1610,21 +1610,21 @@
       "time": 122.261398469,
       "lane": 0,
       "type": "hold",
-      "endTime": 123.092778677
+      "endTime": 123.198898469
     },
     {
       "id": 266,
       "time": 123.511398469,
       "lane": 2,
       "type": "hold",
-      "endTime": 124.431320344
+      "endTime": 124.448898469
     },
     {
       "id": 267,
       "time": 123.511398469,
       "lane": 3,
       "type": "hold",
-      "endTime": 124.436528677
+      "endTime": 124.448898469
     },
     {
       "id": 268,
@@ -2189,14 +2189,14 @@
       "time": 154.761398469,
       "lane": 5,
       "type": "hold",
-      "endTime": 157.29329951
+      "endTime": 157.261398469
     },
     {
       "id": 362,
       "time": 157.261398469,
       "lane": 0,
       "type": "hold",
-      "endTime": 159.162440135
+      "endTime": 159.136398469
     },
     {
       "id": 363,
@@ -2215,21 +2215,21 @@
       "time": 159.761398469,
       "lane": 3,
       "type": "hold",
-      "endTime": 161.603195344
+      "endTime": 161.636398469
     },
     {
       "id": 366,
       "time": 162.261398469,
       "lane": 2,
       "type": "hold",
-      "endTime": 164.191085969
+      "endTime": 164.136398469
     },
     {
       "id": 367,
       "time": 162.261398469,
       "lane": 3,
       "type": "hold",
-      "endTime": 164.163742219
+      "endTime": 164.136398469
     },
     {
       "id": 368,

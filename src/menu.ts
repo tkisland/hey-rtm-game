@@ -30,7 +30,7 @@ function render(): void {
     for (const color of LANE_COLORS) { const lane = node('i', ''); lane.style.setProperty('--color', color); lanes.append(lane); }
     artwork.append(lanes);
     const body = node('div', 'song-card-body');
-    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · SMG001 · ${tempoLabel(bundled)} BPM · ${bundled.notes.length} NOTES` : `6 LANES · テスト譜面 ${song.bpm} BPM`));
+    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · SMG002 · ${tempoLabel(bundled)} BPM · ${bundled.notes.length} NOTES` : `6 LANES · テスト譜面 ${song.bpm} BPM`));
     body.append(node('p', 'saved-summary', saved ? `保存譜面あり · ${saved.notes.length} NOTES` : '保存譜面はまだありません。編集から作成できます。'));
     const actions = node('div', 'song-actions');
     const play = node('a', 'song-play', bundled ? '収録譜面で遊ぶ' : 'テスト譜面で遊ぶ'); play.href = songUrl(song, 'game', bundled ? 'bundled' : 'test');
