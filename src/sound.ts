@@ -29,12 +29,39 @@ export function createTapSamples(sampleRate: number, lane: number) {
   return samples;
 }
 
+/** Periodic metallic buzz with a 30Hz rattle. Integer cycles keep the loop seamless. */
+export function createHoldSamples(sampleRate: number, lane: number) {
+  const samples = new Float32Array(Math.round(sampleRate * 0.2));
+  const frequency = 330 + lane * 10;
+  let peak = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const t = i / sampleRate, phase = 2 * Math.PI * frequency * t;
+    const buzz = Math.sin(phase) * 0.5 + Math.sin(phase * 3) * 0.22 + Math.sin(phase * 5) * 0.12;
+    const metal = Math.sin(2 * Math.PI * (2310 + lane * 20) * t) * 0.15
+      + Math.sin(2 * Math.PI * (3790 + lane * 30) * t) * 0.08;
+    const rattle = 0.65 + Math.sin(2 * Math.PI * 30 * t) * 0.35;
+    samples[i] = (buzz + metal) * rattle;
+    peak = Math.max(peak, Math.abs(samples[i]));
+  }
+  if (peak) for (let i = 0; i < samples.length; i++) samples[i] *= 0.45 / peak;
+  return samples;
+}
+
+interface HoldVoice {
+  requestedAt: number;
+  source?: AudioBufferSourceNode;
+  gain?: GainNode;
+  when?: number;
+}
+
 /** Reusable local sound buffers. Each input starts one voice; chords share a compressor. */
 export class TapSound {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private buffers: AudioBuffer[] = [];
   private voices = new Map<AudioBufferSourceNode, number>();
+  private holdBuffers: AudioBuffer[] = [];
+  private holds = new Map<number, HoldVoice>();
   private disposed = false;
   private level = 70;
   private active = true;
@@ -56,15 +83,64 @@ export class TapSound {
     const next = Number.isFinite(value) ? Math.max(0, Math.min(300, value)) : 0;
     if (next !== this.delayMs) { this.cancelPending(); this.delayMs = next; }
   }
-  /** Drop future clicks and delayed resume callbacks without cutting a click already playing. */
+  /** Drop future clicks, active holds and delayed resumes; preserve one-shot sounds already playing. */
   cancelPending(): void {
     this.generation++;
+    for (const lane of this.holds.keys()) this.stopHold(lane);
     for (const [source, when] of this.voices) {
       if (this.context && when > this.context.currentTime) {
         try { source.stop(); } catch { /* The node may have just ended. */ }
         source.disconnect(); this.voices.delete(source);
       }
     }
+  }
+
+  /** Reconcile real held notes. Audio activation still comes from play()/unlock() in a gesture. */
+  syncHolds(lanes: ReadonlySet<number>, requestedAt = performance.now()): void {
+    const allowed = this.enabled && this.volume > 0 && !this.disposed && !document.hidden;
+    for (const lane of this.holds.keys()) if (!allowed || !lanes.has(lane)) this.stopHold(lane);
+    const context = this.context;
+    if (!allowed || !context || !this.master) return;
+    for (const lane of lanes) {
+      if (!Number.isInteger(lane) || lane < 0 || lane >= 6) continue;
+      let voice = this.holds.get(lane);
+      if (!voice) { voice = { requestedAt }; this.holds.set(lane, voice); }
+      if (voice.source || context.state !== 'running') continue;
+      try {
+        if (!this.holdBuffers[lane]) {
+          const samples = createHoldSamples(context.sampleRate, lane);
+          const buffer = context.createBuffer(1, samples.length, context.sampleRate);
+          buffer.copyToChannel(samples, 0); this.holdBuffers[lane] = buffer;
+        }
+        const source = context.createBufferSource(), gain = context.createGain();
+        const when = context.currentTime + Math.max(0, this.delayMs - (performance.now() - voice.requestedAt)) / 1000;
+        source.buffer = this.holdBuffers[lane]; source.loop = true;
+        gain.gain.setValueAtTime(0, when); gain.gain.linearRampToValueAtTime(1, when + 0.012);
+        source.connect(gain); gain.connect(this.master);
+        voice.source = source; voice.gain = gain; voice.when = when;
+        const current = voice;
+        source.onended = () => {
+          source.disconnect(); gain.disconnect();
+          if (this.holds.get(lane) === current) this.holds.delete(lane);
+        };
+        source.start(when);
+      } catch { this.stopHold(lane); this.onUnavailable(); }
+    }
+  }
+
+  private stopHold(lane: number): void {
+    const voice = this.holds.get(lane); this.holds.delete(lane);
+    if (!voice?.source || !voice.gain || !this.context) return;
+    const context = this.context, gain = voice.gain.gain, now = context.currentTime;
+    try {
+      if (context.state !== 'running' || voice.when! > now) {
+        voice.source.stop(); voice.source.disconnect(); voice.gain.disconnect();
+      } else {
+        const level = gain.value;
+        gain.cancelScheduledValues(now); gain.setValueAtTime(level, now);
+        gain.linearRampToValueAtTime(0, now + 0.012); voice.source.stop(now + 0.014);
+      }
+    } catch { voice.source.disconnect(); voice.gain.disconnect(); }
   }
   private updateVolume(): void {
     if (this.context && this.master && this.context.state !== 'closed') {

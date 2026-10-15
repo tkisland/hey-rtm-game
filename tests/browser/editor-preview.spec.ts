@@ -28,7 +28,8 @@ async function spy(page: Page) {
     }).observe(document.getElementById('preview-lanes')!, { subtree: true, attributes: true, attributeFilter: ['data-state'] });
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function(...args) {
-      (window as any).previewSounds.push({ when: args[0], now: this.context.currentTime });
+      // Count note-start/end cues separately from the sustained hold voice.
+      if (!this.loop) (window as any).previewSounds.push({ when: args[0], now: this.context.currentTime });
       return start.apply(this, args);
     };
   });

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { createTapSamples, TAP_DURATION } from '../src/sound';
+import { createHoldSamples, createTapSamples, TAP_DURATION } from '../src/sound';
 import { normalizeSettings } from '../src/settings';
 
 it.each([44100, 48000])('creates finite short cymbal samples without clipped peaks or cut-off edges at %s Hz', sampleRate => {
@@ -47,4 +47,22 @@ it('validates tap volume and retains preferences from before the volume setting 
   expect(normalizeSettings({ soundVolume: -1 }).soundVolume).toBe(0);
   expect(normalizeSettings({ soundVolume: 42 }).soundVolume).toBe(40);
   expect(normalizeSettings({ soundVolume: NaN }).soundVolume).toBe(70);
+});
+it.each([44100, 48000])('creates a seamless sustained metallic loop with bounded peaks at %s Hz', sampleRate => {
+  for (let lane = 0; lane < 6; lane++) {
+    const samples = createHoldSamples(sampleRate, lane), half = samples.length / 2;
+    expect(samples.length).toBe(sampleRate * 0.2);
+    expect(samples.every(Number.isFinite)).toBe(true);
+    expect(Math.max(...samples.map(Math.abs))).toBeCloseTo(0.45, 5);
+    const mean = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+    expect(Math.abs(mean)).toBeLessThan(0.001);
+    // A repeated period at the midpoint has exactly the same transition as the loop seam.
+    for (let i = 0; i < half; i++) expect(samples[i]).toBeCloseTo(samples[i + half], 6);
+    expect(samples[0] - samples.at(-1)!).toBeCloseTo(samples[half] - samples[half - 1], 6);
+    const rms = (start: number, count: number) => Math.sqrt(samples.slice(start, start + count).reduce((sum, value) => sum + value * value, 0) / count);
+    expect(rms(half, half)).toBeCloseTo(rms(0, half), 6);
+    const windows = Array.from({ length: 20 }, (_, i) => rms(Math.floor(i * sampleRate * 0.01), Math.floor(sampleRate * 0.01)));
+    expect(Math.min(...windows)).toBeGreaterThan(0.02);
+    expect(Math.max(...windows) / Math.min(...windows)).toBeGreaterThan(1.5);
+  }
 });
