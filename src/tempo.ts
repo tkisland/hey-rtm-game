@@ -23,6 +23,15 @@ export function beatToTime(chart: Chart, beat: number): number {
   for (const next of values) { if (next.beat > beat) break; segment = next; }
   return segment.time + (beat - segment.beat) * 60 / segment.bpm;
 }
+/** Quarter-note grid, including a reference beat that can be later than the visible range. */
+export function beatsBetween(chart: Chart, start: number, end: number): { beat: number; time: number }[] {
+  const first = Math.ceil(timeToBeat(chart, Math.max(0, start)) - 1e-8);
+  const last = Math.floor(timeToBeat(chart, end) + 1e-8);
+  return Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => {
+    const beat = first + i;
+    return { beat, time: beatToTime(chart, beat) };
+  });
+}
 /** Preserve beat phase even when a MIDI tempo event occurs between beats. */
 export function snapTime(chart: Chart, time: number, division: number): number {
   return Math.max(0, Math.min(7200, beatToTime(chart, Math.round(timeToBeat(chart, time) * division) / division)));

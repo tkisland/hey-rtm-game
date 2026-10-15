@@ -2,7 +2,8 @@ import type { PlayNote } from './engine';
 import { WINDOWS } from './engine';
 import { LANE_COLORS } from './colors';
 import { chordCurve, chordGroups, noteThickness } from './note-display';
-import type { ChartNote } from './chart';
+import type { Chart, ChartNote } from './chart';
+import { beatsBetween } from './tempo';
 import { fieldGeometry, project, timingBands } from './field-geometry';
 import type { FieldGeometry, FieldPoint, HitZone } from './field-geometry';
 
@@ -41,7 +42,7 @@ export class Renderer {
     this.polygon([{ x: top.x - top.width * factor, y: top.y }, { x: top.x + top.width * factor, y: top.y },
       { x: bottom.x + bottom.width * factor, y: bottom.y }, { x: bottom.x - bottom.width * factor, y: bottom.y }]);
   }
-  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, bpm = 140, inputOffsetMs = 0, playing = true): void {
+  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, bpm = 140, inputOffsetMs = 0, playing = true, chart?: Chart): void {
     if (this.canvas.width !== Math.round(this.field.width * (window.devicePixelRatio || 1))) this.resize();
     const ctx = this.ctx, field = this.field, w = field.width, h = field.height;
     // Match the input clock so every compensated PERFECT arrives at a fixed button.
@@ -58,17 +59,15 @@ export class Renderer {
     const end = 1 + WINDOWS.GOOD;
     for (let lane = 0; lane < 6; lane++) {
       const color = LANE_COLORS[lane];
-      const edges = [project(field, lane - 0.49, 0), project(field, lane + 0.49, 0), project(field, lane + 0.49, end), project(field, lane - 0.49, end)];
+      // Taper ends at PERFECT; include that corner so the runway follows late notes too.
+      const edges = [project(field, lane - 0.49, 0), project(field, lane + 0.49, 0),
+        project(field, lane + 0.49, 1), project(field, lane + 0.49, end),
+        project(field, lane - 0.49, end), project(field, lane - 0.49, 1)];
       ctx.fillStyle = lane % 2 ? '#1c2034' : '#171b2e'; this.polygon(edges);
       ctx.strokeStyle = '#ffffff12'; ctx.lineWidth = 1; this.polygon(edges, false);
       const age = now - (this.flashes.get(lane)?.time ?? -1000);
       const alpha = this.pressed.has(lane) ? 0.2 : Math.max(0, 1 - age / 220) * 0.32;
       if (alpha > 0) { ctx.globalAlpha = alpha; ctx.fillStyle = color; this.polygon(edges); ctx.globalAlpha = 1; }
-      ctx.strokeStyle = '#ffffff0c';
-      for (let p = 0.2; p <= 1.01; p += 0.2) {
-        const left = project(field, lane - 0.48, p), right = project(field, lane + 0.48, p);
-        ctx.beginPath(); ctx.moveTo(left.x, left.y); ctx.lineTo(right.x, right.y); ctx.stroke();
-      }
       ctx.fillStyle = color;
       for (const band of timingBands(field, lane, travel)) {
         ctx.globalAlpha = band.kind === 'PERFECT' ? 0.12 : 0.08;
@@ -78,6 +77,17 @@ export class Renderer {
       const target = project(field, lane, 1);
       ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(target.x - target.width / 2, target.y); ctx.lineTo(target.x + target.width / 2, target.y); ctx.stroke(); ctx.lineWidth = 1;
+    }
+    // Each moving curve is one musical beat across all lanes, in the same clock as notes.
+    if (chart) for (const marker of beatsBetween(chart, judgeTime - WINDOWS.GOOD, judgeTime + travel)) {
+      const p = progressAt(marker.time);
+      const points = [-0.49, 0, 1, 2, 3, 4, 5, 5.49].map(lane => project(field, lane, p));
+      ctx.strokeStyle = marker.beat % 4 === 0 ? '#ffffff28' : '#ffffff14';
+      ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+      for (const segment of chordCurve(points)) {
+        ctx.bezierCurveTo(segment.control1.x, segment.control1.y, segment.control2.x, segment.control2.y, segment.end.x, segment.end.y);
+      }
+      ctx.stroke();
     }
     const active = (note: ChartNote) => { const state = (note as PlayNote).state; return state === 'pending' || state === 'holding'; };
     // Connect actual heads only: a straight two-note link, or a smooth multi-note curve.

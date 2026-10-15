@@ -343,7 +343,7 @@ function frame(now: number): void {
     showResults();
   }
   syncHoldSound(sample.playing, now);
-  renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, bpmAt(engine.chart, sample.time), settings.inputOffset, sample.playing);
+  renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, bpmAt(engine.chart, sample.time), settings.inputOffset, sample.playing, engine.chart);
   if (failed) {
     stageHint.hidden = false;
     stageHint.querySelector('strong')!.textContent = '動画を再生できません';
