@@ -40,7 +40,11 @@ const sound = new TapSound(() => message('確認音を再生できません。�
 let settings = loadSettings(); sound.volume = settings.soundVolume; sound.delay = settings.soundDelay;
 input('editor-sound').checked = settings.sound;
 const listeners = new AbortController(), signal = listeners.signal;
-input('editor-sound').addEventListener('change', () => { if (!input('editor-sound').checked) sound.cancelPending(); }, { signal });
+input('editor-sound').addEventListener('change', () => {
+  sound.setPlaybackActive(playing && !previewing && input('editor-sound').checked);
+  if (!input('editor-sound').checked) sound.cancelPending();
+  else if (playing && !previewing) void sound.unlock();
+}, { signal });
 let player: YouTubePlayer | null = null;
 let failed = false, armed = false, disposed = false, time = 0, playing = false;
 let viewStart = Math.max(0, model.chart.startTime - 1), viewSpan = 4, saveTimer = 0, frameId = 0, lastUi = 0, lastAudition: number | null = null;
@@ -75,6 +79,7 @@ function refreshPreviewControls(): void {
   el<HTMLButtonElement>('preview-stop').disabled = !previewing;
 }
 function stopPreview(pause = true): void {
+  previewSound.setPlaybackActive(false);
   const active = previewing;
   previewing = false; previewEndMessage = '';
   if (previewTarget) seekTarget = null;
@@ -89,7 +94,7 @@ function playPreview(position?: number): void {
   readTime(); setArmed(false); sound.cancelPending();
   const resuming = previewing && position === undefined;
   previewing = true; previewEndMessage = ''; preview.sync(model.chart);
-  clearPreviewEffects(); previewSound.cancelPending(); void previewSound.unlock();
+  clearPreviewEffects(); previewSound.cancelPending(); previewSound.setPlaybackActive(true); void previewSound.unlock();
   if (position !== undefined) { if (!seek(position)) return; if (previewTarget) previewTarget.includeExact = true; }
   else if (!resuming) preview.seek(time, true);
   try { player.playVideo(); }
@@ -275,7 +280,10 @@ const disposePlayer = createYouTubePlayer({
   },
   rate: () => { if (player && !failed) { readTime(); reflectRate(); } },
   state: next => {
+    sound.setPlaybackActive(next === 1 && !previewing && input('editor-sound').checked);
+    previewSound.setPlaybackActive(next === 1 && previewing);
     if (next !== 1) { sound.cancelPending(); previewSound.cancelPending(); }
+    else void (previewing ? previewSound : sound).unlock();
     if (next === 0 && previewing) { stopPreview(false); previewEndMessage = 'MVの再生が終了しました。'; }
     lastAudition = null;
   },
@@ -478,6 +486,8 @@ function frame(now: number): void {
   if (disposed) return;
   readTime();
   if (playing && input('follow').checked && !timeline.dragging && (time < viewStart || time > viewStart + viewSpan * 0.9)) setView(Math.floor(time / (viewSpan * 0.75)) * (viewSpan * 0.75));
+  sound.setPlaybackActive(playing && !previewing && input('editor-sound').checked);
+  previewSound.setPlaybackActive(playing && previewing && seekTarget === null);
   if (!previewing && playing && !armed && input('audition').checked) {
     if (lastAudition !== null && time > lastAudition && time - lastAudition < 0.5) model.chart.notes.filter(note => note.time > lastAudition! && note.time <= time).slice(0, 12).forEach(note => sound.play(note.lane));
     lastAudition = time;

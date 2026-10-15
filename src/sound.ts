@@ -88,6 +88,8 @@ export class TapSound {
   private active = true;
   private delayMs = 0;
   private generation = 0;
+  private playbackActive = false;
+  private outputWarmup: ConstantSourceNode | null = null;
   private visibilityChanged = () => { if (document.hidden) this.cancelPending(); };
   private activate = (event: Event) => { if (event.isTrusted && !document.hidden) void this.unlock(); };
   constructor(private onUnavailable: () => void) {
@@ -98,12 +100,13 @@ export class TapSound {
   }
 
   get enabled(): boolean { return this.active; }
-  set enabled(enabled: boolean) { this.active = enabled; if (!enabled) this.cancelPending(); this.updateVolume(); }
+  set enabled(enabled: boolean) { this.active = enabled; if (!enabled) this.cancelPending(); this.updateVolume(); this.syncOutputWarmup(); }
   get volume(): number { return this.level; }
   set volume(volume: number) {
     this.level = Number.isFinite(volume) ? Math.max(0, Math.min(100, volume)) : 70;
     if (!this.level) this.cancelPending();
     this.updateVolume();
+    this.syncOutputWarmup();
   }
   get delay(): number { return this.delayMs; }
   set delay(value: number) {
@@ -113,6 +116,7 @@ export class TapSound {
   /** Drop future clicks, active holds and delayed resumes; preserve one-shot sounds already playing. */
   cancelPending(): void {
     this.generation++;
+    this.stopOutputWarmup();
     for (const lane of this.holds.keys()) this.stopHold(lane);
     for (const [source, when] of this.voices) {
       if (this.context && when > this.context.currentTime) {
@@ -120,6 +124,30 @@ export class TapSound {
         source.disconnect(); this.voices.delete(source);
       }
     }
+  }
+
+  /** Keep the output processing silence during playback, before the first note and through gaps. */
+  setPlaybackActive(active: boolean): void {
+    this.playbackActive = active;
+    this.syncOutputWarmup();
+  }
+  private syncOutputWarmup(): void {
+    const context = this.context;
+    if (!this.playbackActive || !this.enabled || !this.volume || this.disposed || document.hidden) {
+      this.stopOutputWarmup(); return;
+    }
+    if (!context || !this.master || this.outputWarmup) return;
+    try {
+      const source = context.createConstantSource();
+      source.offset.value = 0; // Exact digital silence through the same compressor/output as taps.
+      this.outputWarmup = source; source.connect(this.master); source.start();
+    } catch { this.stopOutputWarmup(); this.onUnavailable(); }
+  }
+  private stopOutputWarmup(): void {
+    const source = this.outputWarmup; this.outputWarmup = null;
+    if (!source) return;
+    try { source.stop(); } catch { /* Already stopped or closed. */ }
+    source.disconnect();
   }
 
   /** Reconcile real held notes. Audio activation still comes from play()/unlock() in a gesture. */
@@ -185,6 +213,7 @@ export class TapSound {
       if (!AudioContextClass) throw new Error('Audio unavailable');
       this.context ??= new AudioContextClass({ latencyHint: 'interactive' });
       if (!this.master) this.prepare(this.context);
+      this.syncOutputWarmup();
       if (this.context.state !== 'running') await this.context.resume();
       return generation === this.generation && !this.disposed && this.context.state === 'running';
     } catch {
@@ -203,6 +232,7 @@ export class TapSound {
       this.context ??= new AudioContextClass({ latencyHint: 'interactive' });
       const context = this.context;
       if (!this.master) this.prepare(context);
+      this.syncOutputWarmup();
       const remaining = () => Math.max(0, delay - (performance.now() - requestedAt)) / 1000;
       const playCurrent = () => {
         // Do not replay a backlog when an output device / suspended context starts late.
