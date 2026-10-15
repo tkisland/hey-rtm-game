@@ -18,7 +18,7 @@ async function quiet(page: Page, id = 'game-canvas') {
 test.beforeEach(async ({ page }) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
   await page.addInitScript(chart => {
-    localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify(chart));
+    if (!localStorage.getItem('hey-rhythm-custom-chart-v1')) localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify(chart));
     localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({ sound: false }));
     (window as any).holdEffects = {};
     const proto = CanvasRenderingContext2D.prototype;

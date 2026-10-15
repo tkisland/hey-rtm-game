@@ -72,6 +72,13 @@ function updateScore(): void {
   combo.textContent = String(engine.combo);
   maxCombo.textContent = `MAX ${engine.maxCombo}`;
 }
+function syncHoldSound(playing: boolean, now: number): void {
+  const lanes = new Set<number>();
+  if (playing) for (const note of engine.notes) {
+    if (note.state === 'holding' && renderer.pressed.has(note.lane)) lanes.add(note.lane);
+  }
+  sound.syncHolds(lanes, now);
+}
 function showHit(hit: Hit, now: number): void {
   const feedback = judgements[hit.lane];
   judgementTimes[hit.lane] = now;
@@ -203,6 +210,7 @@ function hit(lane: number): void {
   updates.forEach(update => showHit(update, now));
   const hit = engine.input(lane, compensateInput(sample.time, settings.inputOffset));
   if (hit) { lastInputError = hit.errorMs; showHit(hit, now); }
+  syncHoldSound(true, now);
   showResults();
 }
 const unbindInput = bindInput(buttons, hit, lanes => {
@@ -211,8 +219,9 @@ const unbindInput = bindInput(buttons, hit, lanes => {
   const released = [...previous].filter(lane => !lanes.has(lane));
   if (!released.length) return;
   const now = performance.now(), sample = readTime(now);
-  if (!sample.playing) return;
+  if (!sample.playing) { syncHoldSound(false, now); return; }
   released.forEach(lane => engine.release(lane, compensateInput(sample.time, settings.inputOffset)).forEach(result => showHit(result, now)));
+  syncHoldSound(true, now);
   showResults();
 }, () => calibration.active);
 
@@ -263,6 +272,7 @@ function reflectSettings(): void {
 function changeSettings(): void {
   settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, noteSize: noteSize.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
   reflectSettings();
+  if (settings.sound && settings.soundVolume > 0 && engine.notes.some(note => note.state === 'holding')) void sound.unlock();
   const saved = saveSettings(settings);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
   if (!custom && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
@@ -316,6 +326,7 @@ function frame(now: number): void {
     updates.forEach(update => showHit(update, now));
     showResults();
   }
+  syncHoldSound(sample.playing, now);
   renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, engine.chart.bpm, settings.inputOffset, sample.playing);
   if (failed) {
     stageHint.hidden = false;

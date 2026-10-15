@@ -389,6 +389,7 @@ function frame(now: number): void {
     previewLabels[event.lane] = event.phase === 'end' ? '離す' : event.phase === 'start' ? 'HOLD' : 'TAP';
   });
   const holds = new Set(preview.notes.filter(note => note.state === 'holding').map(note => note.lane));
+  previewSound.syncHolds(previewing && playing && seekTarget === null ? holds : new Set(), now);
   previewRenderer.pressed = previewing ? holds : new Set();
   previewRenderer.draw(preview.notes, time, settings.travel, now, settings.noteSize, model.chart.bpm, 0, previewing && playing && seekTarget === null);
   previewLanes.forEach((lane, i) => {
