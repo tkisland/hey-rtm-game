@@ -4,13 +4,14 @@ import { LANE_COLORS } from './colors';
 import { chordCurve, chordGroups, noteThickness } from './note-display';
 import type { ChartNote } from './chart';
 import { fieldGeometry, project, timingBands } from './field-geometry';
-import type { FieldGeometry, FieldPoint } from './field-geometry';
+import type { FieldGeometry, FieldPoint, HitZone } from './field-geometry';
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private field!: FieldGeometry;
   private observer: ResizeObserver;
-  private flashes = new Map<number, number>();
+  private flashes = new Map<number, { time: number; kind: HitZone }>();
+  private reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   pressed = new Set<number>();
   private cachedNotes: PlayNote[] | null = null;
   private chords: ChartNote[][] = [];
@@ -29,7 +30,7 @@ export class Renderer {
     this.canvas.width = Math.round(rect.width * dpr); this.canvas.height = Math.round(rect.height * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  flash(lane: number, now: number): void { this.flashes.set(lane, now); }
+  flash(lane: number, now: number, kind: HitZone = 'PERFECT'): void { this.flashes.set(lane, { time: now, kind }); }
   clearEffects(): void { this.flashes.clear(); }
   private polygon(points: { x: number; y: number }[], fill = true): void {
     const ctx = this.ctx; ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
@@ -60,7 +61,7 @@ export class Renderer {
       const edges = [project(field, lane - 0.49, 0), project(field, lane + 0.49, 0), project(field, lane + 0.49, end), project(field, lane - 0.49, end)];
       ctx.fillStyle = lane % 2 ? '#1c2034' : '#171b2e'; this.polygon(edges);
       ctx.strokeStyle = '#ffffff12'; ctx.lineWidth = 1; this.polygon(edges, false);
-      const age = now - (this.flashes.get(lane) ?? -1000);
+      const age = now - (this.flashes.get(lane)?.time ?? -1000);
       const alpha = this.pressed.has(lane) ? 0.2 : Math.max(0, 1 - age / 220) * 0.32;
       if (alpha > 0) { ctx.globalAlpha = alpha; ctx.fillStyle = color; this.polygon(edges); ctx.globalAlpha = 1; }
       ctx.strokeStyle = '#ffffff0c';
@@ -122,6 +123,41 @@ export class Renderer {
         this.polygon([{ x: head.x, y: head.y - r }, { x: head.x + r, y: head.y }, { x: head.x, y: head.y + r }, { x: head.x - r, y: head.y }]); ctx.stroke();
       }
     }
+    this.drawHitEffects(now);
+  }
+  private drawHitEffects(now: number): void {
+    const ctx = this.ctx, field = this.field, reduced = this.reducedMotion.matches;
+    const duration = reduced ? 160 : 420;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const [lane, flash] of this.flashes) {
+      const age = now - flash.time;
+      if (age >= duration) { this.flashes.delete(lane); continue; }
+      if (age < 0) continue;
+      const target = field.targets[lane], color = LANE_COLORS[lane];
+      const strength = flash.kind === 'PERFECT' ? 1 : flash.kind === 'GREAT' ? 0.8 : 0.6;
+      const p = age / duration, fade = (1 - p) ** 2 * strength;
+      const spread = reduced ? 0 : 1 - (1 - p) ** 3;
+      ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.globalAlpha = fade * 0.38;
+      ctx.fillRect(target.x - target.width / 2, target.y - target.height / 2, target.width, target.height);
+      ctx.globalAlpha = fade;
+      const radiusX = Math.min(target.width * (0.3 + spread * 0.48), target.x - 2, field.width - target.x - 2);
+      const radiusY = target.height * (0.17 + spread * 0.28);
+      ctx.beginPath(); ctx.ellipse(target.x, target.y, radiusX, radiusY, 0, 0, Math.PI * 2); ctx.stroke();
+      if (reduced) continue;
+      // Sparks fan upwards from the receptor, keeping the approaching notes readable.
+      for (let i = 0; i < 7; i++) {
+        const angle = -Math.PI * (0.12 + i * 0.76 / 6);
+        const distance = target.width * 0.18 + spread * (24 + (i % 3) * 9);
+        const x = Math.max(3, Math.min(field.width - 3, target.x + Math.cos(angle) * distance));
+        const y = target.y + Math.sin(angle) * distance - spread * 8;
+        const length = (3 + (i % 2) * 2) * (1 - p);
+        ctx.strokeStyle = i % 2 ? '#ffffff' : color;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length); ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
   destroy(): void { this.observer.disconnect(); }
 }
