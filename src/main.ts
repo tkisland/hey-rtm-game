@@ -167,6 +167,7 @@ function readTime(now: number): { time: number; playing: boolean } {
   }
 }
 function setState(next: number): void {
+  sound.setPlaybackActive(next === PLAYER_STATE.PLAYING && !clockStale);
   if (next !== state && next === PLAYER_STATE.PLAYING) void sound.unlock();
   if (next !== state && next !== PLAYER_STATE.PLAYING) sound.cancelPending();
   state = next;
@@ -181,9 +182,12 @@ function setState(next: number): void {
     [5]: '上のボタンで音を準備して再生',
   };
   if (!failed) status.textContent = clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? '上のボタンで音を準備して再生';
-  element<HTMLButtonElement>('play-start').disabled = failed || next === -2 || next === PLAYER_STATE.PLAYING;
+  const playStart = element<HTMLButtonElement>('play-start');
+  playStart.disabled = failed || next === -2;
+  playStart.textContent = next === PLAYER_STATE.PLAYING ? '♫ タップ音を準備' : '▶ 音を準備して再生・再開';
 }
 function showError(message: string): void {
+  sound.setPlaybackActive(false);
   sound.cancelPending();
   failed = true;
   element('player-error').textContent = `${message} 上の「YouTube ↗」から公式動画を開けます。ゲームは停止しています。`;
@@ -242,6 +246,7 @@ const unbindInput = bindInput(buttons, hit, lanes => {
 restart.addEventListener('click', () => {
   if (!player || failed) return;
   sound.cancelPending();
+  sound.setPlaybackActive(true);
   void sound.unlock();
   engine.reset(activeChart());
   clearResults(); updateChartInfo(); clock.reset();
@@ -253,9 +258,11 @@ restart.addEventListener('click', () => {
 }, { signal });
 element('play-start').addEventListener('click', () => {
   if (!player || failed) return;
+  sound.setPlaybackActive(true);
   void sound.unlock();
+  if (state === PLAYER_STATE.PLAYING) return;
   try { player.playVideo(); }
-  catch { notice.textContent = 'YouTubeプレーヤー内の再生ボタンを押してください。'; }
+  catch { sound.setPlaybackActive(false); notice.textContent = 'YouTubeプレーヤー内の再生ボタンを押してください。'; }
 }, { signal });
 
 function showSettings(open: boolean): void {
@@ -293,7 +300,7 @@ function reflectSettings(): void {
 function changeSettings(): void {
   settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, noteSize: noteSize.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
   reflectSettings();
-  if (settings.sound && settings.soundVolume > 0 && engine.notes.some(note => note.state === 'holding')) void sound.unlock();
+  if (settings.sound && settings.soundVolume > 0 && state === PLAYER_STATE.PLAYING) void sound.unlock();
   const saved = saveSettings(settings, song);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
   if (source === 'test' && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
@@ -343,6 +350,7 @@ let debugUpdated = 0;
 function frame(now: number): void {
   if (disposed) return;
   const sample = readTime(performance.now());
+  sound.setPlaybackActive(sample.playing);
   if (sample.playing) {
     const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
     updates.forEach(update => showHit(update, now));
