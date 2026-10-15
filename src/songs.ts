@@ -9,7 +9,7 @@ export interface Song {
 }
 export const DEFAULT_SONG: Song = {
   id: 'super-mommy-girls', title: 'SUPER MOMMY GIRLS', artist: 'Hey!Mommy!',
-  videoId: 'pJDfWpZ7CI4', bpm: 140, startTime: 12, chartId: 'smg001',
+  videoId: 'pJDfWpZ7CI4', bpm: 140, startTime: 12, chartId: 'smg002',
 };
 /** Register additional songs here; routing and storage use the stable ID. */
 export const SONGS: readonly Song[] = [DEFAULT_SONG];

@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { api, seekPlay } from './mock-video';
 import { readFileSync } from 'node:fs';
-const smg = JSON.parse(readFileSync(new URL('../../src/charts/smg001.json', import.meta.url), 'utf8'));
+const smg = JSON.parse(readFileSync(new URL('../../src/charts/smg002.json', import.meta.url), 'utf8'));
 
 const draft = { videoId: 'pJDfWpZ7CI4', title: 'my draft', bpm: 120, startTime: 10, beatOrigin: 10, notes: [{ id: 1, time: 10, lane: 0, type: 'tap' }] };
 test.beforeEach(async ({ page }) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
 });
-test('the primary menu entry plays SMG001 at 7.65s, including its first yellow note', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('.song-meta')).toContainText('SMG001 · 166 → 192 BPM · 509 NOTES');
+test('the primary menu entry plays SMG002 at 7.65s, including its first yellow note', async ({ page }) => {
+  await page.goto('/'); await expect(page.locator('.song-meta')).toContainText('SMG002 · 166 → 192 BPM · 509 NOTES');
   await expect(page.locator('.song-play')).toHaveText('収録譜面で遊ぶ'); await page.locator('.song-play').click();
   await expect(page.locator('#restart')).toBeEnabled(); await expect(page.locator('#chart-source')).toHaveValue('bundled');
   await expect(page.locator('#chart-info')).toContainText('BUNDLED CHART · 166 → 192 BPM · 7.65秒〜 · 509 NOTES');
