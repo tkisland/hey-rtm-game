@@ -1,11 +1,28 @@
 import { expect, it } from 'vitest';
-import { beatToTime, bpmAt, snapTime, tempoLabel, timeToBeat } from '../src/tempo';
+import { beatsBetween, beatToTime, bpmAt, snapTime, tempoLabel, timeToBeat } from '../src/tempo';
 import { copyChart, EditorModel, emptyChart, parseChart } from '../src/editor-model';
 import { bundledChart } from '../src/bundled-charts';
 import { DEFAULT_SONG } from '../src/songs';
 import smg from '../src/charts/smg001.json';
 
 const chart = () => parseChart(JSON.stringify(smg), true);
+it('enumerates whole beats through a tempo change without resetting phase or duplicating boundaries', () => {
+  const c = { ...emptyChart(), bpm: 120, startTime: 0, beatOrigin: 0, tempoChanges: [{ time: 2.25, bpm: 240 }] };
+  expect(beatsBetween(c, 1.5, 3)).toEqual([
+    { beat: 3, time: 1.5 }, { beat: 4, time: 2 }, { beat: 5, time: 2.375 },
+    { beat: 6, time: 2.625 }, { beat: 7, time: 2.875 },
+  ]);
+  const lines = beatsBetween(chart(), 18.4, 19.2);
+  expect(lines.map(line => line.beat)).toEqual([30, 31, 32]);
+  expect(lines[1].time).toBeCloseTo(18.823898469, 8);
+  expect(lines[2].time - lines[1].time).toBeCloseTo(60 / 192, 8);
+});
+it('keeps beats before an arbitrary reference and clips the range at the beginning of the video', () => {
+  const c = { ...emptyChart(), bpm: 120, startTime: 12, beatOrigin: 2 };
+  expect(beatsBetween(c, -1, .5)).toEqual([{ beat: -4, time: 0 }, { beat: -3, time: .5 }]);
+  expect(beatsBetween(c, 1.99, 2.01)).toEqual([{ beat: 0, time: 2 }]);
+  expect(beatsBetween(c, 2.1, 2.2)).toEqual([]);
+});
 it('keeps beat phase at the actual MIDI event between beats, rather than resetting the grid', () => {
   const c = chart();
   expect(timeToBeat(c, 18.626632844)).toBeCloseTo(14577 / 480, 7);

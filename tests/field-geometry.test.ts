@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { depth, fieldGeometry, project, timingBands } from '../src/field-geometry';
+import { fieldGeometry, project, timingBands } from '../src/field-geometry';
 import { WINDOWS, GameEngine } from '../src/engine';
 import { compensateInput } from '../src/timing';
 import { emptyChart } from '../src/editor-model';
@@ -50,23 +50,44 @@ describe('perspective timing windows and V targets', () => {
       expect(point.x).toBeCloseTo(field.targets[lane].x); expect(point.y).toBeCloseTo(field.targets[lane].y);
     }
   });
-  it('widens distant notes while keeping the approach smooth and monotonic', () => {
+  it('uses a mild taper while keeping the approach smooth and monotonic', () => {
     const field = fieldGeometry(370, 480), far = project(field, 0, 0), near = project(field, 0, 1);
     expect(far.width).toBeLessThan(near.width); expect(far.x).toBeGreaterThan(near.x);
+    expect(far.width / near.width).toBeGreaterThanOrEqual(0.8);
     let previous = far;
     for (let p = 0.01; p <= 1.16; p += 0.01) {
       const point = project(field, 0, p);
       expect(point.y).toBeGreaterThan(previous.y); expect(point.width).toBeGreaterThanOrEqual(previous.width);
       previous = point;
     }
-    expect(depth(0)).toBe(0); expect(depth(1)).toBe(1);
-    expect((depth(1) - depth(0.9)) / (depth(0.9) - depth(0.8))).toBeLessThan(1.1);
   });
-  it('projects timing windows with the same perspective, rather than constant pixel heights', () => {
+  it('moves at the same constant vertical speed in every lane, including before and after PERFECT', () => {
+    for (const width of [298, 370, 678]) for (const height of [180, 224, 480, 520]) for (const travel of [1, 2, 4]) {
+      const field = fieldGeometry(width, height);
+      const distances: number[] = [];
+      for (let lane = 0; lane < 6; lane++) for (const progress of [0, 0.2, 0.8, 1, 1.1]) {
+        const before = project(field, lane, progress), after = project(field, lane, progress + 0.05 / travel);
+        distances.push(after.y - before.y);
+        // Simultaneous notes retain the target V's shape throughout their approach.
+        expect(before.y - project(field, 2, progress).y).toBeCloseTo(field.targets[lane].y - field.targets[2].y, 8);
+      }
+      expect(distances[0]).toBeGreaterThan(0);
+      distances.forEach(distance => expect(distance).toBeCloseTo(distances[0], 8));
+    }
+  });
+  it('keeps equal-time note spacing and symmetric judgement bands across all six lanes', () => {
     const field = fieldGeometry(370, 480), fast = timingBands(field, 0, 1)[0], slow = timingBands(field, 0, 4)[0];
     expect(fast.bottom.y - fast.top.y).toBeGreaterThan(slow.bottom.y - slow.top.y);
     const target = field.targets[0];
-    expect(target.y - fast.top.y).toBeLessThan(fast.bottom.y - target.y);
+    expect(target.y - fast.top.y).toBeCloseTo(fast.bottom.y - target.y, 8);
+    for (let lane = 0; lane < 6; lane++) {
+      const band = timingBands(field, lane, 1)[0];
+      expect(band.bottom.y - band.top.y).toBeCloseTo(fast.bottom.y - fast.top.y, 8);
+      for (const p of [0.1, 0.5, 0.9]) {
+        const spacing = project(field, lane, p + 0.1).y - project(field, lane, p).y;
+        expect(spacing).toBeCloseTo(field.approach * 0.1, 8);
+      }
+    }
   });
   it('rejects just outside GOOD even though a thick note can visually overlap the band', () => {
     for (const error of [-0.1601, 0.1601]) {
