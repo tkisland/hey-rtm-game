@@ -134,7 +134,7 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
 .game .stage-hint { top:26%; }
 @media (max-width:760px), (hover:none) and (pointer:coarse) {
   :root { --surface-height:260px; --surface-top:calc(100svh - 260px); --surface-left:10px; --surface-width:calc(100% - 20px); }
-  body:not(.editor-page) { padding-bottom:calc(var(--surface-height) + 16px); }
+  body:not(.editor-page):not(.menu-page) { padding-bottom:calc(var(--surface-height) + 16px); }
   .game { height:var(--surface-height); border:0; background:none; overflow:visible; box-shadow:none; }
   .game .stage { position:fixed; z-index:10; top:var(--surface-top); left:var(--surface-left); width:var(--surface-width); height:var(--surface-height); border-radius:14px 14px 0 0; background:#0e1120; box-shadow:0 -8px 28px #0006; }
 }
@@ -165,3 +165,9 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
 .editor-link { font-size:11px; white-space:nowrap; }
 .chart-choice { display:flex; align-items:center; gap:8px; margin:8px 0; font-size:11px; }
 .chart-choice select { font:inherit; min-width:0; padding:6px; border:1px solid #ffffff26; border-radius:5px; background:#10111c; color:#fff; }
+@media (max-width:480px) {
+  body:not(.menu-page) .header .wordmark { font-size:20px; white-space:nowrap; flex-shrink:0; }
+  body:not(.menu-page) .header .wordmark i { display:none; }
+  .header-actions { gap:6px; flex-shrink:0; }
+  .header .icon-button { padding:8px 9px; white-space:nowrap; }
+}

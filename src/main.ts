@@ -15,16 +15,26 @@ import { loadSettings, normalizeSettings, saveSettings } from './settings';
 import { PLAYER_STATE, VideoClock, stateName } from './sync';
 import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
+import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
 
 function element<T extends HTMLElement = HTMLElement>(id: string): T {
   const node = document.getElementById(id);
   if (!node) throw new Error(`Missing UI element: ${id}`);
   return node as T;
 }
-let settings = loadSettings();
-const customChart = loadChart(CUSTOM_CHART_KEY, true);
+const song = findSong(new URLSearchParams(location.search).get('song'));
+// Invalid links return to selection before creating a player or reading chart data.
+if (!song) location.replace('./?missing-song=1');
+else {
+document.title = `HEY! RHYTHM! — ${song.title}`;
+element('song-title').textContent = song.title;
+element('song-artist').textContent = `${song.artist} / OFFICIAL MV`;
+element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'editor');
+document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
+let settings = loadSettings(song);
+const customChart = loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song);
 let custom = new URLSearchParams(location.search).get('chart') === 'custom' && customChart !== null;
-const activeChart = () => custom && customChart ? customChart : generateChart(settings.bpm, settings.startTime);
+const activeChart = () => custom && customChart ? customChart : generateChart(settings.bpm, settings.startTime, song);
 const engine = new GameEngine(activeChart());
 const clock = new VideoClock();
 const renderer = new Renderer(element<HTMLCanvasElement>('game-canvas'));
@@ -198,7 +208,7 @@ const disposePlayer = createYouTubePlayer({
   },
   state: next => { if (!failed) setState(next); },
   error: showError,
-});
+}, song);
 
 function hit(lane: number): void {
   if (calibration.active) return;
@@ -274,7 +284,7 @@ function changeSettings(): void {
   settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, noteSize: noteSize.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
   reflectSettings();
   if (settings.sound && settings.soundVolume > 0 && engine.notes.some(note => note.state === 'holding')) void sound.unlock();
-  const saved = saveSettings(settings);
+  const saved = saveSettings(settings, song);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
   if (!custom && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
 }
@@ -379,3 +389,4 @@ function dispose(): void {
   listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); unbindTargets(); unbindLayout();
 }
 if (import.meta.hot) import.meta.hot.dispose(dispose);
+}

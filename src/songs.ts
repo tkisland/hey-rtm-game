@@ -1,0 +1,27 @@
+export interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  videoId: string;
+  bpm: number;
+  startTime: number;
+}
+export const DEFAULT_SONG: Song = {
+  id: 'super-mommy-girls', title: 'SUPER MOMMY GIRLS', artist: 'Hey!Mommy!',
+  videoId: 'pJDfWpZ7CI4', bpm: 140, startTime: 12,
+};
+/** Register additional songs here; routing and storage use the stable ID. */
+export const SONGS: readonly Song[] = [DEFAULT_SONG];
+export function findSong(id: string | null): Song | undefined {
+  return id === null ? DEFAULT_SONG : SONGS.find(song => song.id === id);
+}
+export function songUrl(song: Song, page: 'game' | 'editor', custom = false): string {
+  const query = new URLSearchParams({ song: song.id });
+  if (custom && page === 'game') query.set('chart', 'custom');
+  return `./${page}.html?${query}`;
+}
+export function songStorageKey(base: string, song: Song): string {
+  // Keep existing data for the original song without migration writes.
+  return song.id === DEFAULT_SONG.id ? base : `${base}:${song.id}`;
+}
+export function songVideoUrl(song: Song): string { return `https://www.youtube.com/watch?v=${song.videoId}`; }

@@ -92,7 +92,7 @@ test('drags a timeline note across lanes as one undoable edit, with optional sna
 
 test('plays the edited chart and keeps it on restart, then switches back to practice', async ({ page }) => {
   await importChart(page);
-  await page.locator('#try-game').click(); await expect(page).toHaveURL(/\?chart=custom$/);
+  await page.locator('#try-game').click(); await expect(page).toHaveURL(/[?&]chart=custom$/);
   await expect(page.locator('#chart-source')).toHaveValue('custom');
   await expect(page.locator('#chart-info')).toContainText('EDITOR CHART · 120 BPM · 10.1秒〜 · 2 NOTES');
   await expect(page.locator('#restart')).toBeEnabled();

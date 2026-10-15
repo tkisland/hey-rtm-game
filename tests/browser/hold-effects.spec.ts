@@ -36,7 +36,7 @@ test.beforeEach(async ({ page }) => {
       return ellipse.apply(this, args);
     };
   }, chart);
-  await page.goto('/?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
+  await page.goto('/game.html?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
 });
 
 test('both touch holds keep emitting after the initial burst; lifting one stops only that lane', async ({ page }) => {

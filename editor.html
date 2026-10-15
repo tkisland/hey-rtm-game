@@ -9,9 +9,9 @@
 </head>
 <body class="editor-page">
   <div id="app">
-    <header class="header"><a class="wordmark" href="./">HEY! <span>RHYTHM!</span></a><a href="./" class="icon-button">ゲームへ</a></header>
+    <header class="header"><a class="wordmark" href="./">HEY! <span>RHYTHM!</span></a><div class="header-actions"><a href="./" class="editor-link">選曲</a><a id="back-to-game" href="./game.html" class="icon-button">ゲームへ</a></div></header>
     <main>
-      <div class="song-heading"><div><p class="eyebrow">SUPER MOMMY GIRLS / CHART EDITOR</p><h1>ノーツ・タイミングエディター</h1></div></div>
+      <div class="song-heading"><div><p id="editor-song-title" class="eyebrow">CHART EDITOR</p><h1>ノーツ・タイミングエディター</h1></div></div>
       <p class="field-help">① MVに合わせて打ち込む → ② 拍にそろえる → ③ ノーツを微調整 → ④ 譜面の再生確認・ゲームで試す</p>
       <div class="editor-top">
         <section aria-label="公式MV"><div class="video-frame"><div id="youtube-player"></div></div><div class="playback-info"><p id="player-status" role="status">YouTubeプレーヤーを読み込み中…</p><a href="https://www.youtube.com/watch?v=pJDfWpZ7CI4" target="_blank" rel="noopener">YouTube ↗</a></div><div id="player-error" class="error-box" role="alert" hidden></div>
@@ -112,6 +112,6 @@
       <footer><span>FANMADE · UNOFFICIAL</span><p>音声・映像はYouTube公式プレーヤーで再生します。</p></footer>
     </main>
   </div>
-  <script type="module" src="/src/editor.ts"></script>
+    <script type="module" src="/src/editor.ts"></script>
 </body>
 </html>

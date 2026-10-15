@@ -1,4 +1,5 @@
-import { VIDEO_ID } from './chart';
+import { DEFAULT_SONG } from './songs';
+import type { Song } from './songs';
 export interface YouTubePlayer {
   getCurrentTime(): number;
   getPlayerState(): number;
@@ -39,7 +40,7 @@ export function createYouTubePlayer(callbacks: {
   state(state: number): void;
   rate?(rate: number): void;
   error(message: string): void;
-}): () => void {
+}, song: Song = DEFAULT_SONG): () => void {
   let disposed = false;
   let player: YouTubePlayer | null = null;
   let timer = 0;
@@ -60,7 +61,7 @@ export function createYouTubePlayer(callbacks: {
     clearTimer();
     timer = window.setTimeout(() => callbacks.error('YouTubeプレーヤーの応答がありません。通信・コンテンツブロッカーを確認して再読み込みしてください。'), 20000);
     player = new window.YT.Player('youtube-player', {
-      videoId: VIDEO_ID, width: '100%', height: '100%',
+      videoId: song.videoId, width: '100%', height: '100%',
       playerVars: { playsinline: 1, controls: 1, autoplay: 0, disablekb: 1, origin: location.origin },
       events: {
         onReady: event => {
@@ -68,7 +69,7 @@ export function createYouTubePlayer(callbacks: {
           clearTimer();
           const iframe = document.querySelector<HTMLIFrameElement>('.video-frame iframe');
           if (iframe) {
-            iframe.title = 'Hey!Mommy! SUPER MOMMY GIRLS 公式MV';
+            iframe.title = `${song.artist} ${song.title} 公式MV`;
             iframe.referrerPolicy = 'strict-origin-when-cross-origin';
           }
           callbacks.ready(event.target);

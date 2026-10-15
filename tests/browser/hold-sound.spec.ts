@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
       return start.apply(this, args);
     };
   }, chart);
-  await page.goto('/?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
+  await page.goto('/game.html?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
 });
 
 test('two touch holds keep sounding beyond the cymbal; lifting one stops only its voice', async ({ page }) => {
