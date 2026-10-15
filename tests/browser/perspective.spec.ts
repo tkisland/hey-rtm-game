@@ -52,14 +52,14 @@ test('all six real button centers are the rendered PERFECT position, including i
   }
 });
 
-test('held chord heads and their connection stay attached to the V targets', async ({ page }) => {
+test('outer held chord heads stay at the V targets with a straight link across empty lanes', async ({ page }) => {
   const result = await page.locator('#game-canvas').evaluate(async (canvas: HTMLCanvasElement) => {
     const { Renderer } = await import('/src/renderer.ts'), { GameEngine } = await import('/src/engine.ts');
     const engine = new GameEngine({ videoId: 'pJDfWpZ7CI4', title: 'test', bpm: 120, startTime: 12,
       notes: [0, 5].map(lane => ({ id: lane + 1, lane, type: 'hold', time: 12, endTime: 14 })) });
     for (const lane of [0, 5]) engine.input(lane, 12);
     const renderer = new Renderer(canvas), ctx = canvas.getContext('2d')!;
-    const original = { round: ctx.roundRect.bind(ctx), fill: ctx.fillRect.bind(ctx), dash: ctx.setLineDash.bind(ctx), move: ctx.moveTo.bind(ctx), line: ctx.lineTo.bind(ctx), stroke: ctx.stroke.bind(ctx) };
+    const original = { round: ctx.roundRect.bind(ctx), fill: ctx.fillRect.bind(ctx), dash: ctx.setLineDash.bind(ctx), move: ctx.moveTo.bind(ctx), line: ctx.lineTo.bind(ctx), curve: ctx.bezierCurveTo.bind(ctx), stroke: ctx.stroke.bind(ctx) };
     const heads: { x: number; y: number; width: number }[] = [], tails: { y: number; width: number }[] = [];
     let dashed = false, path: { x: number; y: number }[] = [], link: { x: number; y: number }[] = [];
     ctx.roundRect = function(...args) { heads.push({ x: args[0] + args[2] / 2, y: args[1] + args[3] / 2, width: args[2] }); return original.round(...args); };
@@ -67,6 +67,7 @@ test('held chord heads and their connection stay attached to the V targets', asy
     ctx.setLineDash = segments => { dashed = segments.length > 0; original.dash(segments); };
     ctx.moveTo = (x, y) => { path = [{ x, y }]; original.move(x, y); };
     ctx.lineTo = (x, y) => { path.push({ x, y }); original.line(x, y); };
+    ctx.bezierCurveTo = (a, b, c, d, x, y) => { path.push({ x: a, y: b }, { x: c, y: d }, { x, y }); original.curve(a, b, c, d, x, y); };
     ctx.stroke = function(...args: any[]) { if (dashed) link = [...path]; return (original.stroke as any)(...args); };
     try {
       renderer.draw(engine.notes, 13.3, 2, 0, 100, 120, 300);
@@ -75,17 +76,17 @@ test('held chord heads and their connection stay attached to the V targets', asy
       return { heads, tails, link, targets };
     } finally {
       ctx.roundRect = original.round; ctx.fillRect = original.fill; ctx.setLineDash = original.dash;
-      ctx.moveTo = original.move; ctx.lineTo = original.line; ctx.stroke = original.stroke; renderer.destroy();
+      ctx.moveTo = original.move; ctx.lineTo = original.line; ctx.bezierCurveTo = original.curve; ctx.stroke = original.stroke; renderer.destroy();
     }
   });
-  expect(result.heads).toHaveLength(2); expect(result.tails).toHaveLength(2); expect(result.link).toHaveLength(6);
-  expect(result.link[0].y).toBeLessThan(result.link[1].y);
-  expect(result.link[1].y).toBeLessThan(result.link[2].y);
-  expect(result.link[2].y).toBe(result.link[3].y);
+  expect(result.heads).toHaveLength(2); expect(result.tails).toHaveLength(2); expect(result.link).toHaveLength(4);
+  // Both control points lie on the horizontal connection, with no detour through empty lanes.
+  result.link.forEach(point => expect(point.y).toBeCloseTo(result.heads[0].y));
   result.heads.forEach((head, index) => {
     const lane = index === 0 ? 0 : 5;
     expect(head.x).toBeCloseTo(result.targets[lane].x, 1); expect(head.y).toBeCloseTo(result.targets[lane].y, 1);
-    expect(result.link[lane].x).toBeCloseTo(head.x); expect(result.link[lane].y).toBeCloseTo(head.y);
+    const endpoint = result.link[index === 0 ? 0 : 3];
+    expect(endpoint.x).toBeCloseTo(head.x); expect(endpoint.y).toBeCloseTo(head.y);
     expect(result.tails[index].width).toBeLessThan(head.width); expect(result.tails[index].y).toBeLessThan(head.y);
   });
 });
