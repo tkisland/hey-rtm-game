@@ -19,13 +19,15 @@ describe('perspective timing windows and horizontal targets', () => {
     }
   });
   it('keeps full timing windows and accessible targets inside all supported screen sizes', () => {
-    for (const width of [298, 370, 404, 678]) for (const height of [180, 224, 310, 480, 520]) for (const travel of [1, 2, 4]) {
+    for (const width of [298, 370, 404, 678]) for (const height of [180, 224, 310, 480, 520, 588, 848]) for (const travel of [1, 2, 4]) {
       const field = fieldGeometry(width, height);
       for (let lane = 0; lane < 6; lane++) {
         const target = field.targets[lane], pad = field.pads[lane];
         expect(pad.width).toBeGreaterThanOrEqual(44); expect(pad.height).toBeGreaterThanOrEqual(60);
         expect(pad.x).toBe(target.x); expect(pad.y - pad.height / 2).toBeGreaterThan(target.y + target.height / 2);
         expect(pad.y + pad.height / 2).toBeLessThanOrEqual(height - 44);
+        if (height >= 524) expect(pad.y + pad.height / 2).toBeLessThanOrEqual(height - 92);
+        if (height <= 224) expect(pad.y + pad.height / 2).toBe(height - 44);
         expect(target.x - target.width / 2).toBeGreaterThanOrEqual(0);
         expect(target.x + target.width / 2).toBeLessThanOrEqual(width);
         expect(target.y + target.height / 2).toBeLessThanOrEqual(height - 12);

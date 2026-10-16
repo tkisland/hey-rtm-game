@@ -12,8 +12,10 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
   const padWidth = Math.min(72, Math.max(44, cell * 0.86));
   const padHeight = Math.min(68, Math.max(60, height * 0.15));
   const origin = Math.min(100, Math.max(28, (height - 240) * .3));
-  // This clearance is in addition to the canvas's safe-area inset.
-  const padY = height - 44 - padHeight / 2;
+  // Lift the row toward resting thumbs; short fields retain their usable runway.
+  // This 44–92px clearance is in addition to the canvas's safe-area inset.
+  const bottomClearance = 44 + Math.min(48, Math.max(0, (height - 224) * .16));
+  const padY = height - bottomClearance - padHeight / 2;
   // Keep even the latest GOOD above the thumb area, at the fastest supported speed (1s).
   const lateProgress = 1 + WINDOWS.GOOD;
   const lateBottom = padY - padHeight / 2 - 16;
