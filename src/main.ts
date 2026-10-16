@@ -96,6 +96,8 @@ sound.volume = settings.soundVolume;
 sound.delay = settings.soundDelay;
 const unbindLayout = bindDockLayout(document.querySelector('.stage')!, document.querySelector('.controls-dock')!);
 const result = element('result'), stageHint = element('stage-hint');
+const hintTitle = stageHint.querySelector('strong')!;
+const hintDescription = stageHint.querySelector<HTMLElement>('span:last-child')!;
 const status = element('player-status'), notice = element('game-notice');
 const restart = element<HTMLButtonElement>('restart');
 const settingsToggle = element<HTMLButtonElement>('settings-toggle');
@@ -415,24 +417,25 @@ function frame(now: number): void {
   syncHoldSound(sample.playing, now);
   renderer.draw(engine.notes, sample.time, settings.travel, now, { inputOffsetMs: settings.inputOffset, playing: sample.playing, chart: engine.chart });
   if (failed) {
-    stageHint.hidden = false;
-    stageHint.querySelector('strong')!.textContent = '動画を再生できません';
-    stageHint.querySelector('span:last-child')!.textContent = '上のエラーメッセージをご確認ください';
-    stageHint.querySelector<HTMLElement>('span:last-child')!.hidden = false;
+    if (stageHint.hidden) stageHint.hidden = false;
+    if (hintTitle.textContent !== '動画を再生できません') hintTitle.textContent = '動画を再生できません';
+    if (hintDescription.textContent !== '上のエラーメッセージをご確認ください') hintDescription.textContent = '上のエラーメッセージをご確認ください';
+    if (hintDescription.hidden) hintDescription.hidden = false;
   } else {
-    stageHint.hidden = sample.playing || resultShown;
-    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'レスキャッチ完了！' : '動画の▶でライブをはじめよう';
-    stageHint.querySelector('strong')!.textContent = hint;
-    stageHint.querySelector('span:last-child')!.textContent = '';
-    stageHint.querySelector<HTMLElement>('span:last-child')!.hidden = true;
+    const hidden = sample.playing || resultShown;
+    if (stageHint.hidden !== hidden) stageHint.hidden = hidden;
+    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? '最高なLIVE！' : '動画の▶でライブをはじめよう';
+    if (hintTitle.textContent !== hint) hintTitle.textContent = hint;
+    if (hintDescription.textContent) hintDescription.textContent = '';
+    if (!hintDescription.hidden) hintDescription.hidden = true;
   }
   judgements.forEach((feedback, lane) => {
     const holding = engine.notes.some(note => playLane(note) === lane && note.state === 'holding');
     buttons[lane].classList.toggle('holding', holding);
     if (holding) {
-      feedback.hidden = false;
+      if (feedback.hidden) feedback.hidden = false;
       if (feedback.querySelector('.judgement-label')!.textContent !== 'HOLD') feedback.querySelector('.judgement-label')!.textContent = 'HOLD';
-    } else if (now - judgementTimes[lane] > 800) feedback.hidden = true;
+    } else if (now - judgementTimes[lane] > 800 && !feedback.hidden) feedback.hidden = true;
   });
   const guidance = failed ? '動画を再生できません' : clockStale ? '動画時刻の更新待ち' : sample.playing
     ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime

@@ -40,7 +40,7 @@ for(const slide of [false,true]) for(const error of [-.22,.22]) test(`${slide?'s
   else await page.keyboard.up(slide?'l':'s');
   await expect(page.locator('#score')).toHaveText('300');
   await expect(page.locator('#combo')).toHaveText('1');
-  await expect(page.locator('#result h2')).toHaveText('レスキャッチ完了！');
+  await expect(page.locator('#result h2')).toHaveText('最高なLIVE！');
   await expect(page.locator('#result-counts div').filter({hasText:'GOOD'}).locator('strong')).toHaveText('1');
   await touch?.detach();
 });

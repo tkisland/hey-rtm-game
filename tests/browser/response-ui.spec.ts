@@ -79,7 +79,8 @@ test('an ordinary note stays visible in front of a simultaneous full-width DD in
       return [notes, [...notes].reverse()].map(notes => {
         const engine = new GameEngine({videoId:'pJDfWpZ7CI4',title:'DD overlap',bpm:120,startTime:10,notes});
         renderer.draw(engine.notes,10,2.5,0);
-        return Array.from(ctx.getImageData(Math.round((head.x + head.width * .2) * devicePixelRatio), Math.round(head.y * devicePixelRatio), 1, 1).data);
+        const scale=ctx.getTransform().a;
+        return Array.from(ctx.getImageData(Math.round((head.x + head.width * .2) * scale), Math.round(head.y * scale), 1, 1).data);
       });
     } finally {renderer.destroy();}
   });
