@@ -1,7 +1,7 @@
 import './tutorial.css';
 import { LANE_COLORS } from './colors';
 import { bindInput, KEYS } from './input';
-import { GameEngine, WINDOWS } from './engine';
+import { GameEngine, WINDOWS, playLane } from './engine';
 import type { Hit } from './engine';
 import { Renderer } from './renderer';
 import { bindTargets } from './field-geometry';
@@ -11,9 +11,12 @@ import { compensateInput } from './timing';
 import { tutorialChart, TUTORIAL_BEAT, TUTORIAL_BPM, TUTORIAL_TRAVEL } from './tutorial-chart';
 
 const steps = [
-  {title:'タップ', description:'流れてくるノーツが判定ラインに重なったら、同じ色のボタンを1回押そう。'},
-  {title:'同時押し', description:'線でつながった2つを一緒に押そう。片方でもMISSなら、その組は0点です。'},
-  {title:'長押し', description:'帯の先頭で押し、終点がラインに来たら離そう。早すぎても遅すぎてもMISSです。'},
+  {title:'単推し', description:'流れてくるノーツが判定ラインに重なったら、同じ色のボタンを1回押そう。'},
+  {title:'同時推し', description:'線でつながった2つを一緒に押そう。片方でもMISSなら、その組は0点です。'},
+  {title:'長推し', description:'帯の先頭で押し、終点がラインに来たら離そう。早すぎても遅すぎてもMISSです。'},
+  {title:'箱推し', description:'番号順に6色を押そう。6個すべてGOOD以上で「箱推し成功！」。6本を一緒に押す必要はありません。'},
+  {title:'DD', description:'虹色のノーツは、どのボタンで押してもOK！ どれか1つをタイミングよく押そう。'},
+  {title:'推し変', description:'帯を押したまま、丸い節目で隣の色へ指を滑らせよう。PCは次のキーを押してから前を離してOK。最後の終点で離そう。'},
 ];
 
 export function mountTutorial(): () => void {
@@ -52,20 +55,20 @@ export function mountTutorial(): () => void {
     start.disabled = false;
   }
   function syncHolds(now: number): void {
-    const lanes = new Set(engine.notes.filter(note => note.state === 'holding' && renderer?.pressed.has(note.lane)).map(note => note.lane));
+    const lanes = new Set(engine.notes.filter(note => note.state === 'holding' && renderer?.pressed.has(playLane(note))).map(playLane));
     sound?.syncHolds(lanes, now);
   }
   function showHit(hit: Hit, now: number): void {
-    const label = labels[hit.lane]; label.hidden = false; label.textContent = hit.phase === 'start' ? 'HOLD' : hit.judgement;
+    const label = labels[hit.lane]; label.hidden = false; label.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
     label.dataset.kind = hit.judgement; hitTimes[hit.lane] = now;
     if (hit.judgement !== 'MISS') renderer?.flash(hit.lane, now, hit.judgement);
-    feedback.textContent = hit.phase === 'start' ? '終点がラインに重なったら離そう！' : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
+    feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? '終点がラインに重なったら離そう！' : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
     feedback.classList.toggle('success', hit.judgement !== 'MISS'); updateScore();
   }
   function draw(now: number, time: number): void {
     renderer?.draw(engine.notes, time, TUTORIAL_TRAVEL, now, settings.noteSize, TUTORIAL_BPM, settings.inputOffset, phase === 'playing', engine.chart);
     labels.forEach((label, lane) => {
-      const holding = engine.notes.some(note => note.lane === lane && note.state === 'holding');
+      const holding = engine.notes.some(note => playLane(note) === lane && note.state === 'holding');
       buttons[lane].classList.toggle('holding', holding);
       if (holding) { label.hidden = false; if (label.textContent !== 'HOLD') label.textContent = 'HOLD'; }
       else if (now - hitTimes[lane] > 750) label.hidden = true;
@@ -97,7 +100,7 @@ export function mountTutorial(): () => void {
     title.textContent = steps[step].title; description.textContent = steps[step].description;
     feedback.textContent = '「練習をはじめる」で、4拍のカウントからスタート。'; feedback.classList.remove('success');
     status.textContent = `${TUTORIAL_BPM} BPM · 約8秒`; start.textContent = '練習をはじめる';
-    previous.disabled = step === 0; next.textContent = step === 2 ? '選曲に戻る' : '次へ';
+    previous.disabled = step === 0; next.textContent = step === steps.length - 1 ? '選曲に戻る' : '次へ';
     progress.value = 0; labels.forEach(label => { label.hidden = true; }); hitTimes.fill(-Infinity);
     el('tutorial-audio-status').textContent = '';
     renderer?.clearEffects(); updateScore(); draw(performance.now(), 0);
@@ -125,6 +128,7 @@ export function mountTutorial(): () => void {
       if (phase !== 'playing' || !renderer) return;
       const previous = renderer.pressed; renderer.pressed = lanes;
       const now = performance.now(), time = compensateInput(elapsed(now), settings.inputOffset);
+      engine.advance(time, lanes).forEach(hit => showHit(hit, now));
       for (const lane of previous) if (!lanes.has(lane)) engine.release(lane, time).forEach(hit => showHit(hit, now));
       syncHolds(now);
     }, () => phase !== 'playing' || !dialog.open);

@@ -37,7 +37,7 @@
           <label for="note-size">ノーツの厚さ <output id="note-size-value">100%</output></label>
           <input id="note-size" type="range" min="50" max="150" step="10" value="100" />
           <p class="field-help">判定はノーツの中心で行います。薄い帯がGOOD（±160ms）、中間がGREAT（±100ms）、濃い帯がPERFECT（±50ms）。</p>
-          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。長い帯は終点で離す、◇は同時押しです。</p>
+          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。長い帯は終点で離す、◇は同時推しです。</p>
           <label for="offset">ノーツ全体の位置 <output id="offset-value">0 ms</output></label>
           <input id="offset" type="range" min="-300" max="300" step="10" value="0" />
           <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>
@@ -49,7 +49,7 @@
           <!-- admin:start --><div class="settings-grid"><label for="bpm">仮BPM<input id="bpm" type="number" min="80" max="200" step="1" value="140" /></label><label for="start-time">譜面開始（秒）<input id="start-time" type="number" min="0" max="3600" step="0.1" value="12" /></label></div>
           <p id="chart-settings-help" class="field-help">BPM・開始時刻は次のリスタートから反映されます。</p><!-- admin:end -->
           <label class="check-label"><input id="sound-toggle" type="checkbox" checked /> タップ音</label>
-          <p id="sound-status" class="field-help">入力時はシンバル風の「シャン」、長押し成立中は「ジリリ」という持続音を鳴らします。</p>
+          <p id="sound-status" class="field-help">入力時はシンバル風の「シャン」、長推し成立中は「ジリリ」という持続音を鳴らします。</p>
           <label for="sound-volume">タップ音量 <output id="sound-volume-value">70%</output></label>
           <input id="sound-volume" type="range" min="0" max="100" step="5" value="70" />
           <label for="sound-delay">タップ音の追加遅延 <output id="sound-delay-value">0 ms</output></label>

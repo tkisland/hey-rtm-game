@@ -32,7 +32,7 @@ test('captures hold press/release timestamps, quantizes endpoints, and cancels i
   await page.goto('/editor.html'); await expect(page.locator('#record-toggle')).toBeEnabled();
   await page.locator('#record-type').selectOption('hold'); await page.locator('#record-toggle').click();
   await seekPlay(page, 12.08); await page.keyboard.down('s');
-  await expect(page.locator('#note-count')).toHaveText('0 NOTES'); await expect(page.locator('#record-status')).toContainText('長押し記録中');
+  await expect(page.locator('#note-count')).toHaveText('0 NOTES'); await expect(page.locator('#record-status')).toContainText('長推し記録中');
   await page.waitForTimeout(220); await page.keyboard.up('s');
   await expect(page.locator('#note-count')).toHaveText('1 NOTES');
   let data = await saved(page); const note = data.notes[0];

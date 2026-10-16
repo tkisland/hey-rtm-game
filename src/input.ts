@@ -25,6 +25,13 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
       render();
       onHit(lane);
     }, { signal });
+    button.addEventListener('pointermove', event => {
+      if (!pointers.has(event.pointerId) || blocked()) return;
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('button');
+      const next = buttons.indexOf(target as HTMLButtonElement);
+      if (next < 0 || next === pointers.get(event.pointerId)) return;
+      event.preventDefault(); pointers.set(event.pointerId, next); render(); onHit(next);
+    }, { signal });
     const up = (event: PointerEvent) => { pointers.delete(event.pointerId); render(); };
     button.addEventListener('pointerup', up, { signal });
     button.addEventListener('pointercancel', event => { pointers.delete(event.pointerId); render('cancel'); }, { signal });

@@ -18,7 +18,7 @@ test('opens on request, preserves selection and restores focus without loading v
   const videos: string[] = []; page.on('request', request => { if (request.url().includes('youtube.com')) videos.push(request.url()); });
   await page.goto('/'); await expect(page.getByRole('dialog')).not.toBeVisible();
   await page.locator('#song-search').fill('mommy'); await page.locator('#open-tutorial').click();
-  await expect(page.getByRole('heading', {name:'タップ', exact:true})).toBeVisible();
+  await expect(page.getByRole('heading', {name:'単推し', exact:true})).toBeVisible();
   await expect(page.locator('#tutorial-previous')).toBeDisabled();
   await page.keyboard.press('s'); await expect(page.locator('#tutorial-score')).toHaveText('0 点 · COMBO 0');
   await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -79,7 +79,7 @@ test('requires holding from the moving head to its tail and cancels an interrupt
   await expect(page.locator('#tutorial-progress')).toHaveJSProperty('value',0);
   const again = await play(page); await again(2667); await page.keyboard.down('f');
   await page.locator('#tutorial-close').click(); await page.keyboard.up('f'); await page.clock.runFor(9000);
-  await page.locator('#open-tutorial').click(); await expect(page.locator('#tutorial-step')).toHaveText('1 / 3');
+  await page.locator('#open-tutorial').click(); await expect(page.locator('#tutorial-step')).toHaveText('1 / 6');
   await expect(page.locator('#tutorial-score')).toHaveText('0 点 · COMBO 0');
 });
 
@@ -134,8 +134,48 @@ test('keeps practice pads and controls usable on small portrait and landscape sc
     expect(await page.evaluate(() => [...document.querySelectorAll('.tutorial-pad'),document.getElementById('tutorial-close')!].every(pad => {
       const r = pad.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2) === pad;
     }))).toBe(true);
-    for (let step = 0; step < 3; step++) await page.locator('#tutorial-next').click();
+    for (let step = 0; step < 6; step++) await page.locator('#tutorial-next').click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
+});
+
+test('plays box chains, DD on any lane and a complete keyboard slide', async ({page}) => {
+  await open(page);
+  for (let i=0;i<3;i++) await page.locator('#tutorial-next').click();
+  await expect(page.locator('#tutorial-title')).toHaveText('箱推し');
+  const box=await play(page);
+  for (let lane=0;lane<6;lane++) {await box(Math.round((4 + lane)*2000/3));await page.keyboard.press('sdfjkl'[lane]);}
+  await expect(page.locator('#tutorial-feedback')).toHaveText('箱推し成功！');
+  await expect(page.locator('#tutorial-score')).toHaveText('6,000 点 · COMBO 6');
+  await page.locator('#tutorial-next').click();await expect(page.locator('#tutorial-title')).toHaveText('DD');
+  const dd=await play(page);
+  for (const [time,key] of [[2667,'l'],[4667,'s'],[6667,'j']] as const) {await dd(time);await page.keyboard.press(key);}
+  await expect(page.locator('#tutorial-score')).toHaveText('3,000 点 · COMBO 3');
+  await page.locator('#tutorial-next').click();await expect(page.locator('#tutorial-title')).toHaveText('推し変');
+  const slide=await play(page);await slide(2667);await page.keyboard.down('d');
+  await slide(4000);await page.keyboard.down('f');await page.keyboard.up('d');
+  await expect(page.locator('#tutorial-feedback')).toContainText('推し変成功');
+  await expect(page.locator('#tutorial-score')).toHaveText('0 点 · COMBO 0');
+  await slide(5333);await page.keyboard.down('j');await page.keyboard.up('f');
+  await slide(6667);await page.keyboard.up('j');
+  await expect(page.locator('#tutorial-score')).toHaveText('1,000 点 · COMBO 1');
+  await slide(7400);await expect(page.locator('#tutorial-feedback')).toContainText('1 / 1 ノーツ成功');
+});
+
+test('slides one captured touch between buttons without releasing the gesture', async ({page}, info) => {
+  test.skip(!info.project.use.hasTouch,'Requires a touch viewport.');
+  await open(page);for (let i=0;i<5;i++) await page.locator('#tutorial-next').click();
+  const slide=await play(page),touch=await page.context().newCDPSession(page);
+  const points=await Promise.all([1,2,3].map(async lane => {const box=(await page.locator('.tutorial-pad').nth(lane).boundingBox())!;return {id:1,x:box.x + box.width/2,y:box.y + box.height/2};}));
+  await slide(2667);await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[0]]});
+  await expect(page.locator('.tutorial-judgement').nth(1)).toHaveText('HOLD');
+  await slide(4000);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[1]]});
+  await expect(page.locator('.tutorial-pad').nth(2)).toHaveClass(/pressed/);
+  await expect(page.locator('.tutorial-pad').nth(1)).not.toHaveClass(/pressed/);
+  await expect(page.locator('#tutorial-feedback')).toContainText('推し変成功');
+  await slide(5333);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[2]]});
+  await expect(page.locator('.tutorial-judgement').nth(3)).toHaveText('推し変！');
+  await slide(6667);await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await expect(page.locator('#tutorial-score')).toHaveText('1,000 点 · COMBO 1');await touch.detach();
 });
