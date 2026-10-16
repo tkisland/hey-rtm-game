@@ -48,3 +48,10 @@ test('closing and reopening results preserves playback and the field position',a
   await expect(page.locator('#result')).toBeVisible();
   expect(await page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(1);
 });
+
+test('paused playback shows its status without the repeated note instructions',async({page})=>{
+  await seekPlay(page,12);
+  await page.evaluate(()=>(window as any).testVideo.pauseVideo());
+  await expect(page.locator('#stage-hint strong')).toHaveText('一時停止中');
+  await expect(page.locator('#stage-hint')).not.toContainText(/ハートのバー|終点で離す/);
+});

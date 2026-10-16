@@ -43,7 +43,7 @@ it('preserves tempo metadata through quantize, undo, serialization and independe
   const copied = copyChart(c); copied.tempoChanges![0].bpm = 100;
   expect(c.tempoChanges![0].bpm).toBe(192);
   const bundled = bundledChart(DEFAULT_SONG)!; bundled.notes.length = 0; bundled.tempoChanges![0].bpm = 50;
-  expect(bundledChart(DEFAULT_SONG)!.notes).toHaveLength(534); expect(bundledChart(DEFAULT_SONG)!.tempoChanges![0].bpm).toBe(192);
+  expect(bundledChart(DEFAULT_SONG)!.notes).toHaveLength(530); expect(bundledChart(DEFAULT_SONG)!.tempoChanges![0].bpm).toBe(192);
 });
 it('quantizes hold endpoints across a tempo boundary and keeps a short hold at least one subdivision', () => {
   const model = new EditorModel({ ...emptyChart(), bpm: 120, beatOrigin: 0, tempoChanges: [{ time: 2.25, bpm: 240 }] });

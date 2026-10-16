@@ -17,21 +17,23 @@ test('public selection offers only the published chart and loads no video', asyn
   page.on('request', request => { if (request.url().includes('youtube.com')) requests.push(request.url()); });
   await page.goto('/?admin=1&mode=admin');
   await expect(page.locator('.song-play')).toHaveText('プレイ');
-  await expect(page.locator('.song-meta')).toHaveText('6 LANES · 166 → 192 BPM · 509 NOTES');
+  await expect(page.locator('.song-meta')).toHaveText('6 LANES · 166 → 192 BPM · 505 NOTES');
+  await expect(page.locator('.song-card').getByText('SUPER MOMMY GIRLS',{exact:true})).toHaveCount(1);
+  expect((await page.locator('.song-card').boundingBox())!.height).toBeLessThan(180);
   await expect(page.locator('.song-edit,.song-saved,.song-practice,.saved-summary,.admin-notice')).toHaveCount(0);
-  expect(await page.locator('body').innerText()).not.toMatch(/エディター|編集|保存譜面|テスト譜面|SMG00[23]/);
+  expect(await page.locator('body').innerText()).not.toMatch(/エディター|編集|保存譜面|テスト譜面|SMG00[234]/);
   expect(requests).toEqual([]);
   await page.locator('#song-search').fill('missing'); await expect(page.locator('#song-empty')).toBeVisible();
   await page.locator('#song-search').fill('mommy'); await expect(page.locator('.song-card')).toHaveCount(1);
   await page.locator('.song-play').click(); await expect(page.locator('#restart')).toBeEnabled();
-  await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 509 NOTES');
+  await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 505 NOTES');
 });
 
 test('public play ignores old drafts and chart settings while retaining device preferences', async ({ page }) => {
   const errors:string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/game.html?chart=custom&admin=1'); await expect(page.locator('#restart')).toBeEnabled();
   await expect(page.locator('#open-editor,#chart-source,#bpm,#start-time,#debug-toggle,#debug-panel')).toHaveCount(0);
-  await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 509 NOTES');
+  await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 505 NOTES');
   await page.locator('#settings-toggle').click();
   await expect(page.locator('#travel')).toHaveValue('3.25');
   await expect(page.locator('#sound-toggle')).not.toBeChecked();
@@ -54,7 +56,7 @@ test('public play ignores old drafts and chart settings while retaining device p
 test('legacy draft and practice URLs resolve to the published chart', async ({ page }) => {
   for (const url of ['/?chart=custom', '/?chart=test', '/game.html?chart=test', '/game.html?chart=custom&mode=admin']) {
     await page.goto(url); await expect(page.locator('#restart')).toBeEnabled();
-    await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 509 NOTES');
+    await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 505 NOTES');
     expect(new URL(page.url()).searchParams.has('chart')).toBe(false);
     await expect(page.locator('#open-editor,#chart-source')).toHaveCount(0);
   }

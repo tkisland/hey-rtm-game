@@ -422,11 +422,13 @@ function frame(now: number): void {
     stageHint.hidden = false;
     stageHint.querySelector('strong')!.textContent = '動画を再生できません';
     stageHint.querySelector('span:last-child')!.textContent = '上のエラーメッセージをご確認ください';
+    stageHint.querySelector<HTMLElement>('span:last-child')!.hidden = false;
   } else {
     stageHint.hidden = sample.playing || resultShown;
     const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'おつかれさまでした！' : '動画の▶でライブをはじめよう';
     stageHint.querySelector('strong')!.textContent = hint;
-    stageHint.querySelector('span:last-child')!.textContent = 'ハートのバーを同じ色でキャッチ · 二重線の終点で離す';
+    stageHint.querySelector('span:last-child')!.textContent = '';
+    stageHint.querySelector<HTMLElement>('span:last-child')!.hidden = true;
   }
   judgements.forEach((feedback, lane) => {
     const holding = engine.notes.some(note => playLane(note) === lane && note.state === 'holding');
