@@ -1,0 +1,97 @@
+import { test, expect } from '@playwright/test';
+import { api, seekPlay } from '../browser/mock-video';
+
+const draft = { videoId:'pJDfWpZ7CI4', title:'old local draft', bpm:120, startTime:1, notes:[{id:1, lane:0, type:'tap', time:1}] };
+test.beforeEach(async ({ page }) => {
+  await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({body:api}));
+  await page.addInitScript(draft => {
+    if (!localStorage.getItem('hey-rhythm-editor-v1')) localStorage.setItem('hey-rhythm-editor-v1', JSON.stringify(draft));
+    if (!localStorage.getItem('hey-rhythm-custom-chart-v1')) localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify(draft));
+    if (!localStorage.getItem('hey-rhythm-settings-v1')) localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({bpm:199, startTime:55, debug:true, sound:false, travel:3.25}));
+    localStorage.setItem('admin', 'true'); localStorage.setItem('isAdmin', 'true');
+  }, draft);
+});
+
+test('public selection offers only the published chart and loads no video', async ({ page }) => {
+  const requests:string[] = [];
+  page.on('request', request => { if (request.url().includes('youtube.com')) requests.push(request.url()); });
+  await page.goto('/?admin=1&mode=admin');
+  await expect(page.locator('.song-play')).toHaveText('プレイ');
+  await expect(page.locator('.song-meta')).toHaveText('6 LANES · 166 → 192 BPM · 509 NOTES');
+  await expect(page.locator('.song-edit,.song-saved,.song-practice,.saved-summary,.admin-notice')).toHaveCount(0);
+  expect(await page.locator('body').innerText()).not.toMatch(/エディター|編集|保存譜面|テスト譜面|SMG002/);
+  expect(requests).toEqual([]);
+  await page.locator('#song-search').fill('missing'); await expect(page.locator('#song-empty')).toBeVisible();
+  await page.locator('#song-search').fill('mommy'); await expect(page.locator('.song-card')).toHaveCount(1);
+  await page.locator('.song-play').click(); await expect(page.locator('#restart')).toBeEnabled();
+  await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 509 NOTES');
+});
+
+test('public play ignores old drafts and chart settings while retaining device preferences', async ({ page }) => {
+  const errors:string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/game.html?chart=custom&admin=1'); await expect(page.locator('#restart')).toBeEnabled();
+  await expect(page.locator('#open-editor,#chart-source,#bpm,#start-time,#debug-toggle,#debug-panel')).toHaveCount(0);
+  await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 509 NOTES');
+  await page.locator('#settings-toggle').click();
+  await expect(page.locator('#travel')).toHaveValue('3.25');
+  await expect(page.locator('#sound-toggle')).not.toBeChecked();
+  expect(await page.locator('#settings-panel').innerText()).not.toMatch(/編集|エディター|下書き|仮BPM|譜面開始|使用する譜面/);
+  await page.locator('#travel').fill('2.5'); await page.locator('#travel').dispatchEvent('input');
+  await page.locator('#input-offset').fill('0'); await page.locator('#input-offset').dispatchEvent('input');
+  await page.locator('#settings-close').click();
+  await page.locator('#play-start').click();
+  expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(.5);
+  await seekPlay(page, 7.65); await page.keyboard.press('l');
+  await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
+  expect(Number(await page.locator('#score').textContent())).toBeGreaterThan(0);
+  await page.locator('#restart').click(); await expect(page.locator('#score')).toHaveText('000000');
+  await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
+  await page.locator('#settings-toggle').click(); await expect(page.locator('#travel')).toHaveValue('2.5');
+  const stored = await page.evaluate(() => ['hey-rhythm-editor-v1','hey-rhythm-custom-chart-v1'].map(key => JSON.parse(localStorage.getItem(key)!)));
+  expect(stored).toEqual([draft,draft]); expect(errors).toEqual([]);
+});
+
+test('legacy draft and practice URLs resolve to the published chart', async ({ page }) => {
+  for (const url of ['/?chart=custom', '/?chart=test', '/game.html?chart=test', '/game.html?chart=custom&mode=admin']) {
+    await page.goto(url); await expect(page.locator('#restart')).toBeEnabled();
+    await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 509 NOTES');
+    expect(new URL(page.url()).searchParams.has('chart')).toBe(false);
+    await expect(page.locator('#open-editor,#chart-source')).toHaveCount(0);
+  }
+});
+
+test('direct editor URLs and source or asset requests return 404', async ({ request }) => {
+  for (const path of ['/editor.html', '/editor', '/editor.html?admin=1', '/%65ditor.html', '/src/editor.ts', '/src/editor.ts?raw', '/src/timeline.ts', '/assets/editor-hu93NUmn.js']) {
+    const response = await request.get(path); expect(response.status(), path).toBe(404);
+    expect(await response.text()).not.toContain('record-toggle');
+  }
+});
+
+test('the default development server rejects editor pages, source and Vite aliases', async ({ request }) => {
+  for (const path of ['/editor.html','/editor','/%65ditor?mode=admin','/Editor.html','/src/editor.ts?raw','/src/editor.js','/src/editor-preview.ts','/src/timeline.ts']) {
+    const response = await request.get(`http://127.0.0.1:4183${path}`);
+    expect(response.status(), path).toBe(404); expect(await response.text()).not.toContain('record-toggle');
+  }
+});
+
+test('unknown songs return to selection before loading a player', async ({ page }) => {
+  const requests:string[] = [];
+  page.on('request', request => { if (request.url().includes('youtube.com')) requests.push(request.url()); });
+  await page.goto('/game.html?song=unknown&admin=1');
+  await expect(page.locator('#menu-notice')).toContainText('見つかりません');
+  await expect(page.locator('.song-play')).toBeVisible(); expect(requests).toEqual([]);
+});
+
+test('player controls remain reachable with clearance from the bottom on small screens', async ({ page }, info) => {
+  for (const [width,height] of [[320,480],[390,844],...(info.project.name === 'mobile-touch' ? [[844,390]] : [])]) {
+    await page.setViewportSize({width,height}); await page.goto('/game.html');
+    await expect(page.locator('#restart')).toBeEnabled();
+    await expect.poll(() => page.evaluate(() => {
+      return [...document.querySelectorAll('.lane-button'),document.getElementById('play-start')!].every(node => {
+        const r = node.getBoundingClientRect(), hit = document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+        return r.top >= 0 && r.bottom <= innerHeight && (hit === node || node.contains(hit));
+      }) && [...document.querySelectorAll('.lane-button')].every(node => innerHeight-node.getBoundingClientRect().bottom >= 43.9);
+    })).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});
