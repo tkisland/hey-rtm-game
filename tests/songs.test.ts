@@ -11,6 +11,15 @@ function storage() {
   return data;
 }
 afterEach(() => vi.unstubAllGlobals());
+it('gives new players a longer note lead-in while preserving saved fall times', () => {
+  storage();
+  expect(loadSettings().travel).toBe(2.5);
+  for (const travel of [1, 2, 3.25, 4]) {
+    saveSettings({ ...loadSettings(), travel });
+    expect(loadSettings().travel).toBe(travel);
+    expect(loadSettings(second).travel).toBe(travel);
+  }
+});
 it('registers only real available content and resolves stable song URLs', () => {
   expect(SONGS).toEqual([DEFAULT_SONG]); expect(findSong(null)).toBe(DEFAULT_SONG);
   expect(findSong(DEFAULT_SONG.id)).toBe(DEFAULT_SONG); expect(findSong('unknown')).toBeUndefined();
