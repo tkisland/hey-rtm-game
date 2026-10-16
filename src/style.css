@@ -7,6 +7,7 @@ button { cursor:pointer; color:inherit; }
 button:disabled { opacity:.45; cursor:not-allowed; }
 button:focus-visible,a:focus-visible,input:focus-visible { outline:2px solid #ffb65c; outline-offset:4px; }
 a { color:inherit; }
+h1,h2,h3,h4,h5,h6,.wordmark,.cover-title { font-family:"Dela Gothic One", "RocknRoll One", sans-serif; }
 [hidden] { display:none !important; }
 #app { max-width:720px; margin:0 auto; padding: max(14px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom)); }
 .header { display:flex; align-items:center; justify-content:space-between; height:48px; margin-bottom:18px; }
