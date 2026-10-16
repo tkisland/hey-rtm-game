@@ -1,44 +1,50 @@
 import { LANE_COLORS } from './colors';
 import { project } from './field-geometry';
 import type { FieldGeometry } from './field-geometry';
+import stageUrl from './assets/concert-stage.svg?url';
 
-/** Six anonymous performers at the source of the lanes. No movement of the input field. */
-export function drawStage(ctx: CanvasRenderingContext2D, field: FieldGeometry, responses: readonly number[]): void {
-  const { width } = field;
-  // Background scenery shares the top of the runway, preserving its usable length.
-  // Notes are drawn in front, emerging beside the performers' raised hands.
-  const origin = field.origin + Math.min(30, field.approach * .25);
-  const top = Math.max(12, origin - 36), floor = origin - 3;
-  const shape = (points: number[][]) => {
-    ctx.beginPath(); points.forEach(([x,y], i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y)); ctx.closePath(); ctx.fill();
-  };
-  ctx.save();
-  // Overhead lights frame the performers without covering approaching notes.
-  const wash = ctx.createLinearGradient(0, top - 10, 0, origin);
-  wash.addColorStop(0, '#e693ff08'); wash.addColorStop(1, '#e693ff28');
-  ctx.fillStyle = wash; shape([[width * .12, top - 12], [width * .88, top - 12], [width, origin], [0, origin]]);
-  for (let lane = 0; lane < 6; lane++) {
-    const x = project(field, lane, 0).x, color = LANE_COLORS[lane];
-    const pulse = responses[lane] ?? 0, r = Math.min(4, field.cell * .08);
-    const light = ctx.createLinearGradient(x, top - 12, x, floor);
-    light.addColorStop(0, color + '00'); light.addColorStop(1, color + (pulse > 0 ? '50' : '18'));
-    ctx.fillStyle = light; shape([[x - 3, top - 12], [x + 3, top - 12], [x + field.cell * .35, floor], [x - field.cell * .35, floor]]);
-    ctx.fillStyle = '#242037';
-    ctx.beginPath(); ctx.arc(x, floor - 20, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = color + (pulse > 0 ? 'd0' : '70');
-    shape([[x - r, floor - 14], [x + r, floor - 14], [x + r * 1.8, floor - 3], [x - r * 1.8, floor - 3]]);
-    // Raised arm with a small, bright response at the hand when a note is emitted.
-    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(x + r, floor - 12); ctx.lineTo(x + r * 2, floor - 19); ctx.stroke();
-    ctx.fillStyle = pulse > 0 ? '#fff' : color;
-    ctx.globalAlpha = .4 + pulse * .6;
-    ctx.beginPath(); ctx.arc(x + r * 2, floor - 19, 1.5 + pulse * 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+const artwork = new Image(); artwork.src = stageUrl;
+const scenes = new WeakMap<FieldGeometry,{canvas:HTMLCanvasElement;ready:boolean;dpr:number}>();
+
+/** Rasterize the venue once per resize; no per-frame crowd, blur or SVG work. */
+export function drawVenue(ctx:CanvasRenderingContext2D,field:FieldGeometry):void {
+  const ready = artwork.complete && artwork.naturalWidth > 0, dpr = Math.min(2,window.devicePixelRatio || 1);
+  let scene = scenes.get(field);
+  if (!scene || scene.ready !== ready || scene.dpr !== dpr) {
+    const canvas = document.createElement('canvas'); canvas.width = Math.ceil(field.width*dpr);canvas.height = Math.ceil(field.height*dpr);
+    const art = canvas.getContext('2d')!; art.scale(dpr,dpr);
+    const haze=art.createRadialGradient(field.width*.5,field.origin,0,field.width*.5,field.origin,field.width*.7);
+    haze.addColorStop(0,'#9347bd35');haze.addColorStop(1,'#a448cb00');
+    art.fillStyle=haze;art.fillRect(0,0,field.width,field.height);
+    if (ready) art.drawImage(artwork,0,0,field.width,field.origin*1.24);
+    // Spectators stand outside the runway. Depth changes their size, never note speed.
+    for(let side=0;side<2;side++) for(let i=0;i<88;i++) {
+      const depth=(i+.5)/88, lane=side===0?-.5:5.5, edge=project(field,lane,depth);
+      const spread=(i*37%23)/23, available=side===0?edge.x:field.width-edge.x;
+      const x=side===0?available*spread:field.width-available*spread;
+      const y=field.origin*1.22+depth*(field.approach*.84-field.origin*.22), scale=.35+depth*.65;
+      const color=LANE_COLORS[(i+side*3)%6], tilt=(i%3-1)*2;
+      art.fillStyle='#080a18';art.beginPath();art.arc(x,y,2.6*scale,0,Math.PI*2);art.fill();
+      art.fillRect(x-3.5*scale,y+2*scale,7*scale,8*scale);
+      if(i%3===0)continue;
+      art.strokeStyle=color;art.lineWidth=1.6*scale;art.lineCap='round';art.shadowColor=color;art.shadowBlur=5;
+      art.beginPath();art.moveTo(x+3*scale,y);art.lineTo(x+(3+tilt)*scale,y-(5+i%6)*scale);art.stroke();
+      art.shadowBlur=0;
+    }
+    scene={canvas,ready,dpr};scenes.set(field,scene);
   }
-  const rim = ctx.createLinearGradient(0, 0, width, 0);
-  LANE_COLORS.forEach((color, i) => rim.addColorStop(i / 5, color));
-  ctx.fillStyle = '#30273f'; shape([[width * .06, floor], [width * .94, floor], [width * .98, origin + 2], [width * .02, origin + 2]]);
-  ctx.strokeStyle = rim; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(width * .02, origin + 2); ctx.lineTo(width * .98, origin + 2); ctx.stroke();
+  ctx.drawImage(scene.canvas,0,0,field.width,field.height);
+}
+
+/** The performers' responses glow at the source of the lanes. */
+export function drawStage(ctx:CanvasRenderingContext2D,field:FieldGeometry,responses:readonly number[]):void {
+  ctx.save();
+  for(let lane=0;lane<6;lane++) {
+    const pulse=responses[lane]??0;if(!pulse)continue;
+    const point=project(field,lane,0),y=field.origin*1.24*241/360,r=7+pulse*5,color=LANE_COLORS[lane];
+    const light=ctx.createRadialGradient(point.x,y,0,point.x,y,r);
+    light.addColorStop(0,'#fff');light.addColorStop(.2,color+'c0');light.addColorStop(1,color+'00');
+    ctx.fillStyle=light;ctx.fillRect(point.x-r,y-r,r*2,r*2);
+  }
   ctx.restore();
 }

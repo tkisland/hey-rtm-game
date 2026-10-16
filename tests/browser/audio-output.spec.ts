@@ -54,7 +54,7 @@ test('output processes exact silence throughout the intro before the first eight
 test('native video playback leaves a parent gesture available to prepare audio without seeking or replaying', async ({ page }) => {
   await page.evaluate(() => { const video = (window as any).testVideo; video.seekTo(3.4); video.playVideo(); });
   const button = page.locator('#play-start');
-  await expect(button).toBeEnabled(); await expect(button).toHaveText('♫ タップ音を準備');
+  await expect(button).toBeEnabled(); await expect(button).toHaveText('♫ 音声');
   await page.evaluate(() => {
     const video = (window as any).testVideo; video.seekTo = () => { throw new Error('Unexpected seek'); };
     video.playVideo = () => { throw new Error('Unexpected play'); };
