@@ -3,8 +3,9 @@ import { WINDOWS, playLane } from './engine';
 import { laneAt } from './chart';
 import { slideRoute } from './slide-route';
 import { responseMark } from './response-art';
+import { drawStage } from './stage-art';
 import { LANE_COLORS } from './colors';
-import { chordCurve, chordGroups, noteThickness } from './note-display';
+import { boxGroups, chordCurve, chordGroups, noteThickness } from './note-display';
 import type { Chart, ChartNote } from './chart';
 import { beatsBetween } from './tempo';
 import { fieldGeometry, project, timingBands } from './field-geometry';
@@ -15,11 +16,12 @@ export class Renderer {
   private field!: FieldGeometry;
   private observer: ResizeObserver;
   private flashes = new Map<number, { time: number; kind: HitZone }>();
+  private boxTrail: { lane: number; time: number; step: number; id: number; complete: boolean }[] = [];
   private reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   pressed = new Set<number>();
   private cachedNotes: PlayNote[] | null = null;
+  private renderNotes: PlayNote[] = [];
   private chords: ChartNote[][] = [];
-  private chordIds = new Set<number>();
   private boxes: ChartNote[][] = [];
   private gaps = new Map<number, number>();
   constructor(private canvas: HTMLCanvasElement) {
@@ -36,7 +38,13 @@ export class Renderer {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   flash(lane: number, now: number, kind: HitZone = 'PERFECT'): void { this.flashes.set(lane, { time: now, kind }); }
-  clearEffects(): void { this.flashes.clear(); }
+  flashBox(lane: number, now: number, step: number, id: number, complete = false): void {
+    const previous = this.boxTrail.at(-1);
+    if (!previous || previous.id !== id || previous.step + 1 !== step) this.boxTrail = [];
+    this.boxTrail.push({lane, time:now, step, id, complete});
+    if (this.boxTrail.length > 6) this.boxTrail.shift();
+  }
+  clearEffects(): void { this.flashes.clear(); this.boxTrail = []; }
   private polygon(points: { x: number; y: number }[], fill = true): void {
     const ctx = this.ctx; ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
     points.slice(1).forEach(point => ctx.lineTo(point.x, point.y)); ctx.closePath();
@@ -92,10 +100,10 @@ export class Renderer {
     const judgeTime = time - inputOffsetMs / 1000;
     const progressAt = (seconds: number) => 1 + (judgeTime - seconds) / travel;
     if (this.cachedNotes !== notes) {
-      this.cachedNotes = notes; this.chords = chordGroups(notes); this.chordIds = new Set(this.chords.flat().map(note => note.id)); this.gaps.clear();
-      const boxes = new Map<number, ChartNote[]>();
-      for (const note of notes) if (note.boxId) { const group = boxes.get(note.boxId) ?? []; group.push(note); boxes.set(note.boxId, group); }
-      this.boxes = [...boxes.values()];
+      this.cachedNotes = notes; this.chords = chordGroups(notes); this.gaps.clear();
+      // A wide DD must never hide the color of a simultaneous ordinary note.
+      this.renderNotes = [...notes].sort((a, b) => Number(b.gimmick === 'dd') - Number(a.gimmick === 'dd'));
+      this.boxes = boxGroups(notes);
       for (let lane = 0; lane < 6; lane++) {
         const ordered = notes.filter(note => note.lane === lane).sort((a, b) => a.time - b.time);
         ordered.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (ordered[i - 1]?.time ?? -Infinity), (ordered[i + 1]?.time ?? Infinity) - note.time)));
@@ -128,6 +136,16 @@ export class Renderer {
       ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(target.x - target.width / 2, target.y); ctx.lineTo(target.x + target.width / 2, target.y); ctx.stroke(); ctx.lineWidth = 1;
     }
+    const responses = Array.from({length:6}, () => 0);
+    for (const note of notes) if (note.state === 'pending') {
+      const p = progressAt(note.time);
+      if (p >= 0 && p < .16) {
+        const pulse = this.reducedMotion.matches ? .5 : 1 - p / .16;
+        if (note.gimmick === 'dd') responses.forEach((level, lane) => { responses[lane] = Math.max(level, pulse); });
+        else responses[note.lane] = Math.max(responses[note.lane], pulse);
+      }
+    }
+    drawStage(ctx, field, responses);
     // Each moving guide is one musical beat across all lanes, in the same clock as notes.
     if (chart) for (const marker of beatsBetween(chart, judgeTime - WINDOWS.GOOD, judgeTime + travel)) {
       const p = progressAt(marker.time);
@@ -162,7 +180,7 @@ export class Renderer {
       visible.forEach((note, i) => { const point = project(field, note.lane, progressAt(note.time)); if (i) ctx.lineTo(point.x, point.y); else ctx.moveTo(point.x, point.y); });
       ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
     }
-    for (const note of notes) {
+    for (const note of this.renderNotes) {
       if (!active(note)) continue;
       const p = note.state === 'holding' ? 1 : progressAt(note.time);
       if (p < 0 || p > 1 + WINDOWS.GOOD / travel + 1e-8) continue;
@@ -185,7 +203,7 @@ export class Renderer {
         if (rawTail >= 0) this.releaseCap(tail, thickness, color);
       }
       if (note.gimmick === 'dd') {
-        const center = project(field, 2.5, p), width = head.width * 1.8, height = Math.max(12, thickness);
+        const center = project(field, 2.5, p), width = project(field, 5.49, p).x - project(field, -.49, p).x, height = Math.max(12, thickness);
         const gradient = ctx.createLinearGradient(center.x - width / 2, 0, center.x + width / 2, 0);
         LANE_COLORS.forEach((color, i) => gradient.addColorStop(i / 5, color));
         ctx.fillStyle = gradient; ctx.beginPath(); ctx.roundRect(center.x - width / 2, center.y - height / 2, width, height, height / 2); ctx.fill();
@@ -207,13 +225,52 @@ export class Renderer {
         ctx.fillStyle = lane === 2 ? '#28203f' : '#fff'; responseMark(ctx, head.x, head.y, thickness * .43, note.gimmick === 'box');
       }
       ctx.fillStyle = '#ffffffa0'; ctx.fillRect(head.x - head.width / 2 + 3, head.y - thickness / 2, Math.max(1, head.width - 6), 1);
-      if (this.chordIds.has(note.id)) {
-        const r = Math.max(2, Math.min(4, thickness / 2)); ctx.strokeStyle = '#fff'; ctx.fillStyle = '#10111c';
-        this.polygon([{ x: head.x + head.width * .3, y: head.y - r }, { x: head.x + head.width * .3 + r, y: head.y }, { x: head.x + head.width * .3, y: head.y + r }, { x: head.x + head.width * .3 - r, y: head.y }]); ctx.stroke();
+      // Small light motes follow the response from the stage; holds keep their distinct bands.
+      if (!this.reducedMotion.matches && note.state === 'pending' && p <= 1) {
+        ctx.save(); ctx.fillStyle = color;
+        for (let i = 1; i <= 3; i++) {
+          const y = head.y - thickness / 2 - i * 5;
+          if (y <= field.origin + 2) continue;
+          ctx.globalAlpha = .45 / i;
+          ctx.beginPath(); ctx.arc(head.x + (i % 2 ? -1 : 1) * 3, y, 1.5 / Math.sqrt(i), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
       }
     }
     if (playing) this.drawHoldEffects(notes, judgeTime);
     this.drawHitEffects(now);
+    this.drawBoxEffects(now);
+  }
+  private drawBoxEffects(now: number): void {
+    const ctx = this.ctx, field = this.field, reduced = this.reducedMotion.matches;
+    const duration = reduced ? 160 : 1100;
+    this.boxTrail = this.boxTrail.filter(hit => now - hit.time < duration && now >= hit.time);
+    if (!this.boxTrail.length) return;
+    ctx.save();
+    for (let i = 0; i < this.boxTrail.length; i++) {
+      const hit = this.boxTrail[i], target = field.targets[hit.lane];
+      const p = (now - hit.time) / duration, color = LANE_COLORS[hit.lane];
+      ctx.globalAlpha = (1 - p) * .9; ctx.fillStyle = color; ctx.strokeStyle = color;
+      const y = target.y - 18 - (reduced ? 0 : p * 16);
+      if (!reduced && i > 0) {
+        const previous = this.boxTrail[i - 1], from = field.targets[previous.lane];
+        const gradient = ctx.createLinearGradient(from.x, y, target.x, y);
+        gradient.addColorStop(0, LANE_COLORS[previous.lane]); gradient.addColorStop(1, color);
+        ctx.strokeStyle = gradient; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(from.x, y); ctx.quadraticCurveTo((from.x + target.x) / 2, y - 12, target.x, y); ctx.stroke();
+      }
+      responseMark(ctx, target.x, y, reduced ? 4 : 4 + (1 - p) * 3, true);
+    }
+    const last = this.boxTrail.at(-1)!;
+    if (last.complete) {
+      ctx.globalAlpha = Math.max(0, 1 - (now - last.time) / duration);
+      const gradient = ctx.createLinearGradient(0, 0, field.width, 0);
+      LANE_COLORS.forEach((color, i) => gradient.addColorStop(i / 5, color));
+      ctx.strokeStyle = gradient; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(field.targets[0].x, field.near - 9);
+      ctx.quadraticCurveTo(field.width / 2, field.near - (reduced ? 9 : 36), field.targets[5].x, field.near - 9); ctx.stroke();
+    }
+    ctx.restore();
   }
   private drawHoldEffects(notes: PlayNote[], time: number): void {
     const ctx = this.ctx, field = this.field, reduced = this.reducedMotion.matches;

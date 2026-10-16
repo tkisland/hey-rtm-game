@@ -1,6 +1,29 @@
 import { expect, it } from 'vitest';
-import { createHoldSamples, createTapSamples, TAP_DURATION } from '../src/sound';
+import { BOX_DURATION, BOX_PITCHES, createBoxSamples, createHoldSamples, createTapSamples, TAP_DURATION } from '../src/sound';
 import { normalizeSettings } from '../src/settings';
+
+it.each([44100, 48000])('plays a rising six-note box run with finite, fading bell tones at %s Hz', sampleRate => {
+  const energyAt = (samples: Float32Array, frequency: number) => {
+    let real = 0, imaginary = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const phase = 2 * Math.PI * frequency * i / sampleRate;
+      real += samples[i] * Math.cos(phase); imaginary += samples[i] * Math.sin(phase);
+    }
+    return real * real + imaginary * imaginary;
+  };
+  for (let step = 0; step < 6; step++) {
+    const samples = createBoxSamples(sampleRate, step);
+    expect(samples.length).toBe(Math.ceil(sampleRate * BOX_DURATION));
+    expect(samples.every(Number.isFinite)).toBe(true);
+    expect(Math.abs(samples[0])).toBe(0); expect(Math.abs(samples.at(-1)!)).toBe(0);
+    expect(Math.max(...samples.map(Math.abs))).toBeCloseTo(.48, 5);
+    const energies = BOX_PITCHES.map(frequency => energyAt(samples, frequency));
+    expect(energies.indexOf(Math.max(...energies))).toBe(step);
+    const rms = (window: Float32Array) => Math.sqrt(window.reduce((sum, v) => sum + v * v, 0) / window.length);
+    expect(rms(samples.slice(-sampleRate * .02))).toBeLessThan(rms(samples.slice(0, sampleRate * .02)) * .1);
+    if (step) expect(BOX_PITCHES[step]).toBeGreaterThan(BOX_PITCHES[step - 1]);
+  }
+});
 
 it.each([44100, 48000])('creates finite short cymbal samples without clipped peaks or cut-off edges at %s Hz', sampleRate => {
   for (let lane = 0; lane < 6; lane++) {

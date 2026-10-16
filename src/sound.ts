@@ -2,6 +2,9 @@ export const TAP_DURATION = 0.24;
 export const MAX_LATE_TAP_MS = 80;
 const SAMPLE_RATE = 48000;
 const PITCHES = [0.98, 0.988, 0.996, 1.004, 1.012, 1.02];
+export const BOX_PITCHES = [1046.502, 1174.659, 1318.51, 1567.982, 1760, 2093.005];
+export const BOX_DURATION = 0.38;
+const boxSamples: Float32Array<ArrayBuffer>[] = [];
 const PARTIALS = [3420, 4781, 6127, 7919, 9343, 10867];
 const tapSamples: Float32Array<ArrayBuffer>[] = [], holdSamples: Float32Array<ArrayBuffer>[] = [];
 let warming = false;
@@ -14,6 +17,7 @@ function warmSamples(): void {
   const next = () => {
     tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane);
     holdSamples[lane] ??= createHoldSamples(SAMPLE_RATE, lane);
+    boxSamples[lane] ??= createBoxSamples(SAMPLE_RATE, lane);
     if (++lane < PITCHES.length) schedule();
   };
   const schedule = () => {
@@ -68,6 +72,23 @@ export function createHoldSamples(sampleRate: number, lane: number) {
   return samples;
 }
 
+/** A rising six-note harp/bell run. Each gesture adds one note, never an automatic arpeggio. */
+export function createBoxSamples(sampleRate: number, index: number) {
+  const samples = new Float32Array(Math.ceil(sampleRate * BOX_DURATION));
+  const frequency = BOX_PITCHES[index] ?? BOX_PITCHES[0];
+  let peak = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const t = i / sampleRate, phase = 2 * Math.PI * frequency * t;
+    const tone = Math.sin(phase) * Math.exp(-t / .12)
+      + Math.sin(phase * 2) * .3 * Math.exp(-t / .065)
+      + Math.sin(phase * 3.003) * .12 * Math.exp(-t / .04);
+    const envelope = Math.min(1, t / .001) * Math.min(1, (samples.length - 1 - i) / (sampleRate * .025));
+    samples[i] = tone * envelope; peak = Math.max(peak, Math.abs(samples[i]));
+  }
+  if (peak) for (let i = 0; i < samples.length; i++) samples[i] *= .48 / peak;
+  return samples;
+}
+
 interface HoldVoice {
   requestedAt: number;
   source?: AudioBufferSourceNode;
@@ -80,6 +101,7 @@ export class TapSound {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private buffers: AudioBuffer[] = [];
+  private boxBuffers: AudioBuffer[] = [];
   private voices = new Map<AudioBufferSourceNode, number>();
   private holdBuffers: AudioBuffer[] = [];
   private holds = new Map<number, HoldVoice>();
@@ -222,7 +244,11 @@ export class TapSound {
     }
   }
 
-  play(lane: number): void {
+  play(lane: number): void { this.playVoice(lane); }
+  playBox(step: number): void {
+    if (Number.isInteger(step) && step >= 1 && step <= 6) this.playVoice(step - 1, true);
+  }
+  private playVoice(lane: number, box = false): void {
     if (!this.enabled || this.volume === 0 || this.disposed) return;
     try {
       const requestedAt = performance.now(), delay = this.delayMs, generation = this.generation;
@@ -237,7 +263,7 @@ export class TapSound {
       const playCurrent = () => {
         // Do not replay a backlog when an output device / suspended context starts late.
         if (generation === this.generation && this.enabled && this.volume > 0 && !this.disposed && !document.hidden &&
-            context.state === 'running' && performance.now() - requestedAt <= delay + MAX_LATE_TAP_MS) this.click(context, lane, remaining());
+            context.state === 'running' && performance.now() - requestedAt <= delay + MAX_LATE_TAP_MS) this.click(context, lane, remaining(), box);
       };
       if (context.state === 'running') playCurrent();
       else void context.resume().then(() => {
@@ -268,12 +294,13 @@ export class TapSound {
     this.master.connect(compressor); compressor.connect(limiter); limiter.connect(context.destination);
   }
 
-  private click(context: AudioContext, lane: number, delay: number): void {
+  private click(context: AudioContext, lane: number, delay: number, box: boolean): void {
     lane = Number.isInteger(lane) && lane >= 0 && lane < 6 ? lane : 0;
-    if (!this.buffers[lane]) {
-      const samples = tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane);
+    const buffers = box ? this.boxBuffers : this.buffers;
+    if (!buffers[lane]) {
+      const samples = box ? (boxSamples[lane] ??= createBoxSamples(SAMPLE_RATE, lane)) : (tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane));
       const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
-      buffer.copyToChannel(samples, 0); this.buffers[lane] = buffer;
+      buffer.copyToChannel(samples, 0); buffers[lane] = buffer;
     }
     // Keep all six simultaneous inputs audible, but bound node growth during rapid tapping.
     if (this.voices.size >= 12) {
@@ -281,7 +308,7 @@ export class TapSound {
       oldest.stop(); this.voices.delete(oldest);
     }
     const source = context.createBufferSource();
-    source.buffer = this.buffers[lane] ?? this.buffers[0];
+    source.buffer = buffers[lane];
     source.connect(this.master!);
     const when = context.currentTime + delay;
     this.voices.set(source, when);

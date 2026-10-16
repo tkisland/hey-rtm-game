@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 import { api, seekPlay } from './mock-video';
 
 test.beforeEach(async ({ page }) => {
+  // Both chord inputs must share the intended song time, independent of CDP latency.
+  await page.clock.install({time:new Date('2026-10-16T00:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-10-16T00:00:01Z'));
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
   await page.addInitScript(() => {
     localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify({
@@ -22,13 +25,14 @@ test.beforeEach(async ({ page }) => {
       return move.apply(this, args);
     };
   });
-  await page.goto('/game.html?chart=custom'); await expect(page.locator('#restart')).toBeEnabled();
+  await page.goto('/game.html?chart=custom'); await page.clock.runFor(100);
+  await expect(page.locator('#restart')).toBeEnabled();
 });
 
 for (const [kind, error] of [['PERFECT', 0], ['GREAT', 0.065], ['GOOD', 0.12]] as const) {
   test(`${kind} chord emits effects from visible receptors above the thumb pads, then fades`, async ({ page }) => {
     await page.locator('.stage').scrollIntoViewIfNeeded();
-    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await page.clock.runFor(32);
     const targets = await page.locator('.lane-receptor').evaluateAll(buttons => {
       const canvas = document.getElementById('game-canvas')!.getBoundingClientRect();
       return buttons.map(button => { const r = button.getBoundingClientRect(); return { x: r.x + r.width / 2 - canvas.x, y: r.y + r.height / 2 - canvas.y }; });
@@ -36,6 +40,7 @@ for (const [kind, error] of [['PERFECT', 0], ['GREAT', 0.065], ['GOOD', 0.12]] a
     await seekPlay(page, 12 + error);
     await page.keyboard.down('s'); await page.keyboard.down('l');
     await page.keyboard.up('s'); await page.keyboard.up('l');
+    await page.clock.runFor(16);
     await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(kind);
     await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(kind);
     await expect.poll(() => page.evaluate(targets => [0, 5].every(lane =>
@@ -51,16 +56,16 @@ for (const [kind, error] of [['PERFECT', 0], ['GREAT', 0.065], ['GOOD', 0.12]] a
       return buttons.map(button => { const r = button.getBoundingClientRect(); return { x: r.x + r.width / 2 - canvas.x, y: r.y + r.height / 2 - canvas.y }; });
     });
     expect(after).toEqual(targets);
-    await page.waitForTimeout(450);
+    await page.clock.runFor(450);
     await page.evaluate(() => { (window as any).hitRings = []; });
-    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await page.clock.runFor(32);
     expect(await page.evaluate(() => (window as any).hitRings)).toEqual([]);
   });
 }
 
 test('empty taps and MISS do not emit success effects', async ({ page }) => {
   await seekPlay(page, 12); await page.keyboard.press('f');
-  await page.evaluate(() => (window as any).testVideo.seekTo(12.2));
+  await page.clock.runFor(200);
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS');
   expect(await page.evaluate(() => (window as any).hitRings)).toEqual([]);
 });
@@ -68,12 +73,13 @@ test('empty taps and MISS do not emit success effects', async ({ page }) => {
 test('reduced motion uses a static glow with no flying sparks; restart clears it', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await seekPlay(page, 12); await page.keyboard.press('s');
+  await page.clock.runFor(16);
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT');
   await expect.poll(() => page.evaluate(() => (window as any).hitRings.length)).toBeGreaterThan(0);
   const rings = await page.evaluate(() => (window as any).hitRings as { radius: number }[]);
   expect(new Set(rings.map(ring => ring.radius)).size).toBe(1);
   expect(await page.evaluate(() => (window as any).sparkLines)).toBe(0);
   await page.evaluate(() => { document.getElementById('restart')!.click(); (window as any).hitRings = []; });
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.clock.runFor(32);
   expect(await page.evaluate(() => (window as any).hitRings)).toEqual([]);
 });

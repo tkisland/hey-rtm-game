@@ -530,6 +530,7 @@ function frame(now: number): void {
   const previewEvents = seekTarget === null ? preview.update(time, playing && previewing) : [];
   previewEvents.forEach(event => {
     previewSound.play(event.lane); previewRenderer.flash(event.lane, now);
+    if (event.boxStep !== undefined && event.boxId !== undefined) { previewSound.playBox(event.boxStep); previewRenderer.flashBox(event.lane, now, event.boxStep, event.boxId, event.boxComplete); }
     previewFeedback[event.lane] = now;
     previewLabels[event.lane] = event.phase === 'end' ? '離す' : event.phase === 'move' ? '推し変' : event.phase === 'start' ? 'HOLD' : '単推し';
   });

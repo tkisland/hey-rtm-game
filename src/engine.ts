@@ -1,13 +1,13 @@
 import type { Chart, ChartNote } from './chart';
 import { copyNote } from './chart';
-import { chordGroups } from './note-display';
+import { boxGroups, chordGroups } from './note-display';
 
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 export const POINTS = { PERFECT: 1000, GREAT: 700, GOOD: 300, MISS: 0 } as const;
 export type Judgement = keyof typeof POINTS;
 export type NoteState = 'pending' | 'holding' | 'hit' | 'miss' | 'skipped';
 export type PlayNote = ChartNote & { state: NoteState; judgement?: Judgement; startJudgement?: Judgement; startError?: number; activeLane?: number; pathIndex?: number };
-export interface Hit { judgement: Judgement; lane: number; errorMs: number; noteId: number; phase?: 'start' | 'move'; boxComplete?: boolean }
+export interface Hit { judgement: Judgement; lane: number; errorMs: number; noteId: number; phase?: 'start' | 'move'; boxComplete?: boolean; boxStep?: number; boxId?: number }
 export const playLane = (note: PlayNote): number => note.activeLane ?? note.lane;
 const EPSILON = 1e-8;
 
@@ -28,6 +28,7 @@ export class GameEngine {
   counts: Record<Judgement, number> = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
   lastHit: Hit | null = null;
   private scoreGroups = new Map<PlayNote, PlayNote[]>();
+  private boxes = new Map<PlayNote, { group: PlayNote[]; step: number }>();
   private awarded = new Set<PlayNote[]>();
   private previousPressed = new Set<number>();
   constructor(public chart: Chart) { this.reset(); }
@@ -35,7 +36,8 @@ export class GameEngine {
   reset(chart: Chart = this.chart): void {
     this.chart = chart;
     this.notes = chart.notes.map(note => ({ ...copyNote(note), state: 'pending' }));
-    this.scoreGroups.clear(); this.awarded.clear();
+    this.scoreGroups.clear(); this.awarded.clear(); this.boxes.clear();
+    for (const group of boxGroups(this.notes)) group.forEach((note, i) => this.boxes.set(note, {group, step:i + 1}));
     this.notes.forEach(note => this.scoreGroups.set(note, [note]));
     for (const group of chordGroups(this.notes) as PlayNote[][]) for (const note of group) this.scoreGroups.set(note, group);
     this.score = this.combo = this.maxCombo = 0;
@@ -55,8 +57,9 @@ export class GameEngine {
     this.counts[judgement]++;
     this.combo = judgement !== 'MISS' ? this.combo + 1 : 0;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
-    const boxComplete = note.gimmick === 'box' && this.notes.filter(member => member.gimmick === 'box' && member.boxId === note.boxId).every(member => member.state === 'hit');
-    this.lastHit = { judgement, lane, errorMs: error * 1000, noteId: note.id, ...(boxComplete ? {boxComplete: true} : {}) };
+    const box = this.boxes.get(note);
+    const boxComplete = box?.group.every(member => member.state === 'hit');
+    this.lastHit = { judgement, lane, errorMs: error * 1000, noteId: note.id, ...(box ? {boxStep:box.step, boxId:note.boxId} : {}), ...(boxComplete ? {boxComplete: true} : {}) };
     return this.lastHit;
   }
 
