@@ -246,7 +246,10 @@ export class Renderer {
       ctx.beginPath(); ctx.roundRect(head.x - head.width / 2, head.y - thickness / 2, head.width, thickness, thickness / 2); ctx.fill(); ctx.shadowBlur = 0;
       ctx.strokeStyle = '#ffffff80'; ctx.lineWidth = .7; ctx.stroke(); ctx.lineWidth = 1;
       if (thickness >= 5) {
-        ctx.fillStyle = lane === 2 ? '#28203f' : '#fff'; responseMark(ctx, head.x, head.y, thickness * .43, note.gimmick === 'box');
+        ctx.fillStyle = '#fff'; responseMark(ctx, head.x, head.y, thickness * .43, note.gimmick === 'box');
+        if (lane === 2) {
+          ctx.strokeStyle = '#a99ac7'; ctx.lineWidth = 1; ctx.stroke();
+        }
       }
       ctx.fillStyle = '#ffffffa0'; ctx.fillRect(head.x - head.width / 2 + 3, head.y - thickness / 2, Math.max(1, head.width - 6), 1);
       // Small light motes follow the response from the stage; holds keep their distinct bands.

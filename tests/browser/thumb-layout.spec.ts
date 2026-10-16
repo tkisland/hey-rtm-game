@@ -25,7 +25,8 @@ test('all six thumb pads leave the complete timing window above the input row ac
         const pad = control.querySelector('.lane-button')!.getBoundingClientRect();
         const receptor = control.querySelector('.lane-receptor')!.getBoundingClientRect();
         const lateGood = timingBands(field, lane, 1)[0].bottom.y + r.y;
-        return pad.width >= 44 && pad.height >= 60 && r.bottom - pad.bottom >= 43.9 && receptor.bottom < pad.top &&
+        const bottomClearance = r.height >= 524 ? 91.9 : 43.9;
+        return pad.width >= 44 && pad.height >= 60 && r.bottom - pad.bottom >= bottomClearance && receptor.bottom < pad.top &&
           lateGood <= pad.top - 15.9 && Math.abs(receptor.x + receptor.width / 2 - pad.x - pad.width / 2) < .1 &&
           getComputedStyle(control.querySelector('.lane-receptor')!).borderTopStyle === 'solid';
       });
