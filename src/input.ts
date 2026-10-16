@@ -27,9 +27,14 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
     }, { signal });
     button.addEventListener('pointermove', event => {
       if (!pointers.has(event.pointerId) || blocked()) return;
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('button');
-      const next = buttons.indexOf(target as HTMLButtonElement);
-      if (next < 0 || next === pointers.get(event.pointerId)) return;
+      // The gaps belong to the nearest lane too: sliding never has a dead strip.
+      // Require the existing pad row, so dragging over settings cannot hit a lane.
+      const rects = buttons.map(button => button.getBoundingClientRect());
+      const first = rects[0], last = rects.at(-1);
+      if (!first || !last || event.clientY < first.top || event.clientY > first.bottom || event.clientX < first.left || event.clientX > last.right) return;
+      let next = 0;
+      rects.forEach((rect, lane) => { if (Math.abs(event.clientX - rect.x - rect.width / 2) < Math.abs(event.clientX - rects[next].x - rects[next].width / 2)) next = lane; });
+      if (next === pointers.get(event.pointerId)) return;
       event.preventDefault(); pointers.set(event.pointerId, next); render(); onHit(next);
     }, { signal });
     const up = (event: PointerEvent) => { pointers.delete(event.pointerId); render(); };

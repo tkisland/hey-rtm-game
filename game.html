@@ -37,7 +37,7 @@
           <label for="note-size">ノーツの厚さ <output id="note-size-value">100%</output></label>
           <input id="note-size" type="range" min="50" max="150" step="10" value="100" />
           <p class="field-help">判定はノーツの中心で行います。薄い帯がGOOD（±160ms）、中間がGREAT（±100ms）、濃い帯がPERFECT（±50ms）。</p>
-          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。長い帯は終点で離す、◇は同時推しです。</p>
+          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。ハート付きのバーを押し、長い帯は二重線の終点で離します。◇は同時推し、横向きの矢印は推し変の持ち替えタイミングです。</p>
           <label for="offset">ノーツ全体の位置 <output id="offset-value">0 ms</output></label>
           <input id="offset" type="range" min="-300" max="300" step="10" value="0" />
           <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>
@@ -66,7 +66,7 @@
               <div><span class="metric-label">SCORE</span><strong id="score">0</strong></div>
               <div class="combo-metric"><span class="metric-label">COMBO</span><strong id="combo">0</strong><span id="max-combo">MAX 0</span></div>
             </div>
-            <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LET’S PLAY!</span><strong>上の再生ボタンで開始</strong><span>ノーツが横線に重なったら、下の同じ色をタップ</span></div>
+            <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LET’S PLAY!</span><strong>上の再生ボタンで開始</strong><span>ハートのバーが横線に来たら、同じ色のペンライトを押そう</span></div>
             <section class="controls-dock" aria-label="リズム操作エリア">
               <p id="control-status">MVを再生してスタート</p>
               <div class="lane-buttons" aria-label="レーン入力">
@@ -106,7 +106,7 @@
           <a href="./" class="restart-button">ほかの曲を選ぶ</a>
         </section>
         <div class="game-toolbar"><p id="chart-info">譜面を読み込み中…</p><button id="restart" class="restart-button" disabled>↻ 最初からやり直す</button></div>
-        <p id="game-notice" class="game-notice" role="status">ノーツが横線に重なったら、下の同じ色のボタンを押してください。</p>
+        <p id="game-notice" class="game-notice" role="status">届くハートのバーを、同じ色のペンライトで受け止めよう。</p>
         <!-- admin:start -->
         <section id="debug-panel" class="panel debug-panel" aria-label="同期デバッグ" hidden><h2>SYNC MONITOR</h2><dl><dt>YouTube時刻</dt><dd id="debug-time">0.000 s</dd><dt>ゲーム時刻（補間＋オフセット）</dt><dd id="debug-game-time">0.000 s</dd><dt>補間状態</dt><dd id="debug-clock">停止</dd><dt>状態</dt><dd id="debug-state">LOADING</dd><dt>適用中BPM</dt><dd id="debug-bpm">140</dd><dt>オフセット</dt><dd id="debug-offset">0 ms</dd><dt>入力の遅れ補正</dt><dd id="debug-input-offset">0 ms</dd><dt>補正後の判定時刻</dt><dd id="debug-input-time">0.000 s</dd><dt>タップ音の追加遅延</dt><dd id="debug-sound-delay">0 ms</dd><dt>FPS</dt><dd id="debug-fps">—</dd><dt>直近の入力誤差</dt><dd id="debug-error">—</dd><dt>最後の判定</dt><dd id="debug-judgement">—</dd></dl></section>
         <!-- admin:end -->

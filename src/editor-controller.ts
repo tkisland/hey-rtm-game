@@ -1,8 +1,10 @@
+import { decoratePenlight } from './penlight';
 import { convertMidi, MIDI_LANES } from './midi';
 import { noteName } from './chart';
 import { playLane } from './engine';
 import './style.css';
 import './editor.css';
+import './penlight.css';
 import { LANE_COLORS } from './colors';
 import { CUSTOM_CHART_KEY, EDITOR_KEY, EditorModel, copyChart, MAX_TIME, MIN_HOLD, emptyChart, inRange, loadChart, parseChart, storeChart, validateRange } from './editor-model';
 import type { Division, NoteClipboard, TimeRange } from './editor-model';
@@ -72,7 +74,7 @@ let previewTarget: { time: number; includeExact: boolean } | null = null;
 const previewLanes = [...el('preview-lanes').querySelectorAll<HTMLElement>('[data-lane]')];
 const unbindPreviewTargets = bindTargets(el<HTMLCanvasElement>('preview-canvas'), previewLanes);
 const previewFeedback = Array<number>(6).fill(-Infinity), previewLabels = Array<string>(6).fill('—');
-previewLanes.forEach((lane, i) => lane.style.setProperty('--lane', LANE_COLORS[i]));
+previewLanes.forEach((lane, i) => { decoratePenlight(lane); lane.style.setProperty('--lane', LANE_COLORS[i]); });
 function clearPreviewEffects(): void {
   previewFeedback.fill(-Infinity); previewLabels.fill('—');
   previewRenderer.clearEffects(); previewRenderer.pressed.clear();
@@ -329,7 +331,7 @@ function cancelCaptures(): void {
   captures.clear(); message('未完了の長推しを破棄しました。再生を確認してもう一度打ち込んでください。');
 }
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
-buttons.forEach((button, lane) => button.style.setProperty('--lane', LANE_COLORS[lane]));
+buttons.forEach((button, lane) => { decoratePenlight(button); button.style.setProperty('--lane', LANE_COLORS[lane]); });
 const unbindInput = bindInput(buttons, lane => {
   if (calibration.active || previewing) return;
   readTime(); const captured = Math.max(0, compensateInput(time, settings.inputOffset, playbackRate)), record = armed && playing;

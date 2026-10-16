@@ -1,0 +1,14 @@
+.penlight-pad { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:4px; }
+.penlight-pad .penlight-key { font-size:10px; line-height:12px; }
+.penlight-art,.penlight-key { pointer-events:none; user-select:none; }
+.penlight-art { position:absolute; top:7px; left:50%; width:14px; height:31px; transform:translateX(-50%); color:var(--lane); }
+.penlight-art::before { content:''; position:absolute; top:0; left:2px; width:10px; height:21px; border:1px solid color-mix(in srgb,var(--lane) 65%,#fff); border-radius:5px 5px 3px 3px; background:linear-gradient(90deg,var(--lane),#ffffffe8 46%,var(--lane)); box-shadow:0 0 7px color-mix(in srgb,var(--lane) 28%,transparent); }
+.penlight-art::after { content:''; position:absolute; top:21px; left:4px; width:6px; height:10px; border:1px solid #a6a4bd; border-top:2px solid var(--lane); border-radius:0 0 3px 3px; background:linear-gradient(90deg,#161726,#68667d,#161726); }
+.game .penlight-pad { justify-content:flex-end; padding-top:0; padding-bottom:4px; }
+.game .penlight-pad::after { display:none; }
+.game .penlight-pad .penlight-key,.tutorial-pad .penlight-key,.preview-lanes .penlight-key { position:static; font-size:10px; line-height:12px; color:var(--lane); }
+.penlight-pad.pressed .penlight-art::before,.penlight-pad.holding .penlight-art::before,.penlight-pad.active .penlight-art::before { box-shadow:0 0 11px var(--lane),0 0 19px color-mix(in srgb,var(--lane) 48%,transparent); }
+.lane-receptor { color:var(--lane); border-radius:10px; }
+.lane-receptor::before { content:'♡'; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:12px; line-height:1; color:var(--lane); }
+.lane-receptor::after { content:''; position:absolute; top:calc(50% + 10px); left:50%; width:1px; height:max(0px,calc(-1 * var(--receptor-y) - 10px)); background:linear-gradient(var(--lane),color-mix(in srgb,var(--lane) 10%,transparent)); opacity:.18; pointer-events:none; }
+.lane-control:has(.pressed,.holding) .lane-receptor::after,.tutorial-target:has(.pressed,.holding) .lane-receptor::after,.preview-lanes > .active .lane-receptor::after { opacity:.85; box-shadow:0 0 5px var(--lane); }

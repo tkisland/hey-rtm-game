@@ -100,7 +100,7 @@
         <details><summary>MIDIを読み込む・ギミックの指定方法</summary>
           <p class="field-help">1チャンネルで指定できます。番号はMIDIノート番号です。左からピンク・黄緑・白・赤・紫・黄色。通常音符は1.5拍以上で長推し、同時刻で同時推しです。</p>
           <div class="note-table"><table><thead><tr><th>種類</th><th>ピンク → 黄色</th><th>指定方法</th></tr></thead><tbody><tr><td>単推し・長推し</td><td>38, 40, 41, 43, 45, 47</td><td>39もピンク</td></tr><tr><td>箱推し</td><td>50, 52, 53, 55, 57, 59</td><td>6音ずつ、6色を1回ずつ順番に。長さは無視</td></tr><tr><td>DD</td><td>60（1音で全色対応）</td><td>長さは無視・どれか1ボタンで1回得点</td></tr><tr><td>推し変</td><td>62, 64, 65, 67, 69, 71</td><td>隣の色へ、前の終端と次の始端をつなぐ。最後の終端で離す</td></tr></tbody></table></div>
-          <p class="field-help">箱推しは6色の完走で成功演出（各ノーツを通常採点）。推し変は途中と終端のすべてがGOOD以上で得点。音符の重なり・指定不足はエラーとして表示します。推し変は各区間30ms以上、別の推し変との間には休符を入れてください。既存の編集内容は「元に戻す」で復元できます。</p>
+          <p class="field-help">箱推しは6色の完走で成功演出（各ノーツを通常採点）。推し変は縦の帯で保持し、横向きの矢印が判定線に来たら隣へ持ち替えます。途中と二重線の終端のすべてがGOOD以上で得点。音符の重なり・指定不足はエラーとして表示します。推し変は各区間30ms以上、別の推し変との間には休符を入れてください。既存の編集内容は「元に戻す」で復元できます。</p>
           <label>動画上のMIDI開始位置（秒）<input id="midi-offset" type="number" min="0" max="7200" step="0.001" value="7.65" /></label>
           <label class="edit-button">MIDIを読み込む<input id="import-midi" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" /></label>
         </details>

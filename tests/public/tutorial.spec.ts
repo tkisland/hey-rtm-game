@@ -170,7 +170,10 @@ test('slides one captured touch between buttons without releasing the gesture', 
   const points=await Promise.all([1,2,3].map(async lane => {const box=(await page.locator('.tutorial-pad').nth(lane).boundingBox())!;return {id:1,x:box.x + box.width/2,y:box.y + box.height/2};}));
   await slide(2667);await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[0]]});
   await expect(page.locator('.tutorial-judgement').nth(1)).toHaveText('HOLD');
-  await slide(4000);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[1]]});
+  const from=(await page.locator('.tutorial-pad').nth(1).boundingBox())!,to=(await page.locator('.tutorial-pad').nth(2).boundingBox())!;
+  const gap={...points[1],x:(from.x + from.width + to.x) / 2 + .25};
+  expect(gap.x).toBeLessThan(to.x);
+  await slide(4000);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[gap]});
   await expect(page.locator('.tutorial-pad').nth(2)).toHaveClass(/pressed/);
   await expect(page.locator('.tutorial-pad').nth(1)).not.toHaveClass(/pressed/);
   await expect(page.locator('#tutorial-feedback')).toContainText('推し変成功');
@@ -178,4 +181,14 @@ test('slides one captured touch between buttons without releasing the gesture', 
   await expect(page.locator('.tutorial-judgement').nth(3)).toHaveText('推し変！');
   await slide(6667);await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await expect(page.locator('#tutorial-score')).toHaveText('1,000 点 · COMBO 1');await touch.detach();
+});
+
+test('prepares the next key and transfers by releasing the current key on the arrow',async ({page}) => {
+  await open(page);for(let i=0;i<5;i++)await page.locator('#tutorial-next').click();
+  const advance=await play(page);await advance(2667);await page.keyboard.down('d');
+  await advance(3500);await page.keyboard.down('f');
+  await expect(page.locator('#tutorial-score')).toHaveText('0 点 · COMBO 0');
+  await advance(4000);await page.keyboard.up('d');await expect(page.locator('#tutorial-feedback')).toContainText('推し変成功');
+  await advance(4900);await page.keyboard.down('j');await advance(5333);await page.keyboard.up('f');
+  await advance(6667);await page.keyboard.up('j');await expect(page.locator('#tutorial-score')).toHaveText('1,000 点 · COMBO 1');
 });

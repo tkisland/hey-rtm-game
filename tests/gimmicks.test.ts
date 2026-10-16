@@ -157,3 +157,19 @@ describe('MIDI, persistence and editor', () => {
     }
   });
 });
+
+it('accepts a prepared adjacent key only when the current key is released at the checkpoint', () => {
+  const engine = new GameEngine(chart([slide()]));
+  engine.advance(1,new Set([0]));engine.input(0,1);
+  expect(engine.advance(1.5,new Set([0,1]))).toEqual([]);
+  expect(playLane(engine.notes[0])).toBe(0);
+  expect(engine.advance(2,new Set([1]))).toEqual([expect.objectContaining({phase:'move',lane:1,judgement:'PERFECT'})]);
+  engine.advance(2.5,new Set([1,2]));engine.advance(3,new Set([2]));engine.release(2,4);
+  expect(engine.score).toBe(1000);expect(engine.counts.PERFECT).toBe(1);
+});
+
+it('still fails an early release onto a prepared key and never transfers from holding all keys alone', () => {
+  const engine = new GameEngine(chart([slide()]));engine.advance(1,new Set([0]));engine.input(0,1);
+  engine.advance(1.5,new Set([0,1]));engine.advance(1.6,new Set([1]));
+  expect(engine.counts.MISS).toBe(1);expect(engine.score).toBe(0);
+});
