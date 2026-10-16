@@ -62,7 +62,7 @@ export class EditorModel {
     const id = Math.max(0, ...this.chart.notes.map(note => note.id)) + 1;
     if (!Number.isSafeInteger(id)) throw new Error('ノーツIDの上限に達しました。JSONのIDを確認してください。');
     const chart = copyChart(this.chart);
-    if (endTime !== undefined && (!finite(endTime, 0, MAX_TIME) || endTime - time < MIN_HOLD - 1e-8)) throw new Error('長推しの終点は始点より30ms以上後にしてください。');
+    if (endTime !== undefined && (!finite(endTime, 0, MAX_TIME) || endTime - time < MIN_HOLD - 1e-8)) throw new Error('長オシの終点は始点より30ms以上後にしてください。');
     const base = { id, time, lane, ...(recorded ? { sourceTime: time } : {}) };
     chart.notes.push(endTime === undefined ? { ...base, type: 'tap' } : { ...base, type: 'hold', endTime, ...(recorded ? { sourceEndTime: endTime } : {}) });
     this.commit(chart); this.selected = id;
@@ -75,19 +75,19 @@ export class EditorModel {
     if (note.gimmick === 'box') {
       const delta = time - note.time;
       for (const member of chart.notes) if (member.boxId === note.boxId) {
-        if (!finite(member.time + delta, 0, MAX_TIME)) throw new Error('箱推し全体が0〜7200秒に収まる位置にしてください。');
+        if (!finite(member.time + delta, 0, MAX_TIME)) throw new Error('箱オシ全体が0〜7200秒に収まる位置にしてください。');
         member.time += delta;
       }
       return this.commit(chart);
     }
     if (note.type === 'hold') {
       const end = note.endTime + time - note.time;
-      if (end > MAX_TIME) throw new Error('長推しの終点は7200秒以内にしてください。');
+      if (end > MAX_TIME) throw new Error('長オシの終点は7200秒以内にしてください。');
       note.endTime = end;
     }
     if (note.path) {
       const path = note.path.map(point => ({time:point.time + time - note.time, lane:point.lane + lane - note.lane}));
-      if (path.some(point => point.lane < 0 || point.lane > 5)) throw new Error('推し変の移動先が6レーン内に収まる位置にしてください。');
+      if (path.some(point => point.lane < 0 || point.lane > 5)) throw new Error('オシ変の移動先が6レーン内に収まる位置にしてください。');
       note.path = path;
     }
     note.time = time; note.lane = lane;
@@ -95,7 +95,7 @@ export class EditorModel {
   }
   changeType(type: 'tap' | 'hold' | 'dd' | 'slide', endTime?: number): boolean {
     const current = this.selectedNote; if (!current) return false;
-    if ((type === 'hold' || type === 'slide') && (!finite(endTime, 0, MAX_TIME) || endTime - current.time < MIN_HOLD - 1e-8)) throw new Error('長推しの終点は始点より30ms以上後にしてください。');
+    if ((type === 'hold' || type === 'slide') && (!finite(endTime, 0, MAX_TIME) || endTime - current.time < MIN_HOLD - 1e-8)) throw new Error('長オシの終点は始点より30ms以上後にしてください。');
     const chart = copyChart(this.chart);
     if (current.boxId) this.dissolveBox(chart.notes, current.boxId);
     chart.notes = chart.notes.map(note => {
@@ -109,18 +109,18 @@ export class EditorModel {
   resize(id: number, endTime: number): boolean {
     const chart = copyChart(this.chart), note = chart.notes.find(n => n.id === id);
     if (!note || note.type !== 'hold') return false;
-    if (!finite(endTime, 0, MAX_TIME) || endTime - note.time < MIN_HOLD - 1e-8) throw new Error('長推しの終点は始点より30ms以上後にしてください。');
+    if (!finite(endTime, 0, MAX_TIME) || endTime - note.time < MIN_HOLD - 1e-8) throw new Error('長オシの終点は始点より30ms以上後にしてください。');
     note.endTime = endTime; return this.commit(chart);
   }
   addChord(lane: number): boolean {
     const note = this.selectedNote;
     if (!note) throw new Error('先にノーツを選択してください。');
-    if (!Number.isInteger(lane) || lane < 0 || lane > 5 || lane === note.lane) throw new Error('同時推しは別のレーンを選んでください。');
+    if (!Number.isInteger(lane) || lane < 0 || lane > 5 || lane === note.lane) throw new Error('同時オシは別のレーンを選んでください。');
     if (this.chart.notes.some(other => other.lane === lane && Math.abs(other.time - note.time) <= 0.001)) throw new Error('選択したレーンには同じ時刻のノーツがあります。');
     if (this.chart.notes.length >= MAX_NOTES) throw new Error(`ノーツは最大${MAX_NOTES}個です。`);
     const id = Math.max(0, ...this.chart.notes.map(n => n.id)) + 1;
     if (!Number.isSafeInteger(id)) throw new Error('ノーツIDの上限に達しました。');
-    if (note.gimmick) throw new Error('同時推しを追加するには通常の単推し・長推しを選んでください。');
+    if (note.gimmick) throw new Error('同時オシを追加するには通常の単オシ・長オシを選んでください。');
     const chart = copyChart(this.chart); chart.notes.push({ ...note, id, lane });
     return this.commit(chart);
   }
@@ -140,7 +140,7 @@ export class EditorModel {
   boxRange(range: TimeRange): boolean {
     validateRange(range);
     const chart = copyChart(this.chart), notes = chart.notes.filter(note => inRange(note, range));
-    if (notes.length !== 6 || notes.some(note => note.type !== 'tap' || note.gimmick)) throw new Error('通常の単推し6個を、6色1個ずつ含む範囲を選んでください。');
+    if (notes.length !== 6 || notes.some(note => note.type !== 'tap' || note.gimmick)) throw new Error('通常の単オシ6個を、6色1個ずつ含む範囲を選んでください。');
     const boxId = Math.max(0, ...chart.notes.map(note => note.boxId ?? 0)) + 1;
     const first = Math.min(...notes.map(note => note.time));
     for (const note of notes) { note.gimmick = 'box'; note.boxId = boxId; note.sourceTime ??= note.time; note.time = first; }
@@ -183,7 +183,7 @@ export class EditorModel {
       if (note.boxId) { if (!boxIds.has(note.boxId)) boxIds.set(note.boxId, ++boxId); note.boxId = boxIds.get(note.boxId)!; }
       if (note.path) note.path = note.path.map(point => ({...point, time:point.time + delta}));
       if (note.type === 'hold') note.endTime += delta;
-      if (note.time > MAX_TIME + 1e-8 || (note.type === 'hold' && note.endTime > MAX_TIME + 1e-8)) throw new Error('長推しの終点も含め、7200秒以内に貼り付けてください。');
+      if (note.time > MAX_TIME + 1e-8 || (note.type === 'hold' && note.endTime > MAX_TIME + 1e-8)) throw new Error('長オシの終点も含め、7200秒以内に貼り付けてください。');
       note.time = Math.min(MAX_TIME, note.time); if (note.type === 'hold') note.endTime = Math.min(MAX_TIME, note.endTime);
       if (note.sourceTime !== undefined) note.sourceTime += delta;
       if (note.type === 'hold' && note.sourceEndTime !== undefined) note.sourceEndTime += delta;
@@ -207,7 +207,7 @@ export class EditorModel {
         let end = snapTime(chart, fromSource ? note.sourceEndTime ?? note.endTime : note.endTime, division);
         // Short captures keep at least one subdivision rather than collapsing to a tap.
         if (end - start < MIN_HOLD) end = beatToTime(chart, timeToBeat(chart, start) + 1 / division);
-        if (end > MAX_TIME) throw new Error('クオンタイズ後の長推しの終点が7200秒を超えます。');
+        if (end > MAX_TIME) throw new Error('クオンタイズ後の長オシの終点が7200秒を超えます。');
         note.endTime = end;
       }
       if (note.path) note.path = note.path.map(point => ({...point, time:snapTime(chart, point.time, division)}));

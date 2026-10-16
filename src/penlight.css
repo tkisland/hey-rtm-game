@@ -14,3 +14,4 @@
 .lane-receptor::before { content:'♥'; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font:11px/1 Arial,sans-serif; color:#fff; text-shadow:0 0 2px #a99ac7; }
 .lane-receptor::after { content:''; position:absolute; top:calc(50% + 10px); left:50%; width:2px; height:max(0px,calc(-1 * var(--receptor-y) - 10px)); background:linear-gradient(var(--lane),color-mix(in srgb,var(--lane) 20%,transparent)); opacity:.55; box-shadow:0 0 6px var(--lane); pointer-events:none; }
 .lane-control:has(.pressed,.holding) .lane-receptor::after,.tutorial-target:has(.pressed,.holding) .lane-receptor::after,.preview-lanes > .active .lane-receptor::after { opacity:.85; box-shadow:0 0 5px var(--lane); }
+.game .lane-button,.tutorial-pad { top:calc(-1 * var(--hit-extra,0px)); height:calc(100% + var(--hit-extra,0px)); }

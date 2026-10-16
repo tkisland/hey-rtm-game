@@ -32,7 +32,7 @@ for(const slide of [false,true]) for(const error of [-.22,.22]) test(`${slide?'s
     await advanceTo(page,11+error);
     if(touch) await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[pads[5]]});
     else {await page.keyboard.down('l');await page.keyboard.up('s');}
-    await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/推し変|HOLD/);
+    await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/オシ変|HOLD/);
   }
   await advanceTo(page,13+error);
   await expect(page.locator('#score')).toHaveText('0');
@@ -40,6 +40,7 @@ for(const slide of [false,true]) for(const error of [-.22,.22]) test(`${slide?'s
   else await page.keyboard.up(slide?'l':'s');
   await expect(page.locator('#score')).toHaveText('300');
   await expect(page.locator('#combo')).toHaveText('1');
+  await page.clock.runFor(1600);
   await expect(page.locator('#result h2')).toHaveText('最高なLIVE！');
   await expect(page.locator('#result-counts div').filter({hasText:'GOOD'}).locator('strong')).toHaveText('1');
   await touch?.detach();

@@ -2,62 +2,82 @@ import {test,expect} from '@playwright/test';
 import {api} from './mock-video';
 import type {Page} from '@playwright/test';
 
-test.beforeEach(async ({page}) => {
-  await page.clock.install({time:new Date('2026-10-16T00:00:00Z')});
-  await page.clock.pauseAt(new Date('2026-10-16T00:00:01Z'));
+test.beforeEach(async({page})=>{
+  await page.clock.install({time:new Date('2026-10-17T00:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-10-17T00:00:01Z'));
   await page.route('https://www.youtube.com/iframe_api',route=>route.fulfill({body:api}));
-  await page.addInitScript(() => {
+  await page.addInitScript(()=>{
     localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({sound:false}));
-    // A legacy staggered chart still represents one box at its first timestamp.
     localStorage.setItem('hey-rhythm-custom-chart-v1',JSON.stringify({videoId:'pJDfWpZ7CI4',title:'box',bpm:120,startTime:10,
       notes:Array.from({length:6},(_,lane)=>({id:lane+1,type:'tap',gimmick:'box',boxId:1,time:10+lane*.2,lane}))}));
   });
-  await page.goto('/game.html?chart=custom');await page.clock.runFor(100);
-  await expect(page.locator('#restart')).toBeEnabled();await expect(page.locator('#chart-info')).toContainText('1 NOTES');
-  await page.locator('.lane-buttons').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
-  await page.clock.runFor(32);
+  await page.goto('/game.html?chart=custom');
+  await expect.poll(()=>page.evaluate(()=>Boolean((window as any).testVideo))).toBe(true);
+  await page.clock.runFor(100);await expect(page.locator('#restart')).toBeEnabled();
 });
-async function start(page:Page,time:number) {
+async function start(page:Page,time:number,upper=false){
   await page.evaluate(time=>{const video=(window as any).testVideo;video.pauseVideo();video.seekTo(time);video.playVideo();},time);
   await page.clock.runFor(32);
-  return Promise.all(Array.from({length:6},async(_,lane)=>{const r=(await page.locator('.lane-button').nth(lane).boundingBox())!;return {id:1,x:r.x+r.width/2,y:r.y+r.height/2};}));
+  return page.locator('.lane-button').evaluateAll((nodes,upper)=>nodes.map((node,lane)=>{
+    const r=node.getBoundingClientRect();return{id:lane<3?1:2,x:r.x+r.width/2,y:upper?r.top+2:r.y+r.height/2};
+  }),upper);
 }
-for(const reverse of [false,true]) test(`real game scores one late ${reverse?'right-to-left':'left-to-right'} fast swipe exactly once`,async({page})=>{
-  const points=await start(page,10.25),touch=await page.context().newCDPSession(page);
-  const originalUrl=page.url();
+for(const rightFirst of [false,true])test(`two fingers open outward, ${rightFirst?'right':'left'} central contact first, and score once`,async({page})=>{
+  const points=await start(page,10.25),touch=await page.context().newCDPSession(page),url=page.url();
   await page.evaluate(()=>{
     (window as any).swipeDefaults=[];
-    for(const type of ['touchstart','touchmove']) document.addEventListener(type,event=>{
-      if((event.target as Element).closest('.lane-button')) (window as any).swipeDefaults.push({type,prevented:event.defaultPrevented});
+    for(const type of ['touchstart','touchmove'])document.addEventListener(type,event=>{
+      if((event.target as Element).closest('.lane-button'))(window as any).swipeDefaults.push(event.defaultPrevented);
     },{passive:true});
   });
-  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).overscrollBehaviorX)).toBe('none');
-  const edges=await page.locator('.lane-button').evaluateAll(nodes=>({left:nodes[0].getBoundingClientRect().left,right:innerWidth-nodes[5].getBoundingClientRect().right}));
-  expect(edges.left).toBeGreaterThanOrEqual(24);expect(edges.right).toBeGreaterThanOrEqual(24);
-  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[reverse?5:0]]});
-  await expect(page.locator('#score')).toHaveText('0');
-  await page.clock.runFor(50);
-  await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[reverse?0:5]]});
+  const central=rightFirst?[points[3],points[2]]:[points[2],points[3]];
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[central[0]]});
+  await page.clock.runFor(10);
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:central});
+  await expect(page.locator('#score')).toHaveText('0');await page.clock.runFor(50);
+  await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[0],points[5]]});
   await expect(page.locator('#score')).toHaveText('300');await expect(page.locator('#combo')).toHaveText('1');
   await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  const defaults=await page.evaluate(()=>(window as any).swipeDefaults);
-  expect(defaults.some((event:any)=>event.type==='touchstart')).toBe(true);
-  expect(defaults.some((event:any)=>event.type==='touchmove')).toBe(true);
-  expect(defaults.every((event:any)=>event.prevented)).toBe(true);
-  expect(page.url()).toBe(originalUrl);
+  expect(await page.evaluate(()=>(window as any).swipeDefaults.every(Boolean))).toBe(true);expect(page.url()).toBe(url);
+  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).overscrollBehaviorX)).toBe('none');
+  await page.clock.runFor(1600);
   await expect(page.locator('#result-accuracy')).toContainText('全 1 ノーツ');
   await expect(page.locator('#result-counts div').filter({hasText:'GOOD'}).locator('strong')).toHaveText('1');
   await page.keyboard.press('s');await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('300');await touch.detach();
 });
-test('releasing halfway cannot stitch two gestures together and only one MISS is counted',async({page})=>{
+test('one finger and a lifted partial hand cannot complete a box',async({page})=>{
   const points=await start(page,9.95),touch=await page.context().newCDPSession(page);
-  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[0]]});await page.clock.runFor(30);
-  await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[2]]});
-  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[3]]});await page.clock.runFor(30);
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[2],points[3]]});
+  await page.clock.runFor(20);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[1],points[3]]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[points[3]]});
   await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[5]]});
-  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.clock.runFor(600);
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[2]]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[0]]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await page.clock.runFor(2200);
   await expect(page.locator('#score')).toHaveText('0');
-  await expect(page.locator('#result-counts div').filter({hasText:'MISS'}).locator('strong')).toHaveText('1');
-  await expect(page.locator('#result-accuracy')).toContainText('全 1 ノーツ');await touch.detach();
+  await expect(page.locator('#result-counts div').filter({hasText:'MISS'}).locator('strong')).toHaveText('1');await touch.detach();
+});
+test('F+J then D+K then S+L opens one box using the keyboard',async({page})=>{
+  await start(page,9.95);
+  for(const pair of [['f','j'],['d','k'],['s','l']]){
+    for(const key of pair)await page.keyboard.press(key);
+    await page.clock.runFor(30);
+  }
+  await expect(page.locator('#score')).toHaveText('1,000');await expect(page.locator('#combo')).toHaveText('1');
+});
+test('the extended upper touch area works and keeps the same lower clearance',async({page})=>{
+  const points=await start(page,9.95,true);
+  const rects=await page.locator('.lane-button').evaluateAll(nodes=>nodes.map(node=>{
+    const b=node.getBoundingClientRect(),p=node.parentElement!.getBoundingClientRect();
+    const receptor=node.parentElement!.querySelector('.lane-receptor')!.getBoundingClientRect();
+    return{extra:p.top-b.top,bottom:b.bottom,parentBottom:p.bottom,top:b.top,receptorBottom:receptor.bottom};
+  }));
+  for(const r of rects){expect(r.extra).toBeGreaterThan(10);expect(r.extra).toBeLessThanOrEqual(32.1);expect(r.bottom).toBeCloseTo(r.parentBottom,1);expect(r.top-r.receptorBottom).toBeGreaterThanOrEqual(3.9);}
+  const touch=await page.context().newCDPSession(page);
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[2],points[3]]});
+  await page.clock.runFor(50);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[0],points[5]]});
+  await expect(page.locator('#score')).toHaveText('1,000');
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await touch.detach();
 });

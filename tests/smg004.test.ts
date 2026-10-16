@@ -51,7 +51,7 @@ it('plays the entire shipped chart with 505 perfect results including authored s
     }
     const starts=notes.filter(n=>n.time===time).sort((a,b)=>Number(a.gimmick==='dd')-Number(b.gimmick==='dd'));
     for(const note of starts) {
-      if(note.gimmick==='box') for(let lane=0;lane<6;lane++) expect(engine.input(lane,time)?.judgement).toBe('PERFECT');
+      if(note.gimmick==='box') for(const lane of [2,3,1,4,0,5]) expect(engine.input(lane,time)?.judgement).toBe('PERFECT');
       else {
         const lane=note.gimmick==='dd'?[0,1,2,3,4,5].find(lane=>!pressed.has(lane))!:note.lane;
         expect(engine.input(lane,time)?.judgement).toBe('PERFECT');

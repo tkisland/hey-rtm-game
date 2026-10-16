@@ -29,7 +29,7 @@ export function laneAt(note: ChartNote, time: number): number {
   return lane;
 }
 export function noteName(note: ChartNote): string {
-  return note.gimmick === 'box' ? '箱推し' : note.gimmick === 'dd' ? 'DD' : note.gimmick === 'slide' ? '推し変' : note.type === 'hold' ? '長推し' : '単推し';
+  return note.gimmick === 'box' ? '箱オシ' : note.gimmick === 'dd' ? 'DD' : note.gimmick === 'slide' ? 'オシ変' : note.type === 'hold' ? '長オシ' : '単オシ';
 }
 export interface TempoChange { time: number; bpm: number }
 export interface Chart {

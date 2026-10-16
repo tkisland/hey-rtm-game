@@ -45,10 +45,10 @@ export class Renderer {
     this.boxTrail.push({lane, time:now, step, id, complete});
     if (this.boxTrail.length > 6) this.boxTrail.shift();
   }
-  completeBox(now: number, id: number, direction = 1): void {
+  completeBox(now: number, id: number): void {
     for (let step = 0; step < 6; step++) {
-      const lane = direction === -1 ? 5 - step : step;
-      this.flash(lane, now); this.flashBox(lane, now - (5 - step) * 14, step + 1, id, step === 5);
+      const lane = [2,3,1,4,0,5][step];
+      this.flash(lane, now); this.flashBox(lane, now - (2 - Math.floor(step / 2)) * 28, step + 1, id, step === 5);
     }
   }
   clearEffects(): void { this.flashes.clear(); this.boxTrail = []; }
@@ -242,7 +242,7 @@ export class Renderer {
       }
       if (note.gimmick === 'slide' && note.state !== 'holding') {
         const nextLane = note.path?.[0]?.lane;
-        const label = nextLane === undefined ? '終点で離す' : nextLane < lane ? '推し変 ←' : '推し変 →';
+        const label = nextLane === undefined ? '終点で離す' : nextLane < lane ? 'オシ変 ←' : 'オシ変 →';
         ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(label, head.x, head.y - Math.max(8, thickness)); ctx.textAlign = 'start';
       }
       ctx.shadowBlur = 12; ctx.shadowColor = color; ctx.fillStyle = color;
@@ -285,29 +285,34 @@ export class Renderer {
     this.polygon([{x:left,y},{x:left+height/2,y:y-height/2},{x:right-height/2,y:y-height/2},
       {x:right,y},{x:right-height/2,y:y+height/2},{x:left+height/2,y:y+height/2}]);
     ctx.shadowBlur=0;ctx.strokeStyle='#ffe28a';ctx.lineWidth=1.5;ctx.stroke();
-    // One continuous arrow spans the first and last pads, rather than six tap markers.
+    // Paired arrows and fingers open from the white/red center toward both edges.
+    const centers=[project(field,2,p).x,project(field,3,p).x];
     ctx.strokeStyle='#ffe28a';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
-    ctx.beginPath();ctx.moveTo(start+r+3,y);ctx.lineTo(end-r-3,y);
-    ctx.moveTo(start+r+8,y-4);ctx.lineTo(start+r+3,y);ctx.lineTo(start+r+8,y+4);
-    ctx.moveTo(end-r-8,y-4);ctx.lineTo(end-r-3,y);ctx.lineTo(end-r-8,y+4);ctx.stroke();
-    for(const x of [start,end]) {
+    for(const [index,edge] of [start,end].entries()) {
+      const center=centers[index],direction=index===0?-1:1,tip=edge-direction*(r+3);
+      ctx.beginPath();ctx.moveTo(center+direction*(r+3),y);ctx.lineTo(tip,y);
+      ctx.moveTo(tip-direction*5,y-4);ctx.lineTo(tip,y);ctx.lineTo(tip-direction*5,y+4);ctx.stroke();
+    }
+    for(const x of [start,...centers,end]) {
       ctx.fillStyle='#312211';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle='#ffe28a';ctx.lineWidth=2;ctx.stroke();
       ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,2,0,Math.PI*2);ctx.fill();
     }
-    const progress=note.boxProgress??0,phase=(now%1800)/1000;
-    const demo=phase<.25?phase/.25:phase<.9?1:phase<1.15?1-(phase-.9)/.25:0;
-    const fraction=progress ? (note.boxDirection===-1 ? (6-progress)/5 : (progress-1)/5) : this.reducedMotion.matches ? 0 : demo;
-    const x=start+(end-start)*fraction,handY=y+height/2+3;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fill();
-    // A small pointing hand demonstrates the gesture directly on the travel rail.
-    ctx.save();ctx.translate(x,handY);ctx.fillStyle='#312211';ctx.strokeStyle='#ffe28a';ctx.lineWidth=1.4;
-    ctx.beginPath();ctx.moveTo(-2,8);ctx.lineTo(-2,1);ctx.quadraticCurveTo(0,-2,2,1);ctx.lineTo(2,6);
-    ctx.quadraticCurveTo(7,5,7,9);ctx.lineTo(5,15);ctx.lineTo(-1,15);ctx.lineTo(-5,10);ctx.quadraticCurveTo(-7,6,-4,6);ctx.closePath();ctx.fill();ctx.stroke();
-    ctx.restore();
+    const progress=note.boxProgress??0,phase=(now%1500)/1000;
+    const demo=phase<.35?phase/.35:phase<1?1:0;
+    for(const [index,side] of (['left','right'] as const).entries()) {
+      const hand=note.boxHands?.[side];
+      const fraction=progress ? Math.max(0,((hand?.progress??1)-1)/2) : this.reducedMotion.matches ? 0 : demo;
+      const edge=index===0?start:end,x=centers[index]+(edge-centers[index])*fraction,handY=y+height/2+3;
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fill();
+      ctx.save();ctx.translate(x,handY);ctx.fillStyle='#312211';ctx.strokeStyle='#ffe28a';ctx.lineWidth=1.4;
+      ctx.beginPath();ctx.moveTo(-2,8);ctx.lineTo(-2,1);ctx.quadraticCurveTo(0,-2,2,1);ctx.lineTo(2,6);
+      ctx.quadraticCurveTo(7,5,7,9);ctx.lineTo(5,15);ctx.lineTo(-1,15);ctx.lineTo(-5,10);ctx.quadraticCurveTo(-7,6,-4,6);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.restore();
+    }
     ctx.font='bold 10px "RocknRoll One",sans-serif';ctx.textAlign='center';ctx.fillStyle='#ffe28a';
     ctx.strokeStyle='#21170c';ctx.lineWidth=3;
-    const label=progress?'そのまま端まで！':'箱推し · 端から端へスワイプ';
+    const label=progress?'2本とも左右の端へ！':'箱オシ · 2本指で中央から外へ';
     ctx.strokeText(label,field.width/2,y-height/2-7);ctx.fillText(label,field.width/2,y-height/2-7);
     ctx.restore();
   }
@@ -322,8 +327,8 @@ export class Renderer {
       const p = (now - hit.time) / duration, color = LANE_COLORS[hit.lane];
       ctx.globalAlpha = (1 - p) * .9; ctx.fillStyle = color; ctx.strokeStyle = color;
       const y = target.y - 18 - (reduced ? 0 : p * 16);
-      if (!reduced && i > 0) {
-        const previous = this.boxTrail[i - 1], from = field.targets[previous.lane];
+      if (!reduced && i > 1) {
+        const previous = this.boxTrail[i - 2], from = field.targets[previous.lane];
         const gradient = ctx.createLinearGradient(from.x, y, target.x, y);
         gradient.addColorStop(0, LANE_COLORS[previous.lane]); gradient.addColorStop(1, color);
         ctx.strokeStyle = gradient; ctx.lineWidth = 2;

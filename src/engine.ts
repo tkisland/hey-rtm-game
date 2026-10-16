@@ -7,12 +7,14 @@ export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 export const HOLD_WINDOWS = { PERFECT: 0.1, GREAT: 0.18, GOOD: 0.25 } as const;
 export const POINTS = { PERFECT: 1000, GREAT: 700, GOOD: 300, MISS: 0 } as const;
 export const BOX_WINDOWS = { PERFECT:.15, GREAT:.25, GOOD:.35 } as const;
-export const BOX_SWEEP_SECONDS = .25;
+export const BOX_SWEEP_SECONDS = .35;
+export const BOX_JOIN_SECONDS = .15;
+interface BoxHand { id: string; progress: number; active: boolean }
 export interface InputGesture { id: string; sweepOnly?: boolean }
 export type Judgement = keyof typeof POINTS;
 export type NoteState = 'pending' | 'holding' | 'hit' | 'miss' | 'skipped';
-export type PlayNote = ChartNote & { state: NoteState; judgement?: Judgement; startJudgement?: Judgement; startError?: number; activeLane?: number; pathIndex?: number; boxProgress?: number; boxGesture?: string; boxStarted?: number; boxDirection?: number };
-export interface Hit { judgement: Judgement; lane: number; errorMs: number; noteId: number; phase?: 'start' | 'move' | 'sweep'; boxComplete?: boolean; boxStep?: number; boxId?: number; boxDirection?: number }
+export type PlayNote = ChartNote & { state: NoteState; judgement?: Judgement; startJudgement?: Judgement; startError?: number; activeLane?: number; pathIndex?: number; boxProgress?: number; boxHands?: { left?: BoxHand; right?: BoxHand }; boxStarted?: number };
+export interface Hit { judgement: Judgement; lane: number; errorMs: number; noteId: number; phase?: 'start' | 'move' | 'sweep'; boxComplete?: boolean; boxStep?: number; boxId?: number }
 export const playLane = (note: PlayNote): number => note.activeLane ?? note.lane;
 const EPSILON = 1e-8;
 
@@ -66,7 +68,7 @@ export class GameEngine {
     this.combo = judgement !== 'MISS' ? this.combo + 1 : 0;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.lastHit = { judgement, lane, errorMs: error * 1000, noteId: note.id,
-      ...(note.gimmick === 'box' ? {boxId:note.boxId, boxDirection:note.boxDirection, ...(judgement !== 'MISS' ? {boxStep:6, boxComplete:true} : {})} : {}) };
+      ...(note.gimmick === 'box' ? {boxId:note.boxId, ...(judgement !== 'MISS' ? {boxStep:6, boxComplete:true} : {})} : {}) };
     return this.lastHit;
   }
 
@@ -106,35 +108,46 @@ export class GameEngine {
   }
 
   private resetBox(note: PlayNote): void {
-    delete note.boxProgress; delete note.boxGesture; delete note.boxStarted; delete note.boxDirection;
+    delete note.boxProgress; delete note.boxHands; delete note.boxStarted; delete note.startJudgement; delete note.startError;
   }
   cancelBoxGesture(id?: string): void {
-    for (const note of this.notes) if (note.gimmick === 'box' && note.state === 'pending' && (id === undefined || note.boxGesture === id)) this.resetBox(note);
+    for (const note of this.notes) if (note.gimmick === 'box' && note.state === 'pending') {
+      if (id === undefined) { this.resetBox(note); continue; }
+      for (const hand of [note.boxHands?.left,note.boxHands?.right]) if (hand && (hand.id === id || id === 'keyboard' && hand.id.startsWith('keyboard:'))) {
+        if (hand.progress < 3) { this.resetBox(note); break; }
+        hand.active = false;
+      }
+    }
   }
   private sweepBox(note: PlayNote, lane: number, time: number, id: string): Hit | null {
     if (note.boxStarted !== undefined && time - note.boxStarted > BOX_SWEEP_SECONDS + EPSILON) this.resetBox(note);
-    if (note.boxProgress) {
-      if (note.boxGesture !== id) return null;
-      const start = note.boxDirection === 1 ? 0 : 5;
-      const expected = start + note.boxProgress * note.boxDirection!;
-      if (lane === expected - note.boxDirection!) return null; // Repeats cannot fill the sweep.
-      if (lane !== expected) this.resetBox(note);
-    }
-    if (!note.boxProgress) {
+    const owned = note.boxHands?.left?.id === id ? 'left' : note.boxHands?.right?.id === id ? 'right' : undefined;
+    const side = owned ?? (lane === 2 ? 'left' : lane === 3 ? 'right' : undefined);
+    if (!side) return null;
+    const route = side === 'left' ? [2,1,0] : [3,4,5];
+    let hand = note.boxHands?.[side];
+    if (!hand) {
       const error = time - note.time;
-      if ((lane !== 0 && lane !== 5) || Math.abs(error) > BOX_WINDOWS.GOOD + EPSILON) return null;
-      note.boxGesture = id; note.boxDirection = lane === 0 ? 1 : -1; note.boxStarted = time;
-      note.startError = error;
-      note.startJudgement = Math.abs(error) <= BOX_WINDOWS.PERFECT + EPSILON ? 'PERFECT' : Math.abs(error) <= BOX_WINDOWS.GREAT + EPSILON ? 'GREAT' : 'GOOD';
-      note.boxProgress = 0;
+      const other = note.boxHands?.[side === 'left' ? 'right' : 'left'];
+      if (lane !== route[0] || Math.abs(error) > BOX_WINDOWS.GOOD + EPSILON || other && (!other.active || other.id === id || time - note.boxStarted! > BOX_JOIN_SECONDS + EPSILON)) return null;
+      note.boxStarted ??= time;
+      note.boxHands ??= {};
+      hand = note.boxHands[side] = {id,progress:0,active:true};
+      const judgement = judge(error, BOX_WINDOWS);
+      if (!note.startJudgement || POINTS[judgement] < POINTS[note.startJudgement]) { note.startJudgement = judgement; note.startError = error; }
     }
-    note.boxProgress++;
+    if (!hand.active || lane === route[hand.progress - 1]) return null;
+    if (lane !== route[hand.progress]) { this.resetBox(note); return null; }
+    hand.progress++;
+    note.boxProgress = (note.boxHands?.left?.progress ?? 0) + (note.boxHands?.right?.progress ?? 0);
     if (note.boxProgress === 6) return this.record(note, note.startJudgement!, note.startError!, lane);
-    return this.lastHit = {judgement:note.startJudgement!, lane, errorMs:note.startError! * 1000, noteId:note.id, phase:'sweep', boxId:note.boxId, boxStep:note.boxProgress, boxDirection:note.boxDirection};
+    return this.lastHit = {judgement:note.startJudgement!, lane, errorMs:note.startError! * 1000, noteId:note.id, phase:'sweep', boxId:note.boxId, boxStep:note.boxProgress};
   }
   input(lane: number, time: number, gesture: InputGesture = {id:'keyboard'}): Hit | null {
-    const activeBox = this.notes.find(note => note.gimmick === 'box' && note.state === 'pending' && note.boxProgress && note.boxGesture === gesture.id);
-    if (activeBox) return this.sweepBox(activeBox, lane, time, gesture.id);
+    const id = gesture.id === 'keyboard' ? `keyboard:${lane < 3 ? 'left' : 'right'}` : gesture.id;
+    const activeBox = this.notes.find(note => note.gimmick === 'box' && note.state === 'pending' && note.boxProgress &&
+      (note.boxHands?.left?.id === id || note.boxHands?.right?.id === id || lane === 2 && !note.boxHands?.left || lane === 3 && !note.boxHands?.right));
+    if (activeBox) return this.sweepBox(activeBox, lane, time, id);
     // A second input source cannot score notes inside an already active hold.
     if (this.notes.some(note => playLane(note) === lane && note.state === 'holding')) return null;
     let nearest: PlayNote | undefined;
@@ -142,7 +155,7 @@ export class GameEngine {
     for (const note of this.notes) {
       const delta = Math.abs(time - note.time);
       const box = note.gimmick === 'box';
-      const matches = box ? !note.boxProgress && (lane === 0 || lane === 5) : !gesture.sweepOnly && (note.lane === lane || note.gimmick === 'dd');
+      const matches = box ? !note.boxProgress && !gesture.sweepOnly && (lane === 2 || lane === 3) : !gesture.sweepOnly && (note.lane === lane || note.gimmick === 'dd');
       const normalBeatsWide = delta === distance && (nearest?.gimmick === 'dd' || nearest?.gimmick === 'box') && note.gimmick !== 'dd' && !box;
       if (note.state === 'pending' && matches && delta <= (box ? BOX_WINDOWS.GOOD : WINDOWS.GOOD) + EPSILON && (delta < distance || normalBeatsWide)) {
         nearest = note;
@@ -150,7 +163,7 @@ export class GameEngine {
       }
     }
     if (!nearest) return null;
-    if (nearest.gimmick === 'box') return this.sweepBox(nearest, lane, time, gesture.id);
+    if (nearest.gimmick === 'box') return this.sweepBox(nearest, lane, time, id);
     const error = time - nearest.time, judgement = judge(error);
     if (nearest.type === 'hold') {
       if (time >= nearest.endTime) return this.record(nearest, 'MISS', error);
