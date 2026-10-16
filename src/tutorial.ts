@@ -16,7 +16,7 @@ const steps = [
   {title:'単推し', description:'届くハートのバーが上の横線に重なったら、下の同じ色のペンライトを1回押そう。'},
   {title:'同時推し', description:'線でつながった2つを一緒に押そう。片方でもMISSなら、その組は0点です。'},
   {title:'長推し', description:'ハートの先頭で押し、二重線の終点がラインに来たら離そう。早すぎても遅すぎてもMISSです。'},
-  {title:'箱推し', description:'番号順に6色を押そう。6個すべてGOOD以上で「箱推し成功！」。6本を一緒に押す必要はありません。'},
+  {title:'箱推し', description:'光の順に6色をジャラランッ！ ボタンを横になぞるか、順に押そう。6個すべてGOOD以上で箱推し成功。'},
   {title:'DD', description:'虹色のノーツは、どのボタンで押してもOK！ どれか1つをタイミングよく押そう。'},
   {title:'推し変', description:'縦の帯では同じ色を保持。横矢印が上の横線に来たら、指をつけたまま隣へ移ろう。PCは次キーを押すか、先に次を押して矢印で前を離す。二重線で離そう。'},
 ];
@@ -64,7 +64,10 @@ export function mountTutorial(): () => void {
   function showHit(hit: Hit, now: number): void {
     const label = labels[hit.lane]; label.hidden = false; label.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
     label.dataset.kind = hit.judgement; hitTimes[hit.lane] = now;
-    if (hit.judgement !== 'MISS') renderer?.flash(hit.lane, now, hit.judgement);
+    if (hit.judgement !== 'MISS') {
+      renderer?.flash(hit.lane, now, hit.judgement);
+      if (hit.boxStep !== undefined && hit.boxId !== undefined) { sound?.playBox(hit.boxStep); renderer?.flashBox(hit.lane, now, hit.boxStep, hit.boxId, hit.boxComplete); }
+    }
     feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、隣へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
     feedback.classList.toggle('success', hit.judgement !== 'MISS'); updateScore();
   }
@@ -102,7 +105,7 @@ export function mountTutorial(): () => void {
     el('tutorial-step').textContent = `${step + 1} / ${steps.length}`;
     title.textContent = steps[step].title; description.textContent = steps[step].description;
     feedback.textContent = '「練習をはじめる」で、4拍のカウントからスタート。'; feedback.classList.remove('success');
-    status.textContent = `${TUTORIAL_BPM} BPM · 約8秒`; start.textContent = '練習をはじめる';
+    status.textContent = `${TUTORIAL_BPM} BPM · 約${Math.round(duration)}秒`; start.textContent = '練習をはじめる';
     previous.disabled = step === 0; next.textContent = step === steps.length - 1 ? '選曲に戻る' : '次へ';
     progress.value = 0; labels.forEach(label => { label.hidden = true; }); hitTimes.fill(-Infinity);
     el('tutorial-audio-status').textContent = '';

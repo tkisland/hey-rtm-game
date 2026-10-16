@@ -22,7 +22,7 @@
       </div>
       <section class="panel preview-panel" aria-label="譜面の再生確認">
         <h2>譜面の再生確認</h2>
-        <p class="field-help">MVに合わせてノーツを自動再生します。長推しは帯とHOLD、同時推しは◇と連結線で確認できます。</p>
+        <p class="field-help">MVに合わせてノーツを自動再生します。長推しは帯とHOLD、同時推しは連結線で確認できます。</p>
         <div class="editor-actions">
           <button id="preview-first" class="edit-button primary" disabled>↺ 譜面の最初から</button>
           <button id="preview-play" class="edit-button" disabled>▶ 現在位置から再生</button>
@@ -80,7 +80,7 @@
           <div class="editor-fields"><label>貼り付け位置（秒）<input id="paste-time" type="number" min="0" max="7200" step="0.001" value="0" /></label><button id="paste-now" class="edit-button" disabled>再生位置を使う</button><button id="paste-range" class="edit-button" disabled>ここに貼り付け</button></div>
           <p id="clipboard-status" class="field-help" role="status">コピーはこのページ内で保持します。全6レーンで、始点が開始以上・終了未満のノーツが対象です。長推しは終点まで、休符・同時推しもそのままコピーします。</p>
         </details>
-        <p class="field-help">色付きノーツをドラッグして移動。薄い輪郭は元の入力位置、縦線は拍です。上の秒数目盛りを押すとMVをシークします。長推しは帯の右端をドラッグすると終点を変更できます。◇と連結線は同時推し。細かい調整は下の数値欄でもできます。</p>
+        <p class="field-help">色付きノーツをドラッグして移動。薄い輪郭は元の入力位置、縦線は拍です。上の秒数目盛りを押すとMVをシークします。長推しは帯の右端をドラッグすると終点を変更できます。連結線は同時推し。細かい調整は下の数値欄でもできます。</p>
         <p class="field-help">PCではShift＋ドラッグでも範囲選択できます。タイムラインにフォーカスした状態でCtrl / ⌘＋Cでコピー、Ctrl / ⌘＋Vで指定位置へ貼り付け、Deleteで範囲削除、Escで選択解除。コピー・貼り付けのボタンはスマホでも使えます。</p>
         <div id="selected-empty" class="field-help">タイムラインか一覧でノーツを選択してください。</div>
         <div id="selected-panel" hidden>
@@ -100,7 +100,7 @@
         <details><summary>MIDIを読み込む・ギミックの指定方法</summary>
           <p class="field-help">1チャンネルで指定できます。番号はMIDIノート番号です。左からピンク・黄緑・白・赤・紫・黄色。通常音符は1.5拍以上で長推し、同時刻で同時推しです。</p>
           <div class="note-table"><table><thead><tr><th>種類</th><th>ピンク → 黄色</th><th>指定方法</th></tr></thead><tbody><tr><td>単推し・長推し</td><td>38, 40, 41, 43, 45, 47</td><td>39もピンク</td></tr><tr><td>箱推し</td><td>50, 52, 53, 55, 57, 59</td><td>6音ずつ、6色を1回ずつ順番に。長さは無視</td></tr><tr><td>DD</td><td>60（1音で全色対応）</td><td>長さは無視・どれか1ボタンで1回得点</td></tr><tr><td>推し変</td><td>62, 64, 65, 67, 69, 71</td><td>隣の色へ、前の終端と次の始端をつなぐ。最後の終端で離す</td></tr></tbody></table></div>
-          <p class="field-help">箱推しは6色の完走で成功演出（各ノーツを通常採点）。推し変は縦の帯で保持し、横向きの矢印が判定線に来たら隣へ持ち替えます。途中と二重線の終端のすべてがGOOD以上で得点。音符の重なり・指定不足はエラーとして表示します。推し変は各区間30ms以上、別の推し変との間には休符を入れてください。既存の編集内容は「元に戻す」で復元できます。</p>
+          <p class="field-help">箱推しは16分間隔なら横になぞる「ジャラランッ」に。入力順に音が上がり、6色の完走で成功演出（各ノーツを通常採点）。推し変は縦の帯で保持し、横向きの矢印が判定線に来たら隣へ持ち替えます。途中と二重線の終端のすべてがGOOD以上で得点。音符の重なり・指定不足はエラーとして表示します。推し変は各区間30ms以上、別の推し変との間には休符を入れてください。既存の編集内容は「元に戻す」で復元できます。</p>
           <label>動画上のMIDI開始位置（秒）<input id="midi-offset" type="number" min="0" max="7200" step="0.001" value="7.65" /></label>
           <label class="edit-button">MIDIを読み込む<input id="import-midi" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" /></label>
         </details>

@@ -51,6 +51,28 @@ describe('DD and box play', () => {
       expect(last?.boxComplete).toBe(true);
     }
   });
+  it('uses authored time order for box accents, including reverse lanes and interleaved boxes', () => {
+    const data = box();
+    data.notes.forEach(note => { note.lane = 5 - note.lane; });
+    const second = box().notes.map(note => ({...note, id:note.id + 6, boxId:2, time:note.time + .5}));
+    data.notes = [...second, ...data.notes].reverse();
+    const engine = new GameEngine(data);
+    for (let step = 1; step <= 6; step++) {
+      expect(engine.input(6 - step, step)).toMatchObject({boxId:1, boxStep:step});
+      expect(engine.input(step - 1, step + .5)).toMatchObject({boxId:2, boxStep:step});
+    }
+    expect(engine.score).toBe(12000);
+    engine.reset(); expect(engine.input(5, 1)).toMatchObject({boxId:1, boxStep:1});
+  });
+  it('previews the same rapid six-tone box run without emitting skipped accents after seeking', () => {
+    const data = tutorialChart(3), preview = new EditorPreview(); preview.sync(data);
+    expect(data.notes[5].time - data.notes[0].time).toBeCloseTo(5 / 6);
+    preview.seek(data.notes[0].time - .1);
+    for (let step = 1; step <= 6; step++) {
+      expect(preview.update(data.notes[step - 1].time, true)).toEqual([expect.objectContaining({boxStep:step, boxId:1, boxComplete:step === 6})]);
+    }
+    preview.seek(0); expect(preview.update(4, true)).toEqual([]);
+  });
 });
 
 describe('slide gestures', () => {

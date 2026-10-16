@@ -142,7 +142,10 @@ function showHit(hit: Hit, now: number): void {
   feedback.classList.remove('pop');
   void feedback.offsetWidth;
   feedback.classList.add('pop');
-  if (hit.judgement !== 'MISS') renderer.flash(hit.lane, now, hit.judgement);
+  if (hit.judgement !== 'MISS') {
+    renderer.flash(hit.lane, now, hit.judgement);
+    if (hit.boxStep !== undefined && hit.boxId !== undefined) { sound.playBox(hit.boxStep); renderer.flashBox(hit.lane, now, hit.boxStep, hit.boxId, hit.boxComplete); }
+  }
   updateScore();
 }
 function clearResults(): void {

@@ -12,6 +12,14 @@ export function chordGroups(notes: readonly ChartNote[]): ChartNote[][] {
   }
   finish(); return groups;
 }
+/** Authored chronological order, independent of lane order and input file ordering. */
+export function boxGroups<T extends ChartNote>(notes: readonly T[]): T[][] {
+  const groups = new Map<number, T[]>();
+  for (const note of notes) if (note.gimmick === 'box' && note.boxId !== undefined) {
+    const group = groups.get(note.boxId) ?? []; group.push(note); groups.set(note.boxId, group);
+  }
+  return [...groups.values()].map(group => group.sort((a, b) => a.time - b.time));
+}
 export function noteThickness(size: number, spacing: number, base: number): number {
   return Math.max(2, Math.min(base * size / 100, spacing * 0.6));
 }

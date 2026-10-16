@@ -18,7 +18,6 @@ export class Timeline {
   private state!: TimelineState;
   private cachedChart: Chart | null = null;
   private chords: ChartNote[][] = [];
-  private chordIds = new Set<number>();
   private gaps = new Map<number, number>();
   private listeners = new AbortController();
   private observer: ResizeObserver;
@@ -106,7 +105,7 @@ export class Timeline {
   draw(state: TimelineState): void {
     this.state = state;
     if (this.cachedChart !== state.chart) {
-      this.cachedChart = state.chart; this.chords = chordGroups(state.chart.notes); this.chordIds = new Set(this.chords.flat().map(note => note.id)); this.gaps.clear();
+      this.cachedChart = state.chart; this.chords = chordGroups(state.chart.notes); this.gaps.clear();
       for (let lane = 0; lane < 6; lane++) {
         const notes = state.chart.notes.filter(note => note.lane === lane);
         notes.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (notes[i - 1]?.time ?? -Infinity), (notes[i + 1]?.time ?? Infinity) - note.time)));
@@ -170,9 +169,6 @@ export class Timeline {
       if (!ghost && note.gimmick) { ctx.fillStyle = '#fff'; ctx.fillText(note.gimmick === 'box' ? '箱' : note.gimmick === 'dd' ? 'DD' : '→', x + 5, y - 14); ctx.fillStyle = color; }
       if (!ghost) ctx.fillRect(x - width / 2, y - 11, width, 22);
       ctx.strokeRect(x - width / 2, y - 11, width, 22); ctx.lineWidth = 1;
-      if (!ghost && this.chordIds.has(note.id)) {
-        ctx.strokeStyle = '#fff'; ctx.fillStyle = '#10111c'; const r = Math.max(2, Math.min(3, width / 2)); ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); ctx.fill(); ctx.stroke();
-      }
     };
     state.chart.notes.forEach(note => { if (note.sourceTime !== undefined && (Math.abs(note.sourceTime - note.time) > 0.001 || (note.type === 'hold' && note.sourceEndTime !== undefined && Math.abs(note.sourceEndTime - note.endTime) > 0.001))) drawNote(note, true); });
     state.chart.notes.forEach(note => { if (note.id !== this.drag?.id) drawNote(note); });
