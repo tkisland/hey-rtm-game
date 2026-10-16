@@ -73,7 +73,7 @@ test('actual rendered centers at each perspective-band edge match the engine jud
             renderer.draw(engine.notes, time, 2, 0, 150, 120, offset);
             const head = heads[0], band = zones[lane * 3 + zone], edge = error < 0 ? [band[0], band[1]] : [band[2], band[3]];
             const cx = head.x + head.w / 2, cy = head.y + head.h / 2;
-            // Sample the coloured bar beside its central icon (the white lane has a dark heart).
+            // Sample the coloured bar beside its white heart and outline.
             const pixel = ctx.getImageData(Math.floor((cx + head.w * .25) * devicePixelRatio), Math.floor(cy * devicePixelRatio), 1, 1).data;
             results.push({ cx, cy, x: (edge[0].x + edge[1].x) / 2, y: edge[0].y, width: head.w, bandWidth: Math.abs(edge[1].x - edge[0].x), judgement: engine.input(lane, compensateInput(time, offset))?.judgement, expected, visible: Math.max(...pixel.slice(0, 3)) > 150 });
           }

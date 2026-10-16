@@ -1,0 +1,46 @@
+/* The C concept: one continuous stage, runway and penlight console. */
+.game-page { background:radial-gradient(ellipse at 50% 0,#30204460,transparent 55%),#080812; }
+.game-page .game { background:none; box-shadow:none; }
+.game-page .game .stage { background:none; box-shadow:none; }
+.game-page .game .stage,.game-page .game #game-canvas { border-radius:20px 20px 0 0; }
+.game-page .surface-field::before { content:''; position:absolute; z-index:4; top:0; left:0; right:0; height:var(--frame-bottom,100%); border:1px solid #cab6e080; border-radius:20px; box-shadow:0 8px 30px #0005; pointer-events:none; }
+.game-page .field-hud { position:absolute; z-index:4; inset:0 0 auto; display:flex; justify-content:space-between; align-items:start; gap:12px; min-height:58px; padding:10px 13px 14px; border-radius:20px 20px 0 0; background:linear-gradient(#090817d9,#09081755 70%,#09081700); pointer-events:none; }
+.stage-song-title { max-width:55%; font-size:12px; line-height:1.6; color:#fff; text-shadow:0 1px 7px #000; }
+.game-page .game .field-hud .scoreboard { position:static; display:flex; flex-direction:column; align-items:end; gap:1px; padding:0; margin:0; height:auto; background:none; border:0; }
+.game-page .field-hud .scoreboard > div { display:flex; flex-direction:row; align-items:baseline; justify-content:end; gap:6px; min-width:0; }
+.game-page .field-hud .metric-label { margin:0; color:#ede6ff; font-size:8px; letter-spacing:.5px; }
+.game-page .field-hud #score,.game-page .field-hud #combo { font-family:"RocknRoll One",sans-serif; font-size:20px; line-height:1.25; color:#fff; letter-spacing:0; text-shadow:0 0 12px #ddc6ff60; }
+.game-page .field-hud #combo { color:#ffcbe6; }
+.game-page .field-hud #max-combo { display:none; }
+.game-page .media-panel { background:linear-gradient(150deg,#22192eaa,#100f1a); border-color:#d8baff29; }
+.game-page .session-summary { gap:12px; }
+.game-page .game .stage-hint { top:32%; left:8%; right:8%; width:auto; padding:16px; border:1px solid #dcc6ff2e; border-radius:14px; background:#0e0a20cf; box-shadow:0 4px 28px #0005; backdrop-filter:blur(6px); }
+.game-page .game .stage-hint strong { font-size:13px; }
+.game-page .game .stage-hint > span:last-child { max-width:280px; font-size:10px; line-height:1.7; }
+.game-page .game .hint-kicker { color:#f9bbe1; letter-spacing:3px; }
+.game-page .lane-judgement { text-shadow:0 0 5px currentColor,0 1px 4px #241031; }
+.game-page .judgement-label { font-family:"RocknRoll One",sans-serif; font-size:clamp(10px,2.8vw,14px); }
+.game-page .judgement-error { color:#d4c6df; }
+.game-page .game #control-status { bottom:18px; color:#bcb0cd; font-size:9px; }
+@media (min-width:761px) and (hover:hover) and (min-height:501px) {
+  .game-page #app { max-width:1000px; padding-left:16px; padding-right:16px; }
+  .game-page .live-layout { grid-template-columns:minmax(0,1fr) 280px; gap:18px; }
+  .game-page .media-panel { padding:12px; }
+  .game-page .game .stage { position:sticky; top:0; }
+}
+@media (max-width:760px), (hover:none) and (pointer:coarse) {
+  .game-page .media-panel { background:none; }
+  .game-page .session-summary { justify-content:center; }
+  .game-page .game,.game-page .game .stage { box-shadow:none; }
+}
+@media(max-width:370px) {
+  .game-page .stage-song-title { font-size:10px; }
+  .game-page .field-hud { padding:7px 10px; }
+  .game-page .field-hud #score,.game-page .field-hud #combo { font-size:16px; }
+}
+@media(max-height:600px) {
+  .game-page .field-hud { min-height:38px; padding:6px 10px; }
+  .game-page .field-hud #score,.game-page .field-hud #combo { font-size:14px; }
+  .game-page .field-hud .metric-label { font-size:7px; }
+  .game-page .game .stage-hint { top:28%; padding:8px; }
+}

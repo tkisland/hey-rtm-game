@@ -2,6 +2,7 @@ import { decoratePenlight } from './penlight';
 import { playLane } from './engine';
 import './style.css';
 import './penlight.css';
+import './concert.css';
 import { LANE_COLORS } from './colors';
 import { bindDockLayout } from './layout';
 import { bindTargets } from './field-geometry';
@@ -57,6 +58,7 @@ const bundled = bundledChart(song);
 if (!__ADMIN__ && !online && !bundled) { location.replace('./?unavailable-song=1'); return; }
 document.title = `HEY! RHYTHM! — ${song.title}`;
 element('song-title').textContent = song.title;
+element('stage-song-title').textContent = song.title;
 element('song-artist').textContent = `${song.artist} / OFFICIAL MV`;
 if (__ADMIN__) element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'editor');
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
