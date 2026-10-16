@@ -8,11 +8,13 @@ import { bundledChart } from './bundled-charts';
 import { tempoLabel } from './tempo';
 import { publishedChart } from './cloud-published';
 import type { Chart } from './chart';
+import { mountTutorial } from './tutorial';
 
 const list = document.getElementById('song-list')!;
 const search = document.getElementById('song-search') as HTMLInputElement;
 const notice = document.getElementById('menu-notice')!;
 const listeners = new AbortController();
+const disposeTutorial = mountTutorial();
 const online = new Map<string, Chart>();
 const savedChart = (song: Song) => loadChart(songStorageKey(EDITOR_KEY, song), true, song) ?? loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song);
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = ''): HTMLElementTagNameMap[K] {
@@ -71,4 +73,4 @@ if (!__ADMIN__) void Promise.all(SONGS.map(async song => {
   try { const published = await publishedChart(song); if (published) online.set(song.id, published.chart); }
   catch { /* The game reports a failed chart request without playing stale data. */ }
 })).then(() => { if (!listeners.signal.aborted) render(); });
-if (import.meta.hot) import.meta.hot.dispose(() => listeners.abort());
+if (import.meta.hot) import.meta.hot.dispose(() => { listeners.abort(); disposeTutorial(); });
