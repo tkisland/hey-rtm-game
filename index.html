@@ -26,13 +26,14 @@
     <div class="tutorial-heading"><p class="eyebrow">HOW TO PLAY · <span id="tutorial-step">1 / 3</span></p><button id="tutorial-close" type="button" autofocus>閉じる</button></div>
     <h2 id="tutorial-title" tabindex="-1">タップ</h2>
     <p id="tutorial-description"></p>
-    <div id="tutorial-example" class="tutorial-example" aria-hidden="true"></div>
-    <div id="tutorial-pads" class="tutorial-pads" role="group" aria-label="練習用のリズムボタン"></div>
-    <p id="tutorial-prompt"></p>
-    <progress id="tutorial-progress" max="1" value="0" aria-label="長押しの進み具合" hidden></progress>
+    <div class="tutorial-toolbar"><button id="tutorial-start" class="restart-button" type="button">練習をはじめる</button><label><input id="tutorial-sound" type="checkbox" checked />リズム音・効果音</label></div>
+    <div class="tutorial-status-row"><p id="tutorial-status" role="status"></p><p id="tutorial-score"></p></div>
+    <div class="tutorial-field"><canvas id="tutorial-canvas" aria-label="ノーツが流れる練習用レーン"></canvas><div id="tutorial-pads" class="tutorial-pads" role="group" aria-label="練習用のリズムボタン"></div></div>
+    <progress id="tutorial-progress" max="1" value="0" aria-label="練習の進み具合"></progress>
     <p id="tutorial-feedback" role="status"></p>
     <div class="tutorial-actions"><button id="tutorial-previous" class="text-button" type="button">戻る</button><button id="tutorial-next" class="restart-button" type="button">次へ</button></div>
-    <p class="tutorial-tip">PCでは S D F / J K L キーでも操作できます。<br />本番は曲を選んで、ゲーム画面の再生ボタンからスタート！</p>
+    <p class="tutorial-tip">PCは S D F / J K L キー、スマホは両手の親指でプレイ。<br />本番は曲を選んで、ゲーム画面の再生ボタンからスタート！</p>
+    <p id="tutorial-audio-status" role="status"></p>
   </dialog>
   <script type="module" src="/src/menu.ts"></script>
 </body>
