@@ -19,7 +19,7 @@ test('public selection offers only the published chart and loads no video', asyn
   await expect(page.locator('.song-play')).toHaveText('プレイ');
   await expect(page.locator('.song-meta')).toHaveText('6 LANES · 166 → 192 BPM · 509 NOTES');
   await expect(page.locator('.song-edit,.song-saved,.song-practice,.saved-summary,.admin-notice')).toHaveCount(0);
-  expect(await page.locator('body').innerText()).not.toMatch(/エディター|編集|保存譜面|テスト譜面|SMG002/);
+  expect(await page.locator('body').innerText()).not.toMatch(/エディター|編集|保存譜面|テスト譜面|SMG00[23]/);
   expect(requests).toEqual([]);
   await page.locator('#song-search').fill('missing'); await expect(page.locator('#song-empty')).toBeVisible();
   await page.locator('#song-search').fill('mommy'); await expect(page.locator('.song-card')).toHaveCount(1);

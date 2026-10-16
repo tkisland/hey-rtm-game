@@ -45,7 +45,7 @@ export function parseChart(text: string, requireNotes = false, song: Song = DEFA
       if (!Array.isArray(item.path) || !item.path.length || item.path.length > 128) throw new Error('推し変の移動先は1〜128個で指定してください。');
       let previousTime = item.time, previousLane = item.lane;
       for (const point of item.path) {
-        if (!object(point) || !finite(point.time, 0, MAX_TIME) || point.time - previousTime < 0.03 - 1e-8 || !finite(point.lane, 0, 5) || !Number.isInteger(point.lane) || Math.abs(point.lane - previousLane) !== 1 || !finite(item.endTime, 0, MAX_TIME) || item.endTime - point.time < 0.03 - 1e-8) throw new Error('推し変は30ms以上の間隔で隣のレーンへ移動し、終点まで30ms以上残してください。');
+        if (!object(point) || !finite(point.time, 0, MAX_TIME) || point.time - previousTime < 0.03 - 1e-8 || !finite(point.lane, 0, 5) || !Number.isInteger(point.lane) || point.lane === previousLane || !finite(item.endTime, 0, MAX_TIME) || item.endTime - point.time < 0.03 - 1e-8) throw new Error('推し変は30ms以上の間隔で別のレーンへ移動し、終点まで30ms以上残してください。');
         path.push({time: point.time, lane: point.lane}); previousTime = point.time; previousLane = point.lane;
       }
     }

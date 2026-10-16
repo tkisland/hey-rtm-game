@@ -104,6 +104,24 @@ describe('DD and box play', () => {
 });
 
 describe('slide gestures', () => {
+  it('imports, saves and plays a distant purple-to-pink transfer as one hold', () => {
+    const bytes=Buffer.from(sample);
+    for (const status of [0x90,0x80]) for (const [from,to] of [[62,69],[64,62]]) {
+      const at=bytes.indexOf(Buffer.from([status,from,status===0x90?100:0])); bytes[at+1]=to;
+    }
+    const imported=convertMidi(bytes,config), note=imported.notes.find(note=>note.gimmick==='slide')!;
+    expect(note).toMatchObject({lane:4,path:[{time:23.65,lane:0},{time:24.65,lane:2}]});
+    expect(parseChart(JSON.stringify(imported),true)).toEqual(imported);
+    const model=new EditorModel(imported); model.selected=note.id;
+    model.setSlidePath([{time:23.65,lane:5},{time:24.65,lane:0}]);
+    expect(model.selectedNote?.path?.map(point=>point.lane)).toEqual([5,0]); model.undo();
+    const engine=new GameEngine(chart([{...note,id:1}]));
+    engine.advance(note.time,new Set([4])); engine.input(4,note.time);
+    expect(engine.nextSlideLane(4)).toBe(0);
+    engine.advance(23.65,new Set([0])); expect(engine.nextSlideLane(0)).toBe(2);
+    engine.advance(24.65,new Set([2])); expect(engine.release(2,25.65)[0].judgement).toBe('PERFECT');
+    expect(engine.score).toBe(1000); expect(engine.combo).toBe(1);
+  });
   it('transfers a captured finger atomically and scores only at a successful final release', () => {
     const engine = new GameEngine(chart([slide()]));
     engine.advance(1,new Set([0])); expect(engine.input(0,1)?.phase).toBe('start');
@@ -158,15 +176,15 @@ describe('MIDI, persistence and editor', () => {
   it('rejects malformed special MIDI instead of dropping or reclassifying notes', () => {
     const mutate = (pitch: number, replacement: number) => { const bytes=Buffer.from(sample); for (const status of [0x90,0x80]) {const at=bytes.indexOf(Buffer.from([status,pitch,status === 0x90 ? 100 : 0]));bytes[at + 1]=replacement;}return bytes; };
     expect(() => convertMidi(mutate(50,52),config)).toThrow('箱推し');
-    expect(() => convertMidi(mutate(65,69),config)).toThrow('隣');
+    expect(() => convertMidi(mutate(65,64),config)).toThrow('別の色');
     expect(() => convertMidi(mutate(65,47),config)).not.toThrow(); // Shorter valid slide, followed by an ordinary hold.
     expect(() => convertMidi(mutate(62,38),config)).not.toThrow(); // Ordinary hold, then a valid two-segment slide.
     const bytes=mutate(64,40);expect(() => convertMidi(bytes,config)).toThrow('2〜129');
   });
-  it('rejects malformed box groups, mismatched gimmicks and non-adjacent/unsorted paths', () => {
+  it('rejects malformed box groups, mismatched gimmicks and repeated/unsorted paths', () => {
     const invalid: Chart[] = [box(),box(),chart([slide()]),chart([slide()]),chart([slide()]),chart([slide()])];
     invalid[0].notes.pop();invalid[1].notes[1].lane=0;
-    invalid[2].notes[0].path![0].lane=3;invalid[3].notes[0].path![1].time=1.5;
+    invalid[2].notes[0].path![0].lane=0;invalid[3].notes[0].path![1].time=1.5;
     invalid[4].notes[0].gimmick='dd';invalid[5].notes[0].path![1].time=4;
     for (const data of invalid) expect(() => parseChart(JSON.stringify(data))).toThrow();
   });
@@ -192,7 +210,7 @@ describe('MIDI, persistence and editor', () => {
     model.changeType('dd');expect(model.selectedNote?.gimmick).toBe('dd');model.changeType('slide',4);
     model.setSlidePath([{time:2,lane:1},{time:3,lane:2}]);const before=JSON.stringify(model.chart);
     expect(() => model.resize(1,2)).toThrow();expect(JSON.stringify(model.chart)).toBe(before);
-    expect(() => model.setSlidePath([{time:2,lane:4}])).toThrow();expect(JSON.stringify(model.chart)).toBe(before);
+    expect(() => model.setSlidePath([{time:2,lane:0}])).toThrow();expect(JSON.stringify(model.chart)).toBe(before);
     const base=box();base.notes.forEach(note => {delete note.gimmick;delete note.boxId;});model.replace(base);model.boxRange({start:1,end:7});expect(model.chart.notes.every(note => note.gimmick==='box')).toBe(true);
   });
   it('edits, quantizes, removes and undoes one box as a complete unit', () => {

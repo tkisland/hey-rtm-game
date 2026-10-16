@@ -18,7 +18,7 @@ const steps = [
   {title:'長推し', description:'ハートの先頭で押し、二重線の終点がラインに来たら離そう。早すぎても遅すぎてもMISSです。'},
   {title:'箱推し', description:'6色のバーが来たら、端から端へ一瞬でスワイプ！ 左右どちらからでもOK。約0.25秒以内になぞり切ると1ノーツ分の得点・コンボ。PCは6キーを素早く順に押そう。'},
   {title:'DD', description:'虹色のノーツは、どのボタンで押してもOK！ どれか1つをタイミングよく押そう。'},
-  {title:'推し変', description:'縦の帯では同じ色を保持。横矢印が上の横線に来たら、指をつけたまま隣へ移ろう。PCは次キーを押すか、先に次を押して矢印で前を離す。二重線で離そう。'},
+  {title:'推し変', description:'縦の帯では同じ色を保持。横矢印が上の横線に来たら、指をつけたまま矢印の先の色へ移ろう。離れた色にも移れます。PCは次キーを押すか、先に次を押して矢印で前を離す。二重線で離そう。'},
 ];
 
 export function mountTutorial(): () => void {
@@ -101,7 +101,7 @@ export function mountTutorial(): () => void {
       renderer?.flash(hit.lane, now, hit.judgement);
       if (hit.boxComplete && hit.boxId !== undefined) { sound?.playBoxSweep(); renderer?.completeBox(now, hit.boxId, hit.boxDirection); }
     }
-    feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、隣へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
+    feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、矢印の先の色へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
     feedback.classList.toggle('success', hit.judgement !== 'MISS'); updateScore();
   }
   function draw(now: number, time: number): void {
@@ -167,7 +167,7 @@ export function mountTutorial(): () => void {
       engine.advance(time, lanes).forEach(hit => showHit(hit, now));
       for (const lane of previous) if (!lanes.has(lane)) engine.release(lane, time).forEach(hit => showHit(hit, now));
       syncHolds(now);
-    }, () => phase !== 'playing' || !dialog.open, {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id)});
+    }, () => phase !== 'playing' || !dialog.open, {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id), slideDestination:lane => engine.nextSlideLane(lane)});
     frame = requestAnimationFrame(tick);
   }
   function interrupted(): void {

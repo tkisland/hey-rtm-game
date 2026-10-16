@@ -133,7 +133,7 @@ export function convertMidi(buffer: Uint8Array, config: MidiConfig): Chart {
     }
     if (group.length < 2 || group.length > 129) throw new Error('推し変は2〜129音を隙間なくつないで指定してください。');
     const lanes = group.map(note => SLIDE_PITCHES.indexOf(note.pitch));
-    if (lanes.some((lane, j) => j > 0 && Math.abs(lane - lanes[j - 1]) !== 1) || group.some(note => videoTime(note.endTick) - videoTime(note.tick) < .03 - 1e-8)) throw new Error('推し変は30ms以上の間隔で隣の色へ移動してください。');
+    if (lanes.some((lane, j) => j > 0 && lane === lanes[j - 1]) || group.some(note => videoTime(note.endTick) - videoTime(note.tick) < .03 - 1e-8)) throw new Error('推し変は30ms以上の間隔で別の色へ移動してください。');
     notes.push({id:0, time:videoTime(group[0].tick), endTime:videoTime(group.at(-1)!.endTick), lane:lanes[0], type:'hold', gimmick:'slide', path:group.slice(1).map((note, j) => ({time:videoTime(note.tick), lane:lanes[j + 1]}))});
   }
   notes.sort((a, b) => a.time - b.time || a.lane - b.lane);

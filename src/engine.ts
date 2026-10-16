@@ -35,6 +35,11 @@ export class GameEngine {
   private previousPressed = new Set<number>();
   constructor(public chart: Chart) { this.reset(); }
 
+  nextSlideLane(lane: number): number | undefined {
+    const note = this.notes.find(note => note.state === 'holding' && note.gimmick === 'slide' && playLane(note) === lane);
+    return note?.path?.[note.pathIndex ?? 0]?.lane;
+  }
+
   reset(chart: Chart = this.chart): void {
     this.chart = chart;
     this.notes = playableNotes(chart.notes).map(note => ({ ...copyNote(note), state: 'pending' }));
