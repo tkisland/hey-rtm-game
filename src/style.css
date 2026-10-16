@@ -1,8 +1,8 @@
-:root { color-scheme: dark; font-family: "Avenir Next", "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; background:#0c0d16; color:#f6f5ff; font-synthesis:none; --muted:#9293ac; --pink:#ff739c; }
+:root { color-scheme: dark; font-family: "RocknRoll One", "Avenir Next", "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; background:#0c0d16; color:#f6f5ff; font-synthesis:none; --muted:#9293ac; --pink:#ff739c; }
 * { box-sizing:border-box; }
 body { margin:0; background:radial-gradient(ellipse at 50% 0%,#29213a88,transparent 50%),#0c0d16; min-height:100dvh; }
 body:not(.menu-page) { touch-action:manipulation; }
-button,input { font:inherit; }
+button,input,select,textarea { font:inherit; }
 button { cursor:pointer; color:inherit; }
 button:disabled { opacity:.45; cursor:not-allowed; }
 button:focus-visible,a:focus-visible,input:focus-visible { outline:2px solid #ffb65c; outline-offset:4px; }
