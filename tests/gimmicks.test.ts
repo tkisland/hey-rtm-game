@@ -136,21 +136,21 @@ describe('slide gestures', () => {
     const engine = new GameEngine(chart([slide()])); engine.input(0,1);
     engine.advance(2.12,new Set([0,1])); expect(engine.release(0,2.13)).toEqual([]);
     engine.advance(2.5,new Set([1])); engine.advance(3,new Set([1,2])); engine.release(1,3);
-    expect(engine.release(2,4)[0].judgement).toBe('GOOD'); expect(engine.score).toBe(300);
+    expect(engine.release(2,4)[0].judgement).toBe('GREAT'); expect(engine.score).toBe(700);
   });
   it('fails when released early, at a missed checkpoint, or after holding past the tail', () => {
     for (const mode of ['release','checkpoint','tail']) {
       const engine = new GameEngine(chart([slide()])); engine.input(0,1);
       if (mode==='release') engine.release(0,1.5);
-      if (mode==='checkpoint') engine.advance(2.17,new Set([0]));
-      if (mode==='tail') {engine.advance(2,new Set([1]));engine.advance(3,new Set([2]));engine.advance(4.17,new Set([2]));}
+      if (mode==='checkpoint') engine.advance(2.2501,new Set([0]));
+      if (mode==='tail') {engine.advance(2,new Set([1]));engine.advance(3,new Set([2]));engine.advance(4.2501,new Set([2]));}
       expect(engine.score).toBe(0); expect(engine.counts.MISS).toBe(1); expect(engine.finished).toBe(true);
       engine.advance(5,new Set()); expect(engine.counts.MISS).toBe(1);
     }
   });
   it('does not accept a next key held too early or a skipped intermediate lane', () => {
     const engine = new GameEngine(chart([slide()])); engine.input(0,1);
-    engine.advance(1.5,new Set([0,1])); engine.advance(2,new Set([0,1])); engine.advance(2.17,new Set([0,1]));
+    engine.advance(1.5,new Set([0,1])); engine.advance(2,new Set([0,1])); engine.advance(2.2501,new Set([0,1]));
     expect(engine.counts.MISS).toBe(1); expect(engine.score).toBe(0);
     engine.reset(); engine.input(0,1); engine.advance(2,new Set([2])); expect(engine.counts.MISS).toBe(1);
   });
@@ -159,6 +159,27 @@ describe('slide gestures', () => {
     engine.seek(3,false); expect(engine.notes[0].state).toBe('skipped');
     engine.seek(0,true); expect(engine.notes[0].pathIndex).toBeUndefined();
     engine.notes[0].path![0].time=99; expect(data.notes[0].path![0].time).toBe(2);
+  });
+  it.each([[-.2501,'MISS'],[-.25,'GOOD'],[-.18,'GREAT'],[-.1,'PERFECT'],[.1,'PERFECT'],[.1001,'GREAT'],[.18,'GREAT'],[.1801,'GOOD'],[.25,'GOOD'],[.2501,'MISS']] as const)('accepts a distant checkpoint at %ss only inside the extended window', (error, judgement) => {
+    const note = slide(); note.path = [{time:2,lane:5}];
+    const engine = new GameEngine(chart([note]));
+    engine.advance(1,new Set([0])); engine.input(0,1);
+    const hits = engine.advance(2+error,new Set([5]));
+    expect(hits[0].judgement).toBe(judgement);
+    if (judgement !== 'MISS') {
+      expect(hits[0]).toMatchObject({phase:'move',lane:5});
+      expect(engine.score).toBe(0); expect(engine.combo).toBe(0);
+      expect(engine.release(5,4)[0].judgement).toBe(judgement);
+    }
+    expect(engine.counts[judgement]).toBe(1);
+    engine.advance(5,new Set()); expect(Object.values(engine.counts).reduce((a,b)=>a+b,0)).toBe(1);
+  });
+  it('does not apply the wider hold windows to taps, DD or slide starts', () => {
+    for (const note of [{id:1,type:'tap' as const,time:1,lane:0},{id:1,type:'tap' as const,gimmick:'dd' as const,time:1,lane:0},slide()]) {
+      const engine = new GameEngine(chart([note]));
+      expect(engine.input(0,.8)).toBeNull();
+      engine.advance(1.1601,new Set()); expect(engine.counts.MISS).toBe(1);
+    }
   });
 });
 

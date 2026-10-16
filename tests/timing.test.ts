@@ -30,9 +30,10 @@ describe('input compensation', () => {
     expect(engine.advance(compensateInput(13.2, 200), new Set([0]))).toEqual([]);
     expect(engine.release(0, compensateInput(13.2, 200))[0].judgement).toBe('PERFECT');
     const released = new GameEngine(chart); released.input(0, compensateInput(12.2, 200));
-    expect(released.release(0, compensateInput(13.1, 200))[0].judgement).toBe('GREAT');
+    expect(released.release(0, compensateInput(13.1, 200))[0].judgement).toBe('PERFECT');
     const overdue = new GameEngine(chart); overdue.input(0, compensateInput(12.2, 200));
-    expect(overdue.advance(compensateInput(13.361,200), new Set([0]))[0].judgement).toBe('MISS');
+    expect(overdue.advance(compensateInput(13.45,200), new Set([0]))).toEqual([]);
+    expect(overdue.advance(compensateInput(13.4501,200), new Set([0]))[0].judgement).toBe('MISS');
   });
   it('leaves zero-compensation behavior unchanged', () => {
     expect(compensateInput(12.123, 0)).toBe(12.123);

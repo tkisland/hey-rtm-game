@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
-import {api,seekPlay,waitForVideoTime} from './mock-video';
+import {api} from './mock-video';
 
 const sample=readFileSync(new URL('../../charts/source/oshi-gimmicks.mid',import.meta.url));
 const saved = (page: import('@playwright/test').Page) => page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-editor-v1')!));
@@ -40,11 +40,14 @@ test('edits DD and slide checkpoints through the browser and uses the real game 
   await page.getByRole('button',{name:'ノーツ2を選択',exact:true}).click();await page.locator('#note-type').selectOption('dd');
   await page.locator('#try-game').click();await expect(page.locator('#chart-source')).toHaveValue('custom');
   await expect(page.locator('#play-start')).toBeEnabled();
-  await seekPlay(page,9.75);await waitForVideoTime(page,10);await page.keyboard.down('s');
-  await waitForVideoTime(page,11);await page.keyboard.down('d');await page.keyboard.up('s');
+  // Native key dispatch must not drift out of PERFECT while other browser suites run.
+  await page.clock.install();await page.clock.pauseAt(new Date(Date.now()+1000));
+  await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(9.75);video.playVideo();});
+  await page.clock.runFor(250);await page.keyboard.down('s');
+  await page.clock.runFor(1000);await page.keyboard.down('d');await page.keyboard.up('s');
   await expect(page.locator('.judgement-label').nth(1)).toHaveText(/推し変|HOLD/);
-  await waitForVideoTime(page,12);await page.keyboard.down('f');await page.keyboard.up('d');
-  await waitForVideoTime(page,13);await page.keyboard.up('f');await expect(page.locator('#score')).toHaveText('1,000');
-  await waitForVideoTime(page,14);await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('2,000');
+  await page.clock.runFor(1000);await page.keyboard.down('f');await page.keyboard.up('d');
+  await page.clock.runFor(1000);await page.keyboard.up('f');await expect(page.locator('#score')).toHaveText('1,000');
+  await page.clock.runFor(1000);await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('2,000');
   await expect(page.locator('#result-score')).toHaveText('2,000');
 });

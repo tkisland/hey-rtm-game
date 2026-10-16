@@ -421,7 +421,7 @@ function frame(now: number): void {
     stageHint.querySelector<HTMLElement>('span:last-child')!.hidden = false;
   } else {
     stageHint.hidden = sample.playing || resultShown;
-    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'おつかれさまでした！' : '動画の▶でライブをはじめよう';
+    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'レスキャッチ完了！' : '動画の▶でライブをはじめよう';
     stageHint.querySelector('strong')!.textContent = hint;
     stageHint.querySelector('span:last-child')!.textContent = '';
     stageHint.querySelector<HTMLElement>('span:last-child')!.hidden = true;
