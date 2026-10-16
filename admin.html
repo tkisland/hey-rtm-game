@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>管理者ログイン — HEY! RHYTHM!</title>
+</head>
+<body class="admin-page">
+  <div id="admin-session" class="admin-session" hidden>
+    <div class="admin-session-row"><span id="admin-account"></span><a href="./">選曲へ</a><button id="admin-logout" class="text-button">ログアウト</button></div>
+    <div id="admin-tools" class="admin-session-row" hidden>
+      <label>曲 <select id="admin-song"></select></label>
+      <button id="cloud-save" class="restart-button">下書きを保存</button>
+      <button id="cloud-publish" class="restart-button">公開する</button>
+    </div>
+    <p id="cloud-status" role="status"></p>
+  </div>
+  <div id="app">
+    <header class="header"><a class="wordmark" href="./">HEY! <span>RHYTHM!</span></a><a href="./">選曲へ</a></header>
+    <main class="panel admin-login">
+      <p class="eyebrow">ADMINISTRATOR</p><h1>管理者ログイン</h1>
+      <p>登録された管理者は、Googleアカウントでログインして譜面を編集・保存・公開できます。</p>
+      <button id="google-login" class="restart-button" disabled>Googleでログイン</button>
+      <p id="login-status" role="status">ログイン状態を確認しています…</p>
+      <p id="admin-account-id" class="field-help" hidden></p>
+    </main>
+  </div>
+  <script type="module" src="/src/admin.ts"></script>
+</body>
+</html>

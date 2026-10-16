@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function googleUser() {
+      return request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function admin() {
+      return googleUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true;
+    }
+    function validChart(id) {
+      let d = request.resource.data;
+      return d.schemaVersion == 1 && d.songId == id && d.videoId is string && d.videoId.size() == 11
+        && d.json is string && d.json.size() <= 800000
+        && d.noteCount is int && d.noteCount >= 0 && d.noteCount <= 5000
+        && d.revision is int && d.revision >= 1
+        && d.updatedBy == request.auth.uid && d.updatedAt == request.time;
+    }
+    function draftKeys() {
+      return request.resource.data.keys().hasAll(['schemaVersion','songId','videoId','json','noteCount','revision','updatedBy','updatedAt'])
+        && request.resource.data.keys().hasOnly(['schemaVersion','songId','videoId','json','noteCount','revision','updatedBy','updatedAt']);
+    }
+    function publishedKeys() {
+      return request.resource.data.keys().hasAll(['schemaVersion','songId','videoId','json','noteCount','revision','draftRevision','updatedBy','updatedAt'])
+        && request.resource.data.keys().hasOnly(['schemaVersion','songId','videoId','json','noteCount','revision','draftRevision','updatedBy','updatedAt']);
+    }
+    function savedDraft(id) {
+      let draft = getAfter(/databases/$(database)/documents/draftCharts/$(id)).data;
+      return request.resource.data.noteCount > 0 && request.resource.data.draftRevision == draft.revision
+        && request.resource.data.json == draft.json && request.resource.data.videoId == draft.videoId
+        && request.resource.data.noteCount == draft.noteCount;
+    }
+    match /admins/{uid} {
+      allow get: if googleUser() && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+    match /draftCharts/{song} {
+      allow get: if admin();
+      allow list, delete: if false;
+      allow create: if admin() && validChart(song) && draftKeys() && request.resource.data.revision == 1;
+      allow update: if admin() && validChart(song) && draftKeys() && request.resource.data.revision == resource.data.revision + 1;
+    }
+    match /publishedCharts/{song} {
+      allow get: if true;
+      allow list, delete: if false;
+      allow create: if admin() && validChart(song) && publishedKeys() && savedDraft(song) && request.resource.data.revision == 1;
+      allow update: if admin() && validChart(song) && publishedKeys() && savedDraft(song) && request.resource.data.revision == resource.data.revision + 1;
+    }
+  }
+}

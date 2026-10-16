@@ -68,7 +68,7 @@ test('direct editor URLs and source or asset requests return 404', async ({ requ
 });
 
 test('the default development server rejects editor pages, source and Vite aliases', async ({ request }) => {
-  for (const path of ['/editor.html','/editor','/%65ditor?mode=admin','/Editor.html','/src/editor.ts?raw','/src/editor.js','/src/editor-preview.ts','/src/timeline.ts']) {
+  for (const path of ['/editor.html','/editor','/%65ditor?mode=admin','/Editor.html','/src/editor.ts?raw','/src/editor.js','/src/editor.js?raw']) {
     const response = await request.get(`http://127.0.0.1:4183${path}`);
     expect(response.status(), path).toBe(404); expect(await response.text()).not.toContain('record-toggle');
   }
@@ -80,6 +80,14 @@ test('unknown songs return to selection before loading a player', async ({ page 
   await page.goto('/game.html?song=unknown&admin=1');
   await expect(page.locator('#menu-notice')).toContainText('見つかりません');
   await expect(page.locator('.song-play')).toBeVisible(); expect(requests).toEqual([]);
+});
+test('the unconfigured administrator entry stays locked and does not load the editor', async ({ page }) => {
+  const requests:string[]=[];page.on('request',request=>requests.push(request.url()));
+  await page.goto('/admin.html?admin=1');
+  await expect(page.locator('#login-status')).toContainText('準備中');
+  await expect(page.locator('#google-login')).toBeDisabled();
+  await expect(page.locator('#record-toggle')).toHaveCount(0);
+  expect(requests.some(url=>url.includes('editor-controller')||url.includes('youtube.com'))).toBe(false);
 });
 
 test('player controls remain reachable with clearance from the bottom on small screens', async ({ page }, info) => {

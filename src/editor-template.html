@@ -1,0 +1,105 @@
+  <div id="app">
+    <header class="header"><a class="wordmark" href="./">HEY! <span>RHYTHM!</span></a><div class="header-actions"><a href="./" class="editor-link">選曲</a><a id="back-to-game" href="./game.html" class="icon-button">ゲームへ</a></div></header>
+    <main>
+      <div class="song-heading"><div><p id="editor-song-title" class="eyebrow">CHART EDITOR</p><h1>ノーツ・タイミングエディター</h1></div></div>
+      <p class="field-help admin-notice">管理者専用のローカル編集画面です。下書きはこのブラウザに保存されます。公開するにはJSONを書き出し、リポジトリの収録譜面を更新してください。</p>
+      <p class="field-help">① MVに合わせて打ち込む → ② 拍にそろえる → ③ ノーツを微調整 → ④ 譜面の再生確認・ゲームで試す</p>
+      <div class="editor-top">
+        <section aria-label="公式MV"><div class="video-frame"><div id="youtube-player"></div></div><div class="playback-info"><p id="player-status" role="status">YouTubeプレーヤーを読み込み中…</p><a href="https://www.youtube.com/watch?v=pJDfWpZ7CI4" target="_blank" rel="noopener">YouTube ↗</a></div><div id="player-error" class="error-box" role="alert" hidden></div>
+          <label class="editor-rate">エディターの再生速度<select id="editor-playback-rate" disabled><option value="0.5">0.5倍</option><option value="0.75">0.75倍</option><option value="1" selected>1倍（通常）</option></select></label>
+          <p id="rate-status" class="field-help" role="status">低速で打ち込み・再生確認できます。譜面は原曲の時刻で保存し、ゲームは1倍で再生します。</p>
+        </section>
+        <section class="panel" aria-label="拍とクオンタイズ">
+          <h2>拍の設定</h2>
+          <div class="editor-fields"><label>BPM<input id="editor-bpm" type="number" min="40" max="300" step="0.01" value="140" /></label><label>拍の基準（動画の秒数）<input id="beat-origin" type="number" min="0" max="7200" step="0.001" value="12" /></label></div>
+          <button id="set-origin" class="edit-button" disabled>現在位置を拍の基準にする</button>
+          <p id="tempo-info" class="field-help">開始時点のBPMと拍の基準を合わせてください。</p>
+          <div class="editor-fields"><label>クオンタイズ<select id="division"><option value="1">4分音符</option><option value="2">8分音符</option><option value="4" selected>16分音符</option></select></label><label>対象<select id="quantize-target"><option value="all">すべてのノーツ</option><option value="selected">選択したノーツ</option></select></label></div>
+          <label class="editor-check"><input id="from-source" type="checkbox" checked /> 元の入力時刻からそろえる</label>
+          <button id="quantize" class="edit-button primary">拍にそろえる</button>
+          <p class="field-help">元の時刻は残ります。微調整を基準にそろえる場合はチェックを外します。</p>
+        </section>
+      </div>
+      <section class="panel preview-panel" aria-label="譜面の再生確認">
+        <h2>譜面の再生確認</h2>
+        <p class="field-help">MVに合わせてノーツを自動再生します。長押しは帯とHOLD、同時押しは◇と連結線で確認できます。</p>
+        <div class="editor-actions">
+          <button id="preview-first" class="edit-button primary" disabled>↺ 譜面の最初から</button>
+          <button id="preview-play" class="edit-button" disabled>▶ 現在位置から再生</button>
+          <button id="preview-selected" class="edit-button" disabled>選択ノーツの少し前から</button>
+          <button id="preview-pause" class="edit-button" disabled>Ⅱ 一時停止</button>
+          <button id="preview-stop" class="edit-button" disabled>■ 終了</button>
+        </div>
+        <div class="editor-actions preview-options"><label class="editor-check"><input id="preview-sound" type="checkbox" checked /> ノーツ音（長押しは始点・終点）</label><label class="editor-check">プレビュー音量 <output id="preview-volume-value">70%</output><input id="preview-volume" aria-label="プレビュー音量" type="range" min="0" max="100" step="5" value="70" /></label></div>
+        <p id="preview-status" role="status">ノーツを追加すると再生できます。</p>
+        <p id="preview-audio-status" class="field-help">ノーツ音は譜面の時刻で鳴ります。再生が始まらない場合はMV内の再生ボタンを押してください。</p>
+        <p class="field-help">ノーツの中心が判定の基準です。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。自動再生は入力補正0msで表示します。</p>
+        <div class="preview-field">
+          <canvas id="preview-canvas" aria-label="ボタンより上の水平な判定ラインへ流れる6レーンの譜面再生プレビュー。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
+          <div id="preview-lanes" class="preview-lanes" aria-label="自動再生のレーン表示">
+            <div data-lane="0"><i class="lane-receptor" aria-hidden="true"></i><strong>S</strong><span>1</span><output>—</output></div><div data-lane="1"><i class="lane-receptor" aria-hidden="true"></i><strong>D</strong><span>2</span><output>—</output></div><div data-lane="2"><i class="lane-receptor" aria-hidden="true"></i><strong>F</strong><span>3</span><output>—</output></div><div data-lane="3"><i class="lane-receptor" aria-hidden="true"></i><strong>J</strong><span>4</span><output>—</output></div><div data-lane="4"><i class="lane-receptor" aria-hidden="true"></i><strong>K</strong><span>5</span><output>—</output></div><div data-lane="5"><i class="lane-receptor" aria-hidden="true"></i><strong>L</strong><span>6</span><output>—</output></div>
+          </div>
+        </div>
+        <p class="field-help">再生中は打ち込みを止めます。編集するとプレビューを停止します。選択ノーツからの再生には、先にタイムラインでノーツを選んでください。</p>
+      </section>
+      <section class="panel recording-panel" aria-label="リアルタイム入力">
+        <div class="editor-actions"><button id="record-toggle" class="edit-button primary" aria-pressed="false" disabled>● 打ち込み開始</button><output id="playhead">0.000 s</output><strong id="note-count">0 NOTES</strong><label class="editor-check"><input id="editor-sound" type="checkbox" checked /> 入力音</label><label class="editor-check"><input id="audition" type="checkbox" /> 譜面の試聴音</label></div>
+        <div class="editor-fields"><label>打ち込みの種類<select id="record-type"><option value="tap">タップ</option><option value="hold">長押し（離すまで記録）</option></select></label></div>
+        <details class="timing-settings"><summary>入力・タップ音のタイミング調整</summary>
+          <button id="editor-auto-calibrate" class="edit-button primary">基準音で自動調整</button>
+          <p class="field-help">一定間隔の音に合わせてタップし、入力補正の目安を測定します。ゲームと共通です。</p>
+          <label for="editor-input-offset">入力の遅れ補正 <output id="editor-input-offset-value">0 ms</output></label><input id="editor-input-offset" type="range" min="-300" max="300" step="5" value="0" />
+          <p class="field-help">＋は打ち込みを早い時刻へ、−は遅い時刻へ補正します。長押しの始点・終点も同じ量だけ補正します。判定時刻の補正はゲームと共通です。補正済みの時刻を譜面に保存し、設定を変えても保存済みノーツは動かしません。</p>
+          <label for="editor-sound-delay">タップ音の追加遅延 <output id="editor-sound-delay-value">0 ms</output></label><input id="editor-sound-delay" type="range" min="0" max="300" step="5" value="0" />
+          <p class="field-help">入力から音を鳴らすまでの追加待ち時間。0msが最短です。入力より前には鳴らせず、端末・Bluetoothの遅れを短縮する機能ではありません。設定はゲームと共通です。</p>
+          <div class="editor-actions"><button id="editor-sound-test" class="edit-button">タップ音を試す</button><button id="editor-timing-reset" class="edit-button">入力補正・音の遅延を0に戻す</button></div>
+        </details>
+        <p id="record-status" role="status">停止中。打ち込み開始を押してからMVを再生します。</p>
+        <p class="field-help">S / D / F / J / K / L または6ボタンで入力。動画操作後は下の入力エリアをクリックしてください。一時停止・読込中は記録しません。追加の打ち込みは既存のノーツに重ねます。長押しは離すと保存します。再生停止・シーク・入力キャンセルで未完了の長押しは破棄します。</p>
+        <div id="record-pads" class="lane-buttons" tabindex="0" aria-label="打ち込み入力エリア">
+          <div class="lane-control"><button class="lane-button" data-lane="0" aria-label="レーン1 S ピンク"><span>S</span><small>1</small></button></div>
+          <div class="lane-control"><button class="lane-button" data-lane="1" aria-label="レーン2 D 黄緑"><span>D</span><small>2</small></button></div>
+          <div class="lane-control"><button class="lane-button" data-lane="2" aria-label="レーン3 F 白"><span>F</span><small>3</small></button></div>
+          <div class="lane-control"><button class="lane-button" data-lane="3" aria-label="レーン4 J 赤"><span>J</span><small>4</small></button></div>
+          <div class="lane-control"><button class="lane-button" data-lane="4" aria-label="レーン5 K 紫"><span>K</span><small>5</small></button></div>
+          <div class="lane-control"><button class="lane-button" data-lane="5" aria-label="レーン6 L 黄色"><span>L</span><small>6</small></button></div>
+        </div>
+      </section>
+      <section class="panel" aria-label="ノーツの編集">
+        <div class="editor-actions"><h2>タイムライン</h2><button id="undo" class="edit-button" disabled>元に戻す</button><button id="redo" class="edit-button" disabled>やり直す</button><label class="editor-check"><input id="follow" type="checkbox" checked /> 再生位置に追従</label></div>
+        <div class="editor-fields timeline-fields"><label>表示開始（秒）<input id="view-start" type="number" min="0" max="7200" step="0.1" value="0" /></label><label>表示幅<select id="view-span"><option value="2">2秒</option><option value="4" selected>4秒</option><option value="8">8秒</option><option value="16">16秒</option><option value="32">32秒</option></select></label><label class="editor-check"><input id="drag-snap" type="checkbox" checked /> ドラッグを拍にそろえる</label></div>
+        <div class="editor-actions"><button id="view-prev" class="edit-button">← 前の範囲</button><button id="view-now" class="edit-button">再生位置を表示</button><button id="view-next" class="edit-button">次の範囲 →</button></div>
+        <label class="editor-check">ノーツ幅 <output id="editor-note-size-value">100%</output></label><input id="editor-note-size" aria-label="ノーツ幅" type="range" min="50" max="150" step="10" value="100" />
+        <div class="editor-fields"><label>タイムラインの操作<select id="timeline-mode"><option value="notes">ノーツを移動</option><option value="range">範囲を選択</option></select></label></div>
+        <p id="range-status" class="field-help" role="status">「範囲を選択」に切り替えて横にドラッグ、または下の範囲編集で秒数を指定します。</p>
+        <canvas id="timeline" tabindex="0" aria-label="6レーンの編集タイムライン。ノーツを選択してドラッグで時刻とレーンを変更。範囲選択モードでは横にドラッグして時間範囲を選択。上の時間目盛りを押すとシーク。"></canvas>
+        <details id="range-panel" class="range-tools"><summary>範囲のコピー・貼り付け・削除</summary>
+          <div class="editor-fields"><label>範囲の開始（秒）<input id="range-start" type="number" min="0" max="7200" step="0.001" value="0" /></label><label>範囲の終了（秒）<input id="range-end" type="number" min="0" max="7200" step="0.001" value="4" /></label></div>
+          <div class="editor-actions"><button id="select-range" class="edit-button">この範囲を選択</button><button id="select-view-range" class="edit-button">表示範囲を選択</button><button id="clear-range" class="edit-button" disabled>範囲選択を解除</button></div>
+          <div class="editor-actions"><button id="copy-range" class="edit-button" disabled>範囲をコピー</button><button id="delete-range" class="edit-button" disabled>範囲を削除</button></div>
+          <div class="editor-fields"><label>貼り付け位置（秒）<input id="paste-time" type="number" min="0" max="7200" step="0.001" value="0" /></label><button id="paste-now" class="edit-button" disabled>再生位置を使う</button><button id="paste-range" class="edit-button" disabled>ここに貼り付け</button></div>
+          <p id="clipboard-status" class="field-help" role="status">コピーはこのページ内で保持します。全6レーンで、始点が開始以上・終了未満のノーツが対象です。長押しは終点まで、休符・同時押しもそのままコピーします。</p>
+        </details>
+        <p class="field-help">色付きノーツをドラッグして移動。薄い輪郭は元の入力位置、縦線は拍です。上の秒数目盛りを押すとMVをシークします。長押しは帯の右端をドラッグすると終点を変更できます。◇と連結線は同時押し。細かい調整は下の数値欄でもできます。</p>
+        <p class="field-help">PCではShift＋ドラッグでも範囲選択できます。タイムラインにフォーカスした状態でCtrl / ⌘＋Cでコピー、Ctrl / ⌘＋Vで指定位置へ貼り付け、Deleteで範囲削除、Escで選択解除。コピー・貼り付けのボタンはスマホでも使えます。</p>
+        <div id="selected-empty" class="field-help">タイムラインか一覧でノーツを選択してください。</div>
+        <div id="selected-panel" hidden>
+          <div class="editor-fields"><label>選択ノーツの時刻（秒）<input id="note-time" type="number" min="0" max="7200" step="0.001" /></label><label>レーン<select id="note-lane"><option value="0">1 · S · ピンク</option><option value="1">2 · D · 黄緑</option><option value="2">3 · F · 白</option><option value="3">4 · J · 赤</option><option value="4">5 · K · 紫</option><option value="5">6 · L · 黄色</option></select></label></div>
+          <div class="editor-fields"><label>種類<select id="note-type"><option value="tap">タップ</option><option value="hold">長押し</option></select></label><label id="note-end-label" hidden>長押しの終点（秒）<input id="note-end" type="number" min="0" max="7200" step="0.001" /></label></div>
+          <div class="editor-fields"><label>同時押しの相手レーン<select id="chord-lane"><option value="0">1 · S</option><option value="1">2 · D</option><option value="2">3 · F</option><option value="3" selected>4 · J</option><option value="4">5 · K</option><option value="5">6 · L</option></select></label><button id="add-chord" class="edit-button">同じ時刻に同時押しを追加</button></div>
+          <p id="source-info" class="field-help"></p>
+          <div class="editor-actions"><button id="nudge-minus" class="edit-button">−10ms</button><button id="nudge-plus" class="edit-button">＋10ms</button><button id="seek-note" class="edit-button" disabled>このノーツの1秒前へ</button><button id="delete-note" class="edit-button">選択を削除</button></div>
+        </div>
+        <div class="editor-fields"><label>追加するレーン<select id="add-lane"><option value="0">1 · S</option><option value="1">2 · D</option><option value="2">3 · F</option><option value="3">4 · J</option><option value="4">5 · K</option><option value="5">6 · L</option></select></label><label>追加する種類<select id="add-type"><option value="tap">タップ</option><option value="hold">長押し</option></select></label><label id="add-length-label" hidden>長押しの長さ（拍）<input id="add-length" type="number" min="0.25" max="16" step="0.25" value="1" /></label><button id="add-note" class="edit-button" disabled>現在位置にノーツを追加</button></div>
+        <p id="collision-status" class="field-help" role="status"></p>
+        <details><summary>表示範囲のノーツ一覧（最大100個）</summary><div class="note-table"><table><thead><tr><th>選択</th><th>秒数</th><th>レーン</th><th>種類・終点</th><th>元の秒数</th></tr></thead><tbody id="note-list"></tbody></table></div></details>
+      </section>
+      <section class="panel" aria-label="保存と試遊">
+        <h2>保存と試遊</h2><p id="save-status" class="field-help" role="status"></p>
+        <div class="editor-actions"><button id="try-game" class="edit-button primary">ゲームで試す</button><button id="load-bundled-chart" class="edit-button" hidden>収録譜面を読み込む</button><button id="export-chart" class="edit-button">JSONを書き出す</button><label class="edit-button">JSONを読み込む<input id="import-chart" type="file" accept=".json,application/json" /></label><button id="new-chart" class="edit-button">新しい空の譜面</button></div>
+        <p class="field-help">編集内容はこのブラウザに自動保存します。他の端末に移す・バックアップする場合はJSONを書き出してください。試遊用の譜面は「ゲームで試す」で更新されます。読み込みと空の譜面への変更も「元に戻す」で戻せます。</p>
+      </section>
+      <p id="editor-notice" class="editor-notice" role="status">BPMと拍の基準を合わせて、短い区間から打ち込んでみましょう。</p>
+      <footer><span>FANMADE · UNOFFICIAL</span><p>音声・映像はYouTube公式プレーヤーで再生します。</p></footer>
+    </main>
+  </div>

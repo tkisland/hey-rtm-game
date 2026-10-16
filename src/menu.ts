@@ -6,11 +6,14 @@ import { findSong, SONGS, songStorageKey, songUrl } from './songs';
 import type { Song } from './songs';
 import { bundledChart } from './bundled-charts';
 import { tempoLabel } from './tempo';
+import { publishedChart } from './cloud-published';
+import type { Chart } from './chart';
 
 const list = document.getElementById('song-list')!;
 const search = document.getElementById('song-search') as HTMLInputElement;
 const notice = document.getElementById('menu-notice')!;
 const listeners = new AbortController();
+const online = new Map<string, Chart>();
 const savedChart = (song: Song) => loadChart(songStorageKey(EDITOR_KEY, song), true, song) ?? loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song);
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = ''): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag); element.className = className; element.textContent = text; return element;
@@ -23,7 +26,7 @@ function render(): void {
   document.getElementById('song-count')!.textContent = `${songs.length}曲 / 全${SONGS.length}曲`;
   document.getElementById('song-empty')!.hidden = songs.length > 0;
   songs.forEach(song => {
-    const saved = __ADMIN__ ? savedChart(song) : null, bundled = bundledChart(song), card = node('article', 'song-card'); card.dataset.song = song.id;
+    const saved = __ADMIN__ ? savedChart(song) : null, bundled = online.get(song.id) ?? bundledChart(song), card = node('article', 'song-card'); card.dataset.song = song.id;
     const artwork = node('div', 'song-art'); artwork.setAttribute('aria-hidden', 'true');
     artwork.append(node('span', 'cover-number', String(SONGS.indexOf(song) + 1).padStart(2, '0')), node('strong', 'cover-title', song.title));
     const lanes = node('div', 'cover-lanes');
@@ -64,4 +67,8 @@ if (legacy === 'custom' || legacy === 'test' || legacy === 'bundled') {
 search.addEventListener('input', render, { signal: listeners.signal });
 window.addEventListener('pageshow', render, { signal: listeners.signal });
 render();
+if (!__ADMIN__) void Promise.all(SONGS.map(async song => {
+  try { const published = await publishedChart(song); if (published) online.set(song.id, published.chart); }
+  catch { /* The game reports a failed chart request without playing stale data. */ }
+})).then(() => { if (!listeners.signal.aborted) render(); });
 if (import.meta.hot) import.meta.hot.dispose(() => listeners.abort());
