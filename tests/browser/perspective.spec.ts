@@ -60,23 +60,26 @@ test('outer held chord heads stay at the horizontal targets with a straight link
       notes: [0, 5].map(lane => ({ id: lane + 1, lane, type: 'hold', time: 12, endTime: 14 })) });
     for (const lane of [0, 5]) engine.input(lane, 12);
     const renderer = new Renderer(canvas), ctx = canvas.getContext('2d')!;
-    const original = { round: ctx.roundRect.bind(ctx), fill: ctx.fillRect.bind(ctx), dash: ctx.setLineDash.bind(ctx), move: ctx.moveTo.bind(ctx), line: ctx.lineTo.bind(ctx), curve: ctx.bezierCurveTo.bind(ctx), stroke: ctx.stroke.bind(ctx) };
+    const original = { round: ctx.roundRect.bind(ctx), fill: ctx.fillRect.bind(ctx), move: ctx.moveTo.bind(ctx), line: ctx.lineTo.bind(ctx), curve: ctx.bezierCurveTo.bind(ctx), stroke: ctx.stroke.bind(ctx) };
     const heads: { x: number; y: number; width: number }[] = [], tails: { y: number; width: number }[] = [];
-    let dashed = false, path: { x: number; y: number }[] = [], link: { x: number; y: number }[] = [];
+    let path: { x: number; y: number }[] = [], link: { x: number; y: number }[] = [];
     ctx.roundRect = function(...args) { heads.push({ x: args[0] + args[2] / 2, y: args[1] + args[3] / 2, width: args[2] }); return original.round(...args); };
-    ctx.fillRect = function(...args) { if (args[3] > 1 && args[3] < 12 && args[2] > 5) tails.push({ y: args[1] + args[3] / 2, width: args[2] }); return original.fill(...args); };
-    ctx.setLineDash = segments => { dashed = segments.length > 0; original.dash(segments); };
+    // Tail caps are solid lane-colored rectangles; their thickness follows note size.
+    ctx.fillRect = function(...args) { if ((this.fillStyle === '#ff739c' || this.fillStyle === '#ffe779') && args[3] > 1 && args[2] > 5) tails.push({ y: args[1] + args[3] / 2, width: args[2] }); return original.fill(...args); };
     ctx.moveTo = (x, y) => { path = [{ x, y }]; original.move(x, y); };
     ctx.lineTo = (x, y) => { path.push({ x, y }); original.line(x, y); };
     ctx.bezierCurveTo = (a, b, c, d, x, y) => { path.push({ x: a, y: b }, { x: c, y: d }, { x, y }); original.curve(a, b, c, d, x, y); };
-    ctx.stroke = function(...args: any[]) { if (dashed) link = [...path]; return (original.stroke as any)(...args); };
+    ctx.stroke = function(...args: any[]) {
+      if (path.length === 4 && path.every(point => Math.abs(point.y - path[0].y) < .001) && path[3].x > path[0].x) link = [...path];
+      return (original.stroke as any)(...args);
+    };
     try {
       renderer.draw(engine.notes, 13.3, 2, 0, 100, 120, 300);
       const r = canvas.getBoundingClientRect();
       const targets = [...document.querySelectorAll('.lane-receptor')].map(button => { const b = button.getBoundingClientRect(); return { x: b.x + b.width / 2 - r.x, y: b.y + b.height / 2 - r.y }; });
       return { heads, tails, link, targets };
     } finally {
-      ctx.roundRect = original.round; ctx.fillRect = original.fill; ctx.setLineDash = original.dash;
+      ctx.roundRect = original.round; ctx.fillRect = original.fill;
       ctx.moveTo = original.move; ctx.lineTo = original.line; ctx.bezierCurveTo = original.curve; ctx.stroke = original.stroke; renderer.destroy();
     }
   });

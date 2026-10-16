@@ -55,10 +55,11 @@ describe('perspective timing windows and horizontal targets', () => {
       expect(point.x).toBeCloseTo(field.targets[lane].x); expect(point.y).toBeCloseTo(field.targets[lane].y);
     }
   });
-  it('uses a mild taper while keeping the approach smooth and monotonic', () => {
+  it('gives the concert runway visible depth while keeping the approach smooth and monotonic', () => {
     const field = fieldGeometry(370, 480), far = project(field, 0, 0), near = project(field, 0, 1);
     expect(far.width).toBeLessThan(near.width); expect(far.x).toBeGreaterThan(near.x);
-    expect(far.width / near.width).toBeGreaterThanOrEqual(0.8);
+    expect(far.width / near.width).toBeGreaterThanOrEqual(0.5);
+    expect(far.width / near.width).toBeLessThanOrEqual(0.7);
     let previous = far;
     for (let p = 0.01; p <= 1.16; p += 0.01) {
       const point = project(field, 0, p);

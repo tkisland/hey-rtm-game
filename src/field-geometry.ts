@@ -10,8 +10,8 @@ export interface FieldPoint { x: number; y: number; width: number; scale: number
 export function fieldGeometry(width: number, height: number): FieldGeometry {
   const margin = Math.min(8, width * 0.025), cell = (width - 2 * margin) / 6;
   const padWidth = Math.min(72, Math.max(44, cell * 0.86));
-  const padHeight = Math.min(68, Math.max(60, height * 0.15));
-  const origin = Math.min(100, Math.max(28, (height - 240) * .3));
+  const padHeight = Math.min(74, Math.max(60, height * 0.15));
+  const origin = Math.min(148, Math.max(28, (height - 240) * .28));
   // Lift the row toward resting thumbs; short fields retain their usable runway.
   // This 44–92px clearance is in addition to the canvas's safe-area inset.
   const bottomClearance = 44 + Math.min(48, Math.max(0, (height - 224) * .16));
@@ -29,9 +29,9 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
   field.pads = field.targets.map(target => ({ ...target, y: padY, height: padHeight }));
   return field;
 }
-/** Equal vertical pixels per second in every lane, with only a mild visual taper. */
+/** Concert perspective changes horizontal width only; all lanes keep equal vertical speed. */
 export function project(field: FieldGeometry, lane: number, progress: number): FieldPoint {
-  const scale = 0.82 + 0.18 * Math.min(1, Math.max(0, progress));
+  const scale = 0.62 + 0.38 * Math.min(1, Math.max(0, progress));
   const targetX = field.margin + (lane + 0.5) * field.cell;
   return { x: field.width / 2 + (targetX - field.width / 2) * scale,
     y: field.near + (progress - 1) * field.approach, width: field.padWidth * 0.86 * scale, scale };
@@ -45,6 +45,8 @@ export function timingBands(field: FieldGeometry, lane: number, travel: number) 
 export function bindTargets(canvas: HTMLCanvasElement, elements: HTMLElement[]): () => void {
   const update = () => {
     const rect = canvas.getBoundingClientRect(), field = fieldGeometry(rect.width, rect.height);
+    // End the visible concert frame just below the console; browser clearance stays outside it.
+    canvas.parentElement!.style.setProperty('--frame-bottom', `${field.pads[0].y + field.padHeight / 2 + 14}px`);
     elements.forEach((element, lane) => {
       const target = field.targets[lane], pad = field.pads[lane];
       element.style.left = `${pad.x}px`; element.style.top = `${pad.y}px`;

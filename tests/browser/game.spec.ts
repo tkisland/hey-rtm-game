@@ -38,6 +38,8 @@ test('keyboard timing, repeat protection, paused/buffering input, seek and resta
 });
 
 test('independent simultaneous pointer inputs, settings persistence and high DPI canvas', async ({ page }) => {
+  // Keep the authored beat fixed while native touch events cross the browser compositor.
+  await page.clock.install(); await page.clock.pauseAt(new Date(Date.now() + 1000));
   // At beat 4, the deterministic chart has simultaneous notes in lanes 3 and 0.
   await page.locator('.lane-buttons').scrollIntoViewIfNeeded();
   const touches = await Promise.all([0, 3].map(async lane => {
@@ -58,6 +60,7 @@ test('independent simultaneous pointer inputs, settings persistence and high DPI
   await expect(page.locator('.lane-button.pressed')).toHaveCount(0);
   expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThanOrEqual(1400);
   await expect(page.locator('#combo')).toHaveText('2');
+  await page.clock.resume();
   await page.locator('#settings-toggle').click();
   await page.locator('#bpm').fill('100');
   await page.locator('#bpm').blur();
@@ -214,6 +217,8 @@ test('tap sound uses live Web Audio on user input, does not repeat, and can be m
 
 test('repeated touch inputs leave the playfield and scroll position stable without moving focus', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile-touch', 'Mobile touch focus regression');
+  // This checks layout/focus under repeated taps, independently of automation delivery time.
+  await page.clock.install(); await page.clock.pauseAt(new Date(Date.now() + 1000));
   const geometry = () => page.locator('#game-canvas').evaluate(canvas => {
     const rect = canvas.getBoundingClientRect();
     return { top: rect.top, height: rect.height, scroll: scrollY };
@@ -227,7 +232,7 @@ test('repeated touch inputs leave the playfield and scroll position stable witho
   expect(await geometry()).toEqual(before);
   expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThan(0);
   // Feedback expiry must not resize the runway either.
-  await page.waitForTimeout(850);
+  await page.clock.runFor(850);
   expect(await geometry()).toEqual(before);
 });
 
@@ -259,7 +264,7 @@ test('sparse video timestamps still produce moving notes every animation frame a
     const original = CanvasRenderingContext2D.prototype.roundRect;
     let rows: number[] = [];
     CanvasRenderingContext2D.prototype.roundRect = function (...args) {
-      if (this.canvas === canvas && args[0] < canvas.getBoundingClientRect().width / 6 && args[3] > 0 && args[3] <= 12) rows.push(args[1]);
+      if (this.canvas === canvas && args[0] < canvas.getBoundingClientRect().width / 6 && args[3] > 0 && args[3] <= args[2]) rows.push(args[1]);
       return original.apply(this, args);
     };
     const samples: { raw: number; y: number }[] = [];

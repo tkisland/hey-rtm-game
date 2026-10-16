@@ -14,6 +14,7 @@ import type { FieldGeometry, FieldPoint, HitZone } from './field-geometry';
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private field!: FieldGeometry;
+  private frameClip!: Path2D;
   private observer: ResizeObserver;
   private flashes = new Map<number, { time: number; kind: HitZone }>();
   private boxTrail: { lane: number; time: number; step: number; id: number; complete: boolean }[] = [];
@@ -32,6 +33,8 @@ export class Renderer {
   private resize(): void {
     const rect = this.canvas.getBoundingClientRect();
     this.field = fieldGeometry(rect.width, rect.height);
+    this.frameClip = new Path2D();
+    this.frameClip.roundRect(0, 0, rect.width, this.field.pads[0].y + this.field.padHeight / 2 + 14, 20);
     const dpr = window.devicePixelRatio || 1;
     this.canvas.width = Math.round(rect.width * dpr); this.canvas.height = Math.round(rect.height * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -113,27 +116,28 @@ export class Renderer {
         ordered.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (ordered[i - 1]?.time ?? -Infinity), (ordered[i + 1]?.time ?? Infinity) - note.time)));
       }
     }
-    const backdrop = ctx.createLinearGradient(0, 0, 0, h); backdrop.addColorStop(0, '#21172f'); backdrop.addColorStop(1, '#0b1020');
-    ctx.clearRect(0, 0, w, h); ctx.fillStyle = backdrop; ctx.fillRect(0, 0, w, h);
+    const backdrop = ctx.createLinearGradient(0, 0, 0, h); backdrop.addColorStop(0, '#151028'); backdrop.addColorStop(1, '#080817');
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();ctx.clip(this.frameClip);
+    ctx.fillStyle = backdrop; ctx.fillRect(0, 0, w, h);
     drawVenue(ctx,field);
     const padTop = field.pads[0].y - field.padHeight / 2 - 8;
-    ctx.fillStyle = '#090b16'; ctx.fillRect(0, padTop, w, h - padTop);
-    ctx.fillStyle = '#ffffff12'; ctx.fillRect(0, padTop, w, 1);
-    const end = 1 + WINDOWS.GOOD;
+    const consoleShade=ctx.createLinearGradient(0,padTop-14,0,padTop+28);
+    consoleShade.addColorStop(0,'#08081700');consoleShade.addColorStop(1,'#080817');
+    ctx.fillStyle=consoleShade;ctx.fillRect(0,padTop-14,w,h-padTop+14);
     for (let lane = 0; lane < 6; lane++) {
       const color = LANE_COLORS[lane];
-      // Taper ends at PERFECT; include that corner so the runway follows late notes too.
+      // The stage floor meets the receiving line. Late judgement bands remain below it.
       const edges = [project(field, lane - 0.49, 0), project(field, lane + 0.49, 0),
-        project(field, lane + 0.49, 1), project(field, lane + 0.49, end),
-        project(field, lane - 0.49, end), project(field, lane - 0.49, 1)];
+        project(field, lane + 0.49, 1), project(field, lane - 0.49, 1)];
       const runway = ctx.createLinearGradient(0,field.origin,0,field.near);
-      runway.addColorStop(0,'#121124f2'); runway.addColorStop(1,color+'29');
+      runway.addColorStop(0,'#141121f5'); runway.addColorStop(.4,'#151122ee');runway.addColorStop(1,color+'48');
       ctx.fillStyle = runway; this.polygon(edges);
-      ctx.strokeStyle = color+'38'; ctx.lineWidth = 1; this.polygon(edges, false);
+      ctx.strokeStyle = color+'75'; ctx.lineWidth = 1; this.polygon(edges, false);
       const age = now - (this.flashes.get(lane)?.time ?? -1000);
       const alpha = this.pressed.has(lane) ? 0.10 : Math.max(0, 1 - age / 220) * 0.20;
       if (alpha > 0) { ctx.globalAlpha = alpha; ctx.fillStyle = color; this.polygon(edges); ctx.globalAlpha = 1; }
-      ctx.fillStyle = color;
+      ctx.fillStyle = color+'80';
       for (const band of timingBands(field, lane, travel)) {
         ctx.globalAlpha = band.kind === 'PERFECT' ? 0.12 : 0.08;
         this.ribbon(band.top, band.bottom);
@@ -143,6 +147,12 @@ export class Renderer {
       ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(target.x - target.width / 2, target.y); ctx.lineTo(target.x + target.width / 2, target.y); ctx.stroke(); ctx.lineWidth = 1;
     }
+    // A continuous receiving line joins the six receptors at exactly p=1.
+    const rail=ctx.createLinearGradient(0,0,w,0);
+    LANE_COLORS.forEach((color,lane)=>rail.addColorStop(lane/5,color));
+    ctx.save();ctx.strokeStyle=rail;ctx.lineWidth=2;ctx.shadowColor='#ffb6ed';ctx.shadowBlur=8;
+    ctx.beginPath();ctx.moveTo(field.margin,field.near);ctx.lineTo(w-field.margin,field.near);ctx.stroke();
+    ctx.shadowBlur=0;ctx.strokeStyle='#ffffffb3';ctx.lineWidth=1;ctx.stroke();ctx.restore();
     const responses = Array.from({length:6}, () => 0);
     for (const note of notes) if (note.state === 'pending') {
       const p = progressAt(note.time);
@@ -172,14 +182,14 @@ export class Renderer {
         .sort((a, b) => a.lane - b.lane)
         .filter((note, i, notes) => i === 0 || note.lane !== notes[i - 1].lane);
       if (visible.length < 2) continue;
-      ctx.strokeStyle = '#ffe779aa'; ctx.setLineDash([3, 3]); ctx.beginPath();
+      ctx.strokeStyle = '#ffe9a9cc'; ctx.lineWidth=1.5;ctx.beginPath();
       const points = visible.map(note => project(field, note.lane, headProgress(note)));
       const start = points[0];
       ctx.moveTo(start.x, start.y);
       for (const segment of chordCurve(points)) {
         ctx.bezierCurveTo(segment.control1.x, segment.control1.y, segment.control2.x, segment.control2.y, segment.end.x, segment.end.y);
       }
-      ctx.stroke(); ctx.setLineDash([]);
+      ctx.stroke(); ctx.lineWidth=1;
     }
     for (const note of this.renderNotes) {
       if (!active(note)) continue;
@@ -191,19 +201,21 @@ export class Renderer {
       const head = project(field, lane, p), color = LANE_COLORS[lane];
       const gap = Math.min(60 / bpm / 2, this.gaps.get(note.id) ?? Infinity);
       const next = project(field, note.lane, p - gap / travel);
-      const thickness = noteThickness(size, Math.abs(head.y - next.y), 10 * head.scale);
+      const thickness = noteThickness(size, Math.abs(head.y - next.y), 16 * head.scale);
       if (box) { this.drawBox(note,p,head.y,now,size); continue; }
       if (note.gimmick === 'slide' && note.type === 'hold') {
         this.drawSlide(note, progressAt, p, thickness, travel);
       } else if (note.type === 'hold') {
         const rawTail = progressAt(note.endTime), tailP = Math.min(p, Math.max(0, rawTail));
         const segments = tailP < 1 && p > 1 ? [tailP, 1, p] : [tailP, p];
-        ctx.fillStyle = `${color}${note.state === 'holding' ? '90' : '40'}`;
-        for (let i = 1; i < segments.length; i++) this.ribbon(project(field, note.lane, segments[i - 1]), project(field, note.lane, segments[i]), 0.22);
+        const light=ctx.createLinearGradient(0,project(field,note.lane,tailP).y,0,head.y);
+        light.addColorStop(0,color+'a0');light.addColorStop(.5,color+'68');light.addColorStop(1,color+(note.state==='holding'?'c0':'a0'));
+        ctx.fillStyle=light;
+        for (let i = 1; i < segments.length; i++) this.ribbon(project(field, note.lane, segments[i - 1]), project(field, note.lane, segments[i]), 0.3);
         const tail = project(field, note.lane, tailP);
         ctx.strokeStyle = color; ctx.lineWidth = note.state === 'holding' ? 2 : 1;
-        this.polygon([{ x: tail.x - tail.width * 0.22, y: tail.y }, { x: tail.x + tail.width * 0.22, y: tail.y },
-          { x: head.x + head.width * 0.22, y: head.y }, { x: head.x - head.width * 0.22, y: head.y }], false); ctx.lineWidth = 1;
+        this.polygon([{ x: tail.x - tail.width * 0.3, y: tail.y }, { x: tail.x + tail.width * 0.3, y: tail.y },
+          { x: head.x + head.width * 0.3, y: head.y }, { x: head.x - head.width * 0.3, y: head.y }], false); ctx.lineWidth = 1;
         if (rawTail >= 0) this.releaseCap(tail, thickness, color);
       }
       if (note.gimmick === 'dd') {
@@ -242,9 +254,9 @@ export class Renderer {
         const label = nextLane === undefined ? '終点で離す' : nextLane < lane ? '推し変 ←' : '推し変 →';
         ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(label, head.x, head.y - Math.max(8, thickness)); ctx.textAlign = 'start';
       }
-      ctx.shadowBlur = 3; ctx.shadowColor = color; ctx.fillStyle = color;
+      ctx.shadowBlur = 12; ctx.shadowColor = color; ctx.fillStyle = color;
       ctx.beginPath(); ctx.roundRect(head.x - head.width / 2, head.y - thickness / 2, head.width, thickness, thickness / 2); ctx.fill(); ctx.shadowBlur = 0;
-      ctx.strokeStyle = '#ffffff80'; ctx.lineWidth = .7; ctx.stroke(); ctx.lineWidth = 1;
+      ctx.strokeStyle = '#ffffffe0'; ctx.lineWidth = 1.3; ctx.stroke(); ctx.lineWidth = 1;
       if (thickness >= 5) {
         ctx.fillStyle = '#fff'; responseMark(ctx, head.x, head.y, thickness * .43, note.gimmick === 'box');
         if (lane === 2) {
@@ -267,6 +279,7 @@ export class Renderer {
     if (playing) this.drawHoldEffects(notes, judgeTime);
     this.drawHitEffects(now);
     this.drawBoxEffects(now);
+    ctx.restore();
   }
   private drawBox(note:PlayNote,p:number,y:number,now:number,size:number):void {
     const ctx=this.ctx,field=this.field;

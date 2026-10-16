@@ -33,7 +33,8 @@ test('rendered notes in all six lanes move the same distance per frame throughou
   for (let i = 1; i < frames.length; i++) for (let lane = 0; lane < 6; lane++) {
     expect(frames[i][lane].y - frames[i - 1][lane].y).toBeCloseTo(distance, 7);
     expect(frames[i][lane].y - frames[i][2].y).toBeCloseTo(frames[0][lane].y - frames[0][2].y, 7);
-    expect(frames[0][lane].width / frames.at(-1)![lane].width).toBeGreaterThanOrEqual(.8);
+    const widthRatio = frames[0][lane].width / frames.at(-1)![lane].width;
+    expect(widthRatio).toBeGreaterThanOrEqual(.5); expect(widthRatio).toBeLessThanOrEqual(.7);
   }
 });
 

@@ -16,8 +16,11 @@ test('compact video keeps its native controls usable while the field starts high
       const pads=[...document.querySelectorAll('.lane-button')].every(node=>{
         const r=node.getBoundingClientRect();return r.width>=44&&r.height>=60&&r.bottom<=innerHeight-43.9;
       });
+      const hud=document.querySelector('.field-hud')!.getBoundingClientRect();
+      const score=document.getElementById('score')!.getBoundingClientRect();
+      const inField=hud.top>=field.top&&hud.bottom<=field.bottom&&score.left>=field.left&&score.right<=field.right;
       return video.width>=200&&video.height>=200&&center===iframe&&separate&&pads&&
-        field.top<=(video.bottom<=field.top?260:64)&&field.bottom<=innerHeight+.5&&document.documentElement.scrollWidth<=innerWidth;
+        inField&&field.top<=(video.bottom<=field.top?260:64)&&field.bottom<=innerHeight+.5&&document.documentElement.scrollWidth<=innerWidth;
     })).toBe(true);
     await expect(page.locator('.playback-info')).not.toBeVisible();
   }
