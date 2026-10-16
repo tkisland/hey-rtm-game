@@ -1,0 +1,10 @@
+.admin-login { max-width:600px; margin:40px auto; line-height:1.9; }
+.admin-login h1 { margin-bottom:16px; }
+.admin-login p { font-size:13px; }
+.admin-login #google-login { margin:12px 0; min-height:44px; }
+.admin-session { position:sticky; top:0; z-index:20; max-width:1100px; margin:auto; padding:10px 16px; background:#171a2af5; border-bottom:1px solid #ffffff24; }
+.admin-session-row { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:4px 0; font-size:12px; }
+.admin-session-row #admin-account { margin-right:auto; overflow-wrap:anywhere; }
+.admin-session-row select { max-width:270px; background:#111522; color:#fff; border:1px solid #ffffff40; padding:8px; font:inherit; }
+#cloud-status { font-size:11px; line-height:1.6; margin:8px 0 0; color:#e0ccff; }
+#admin-account-id { overflow-wrap:anywhere; user-select:all; }

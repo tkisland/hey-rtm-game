@@ -25,8 +25,17 @@ jobs:
         run: npm ci
       - name: Test game logic
         run: npm test
+      - name: Set up Java for Firestore rules tests
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test Firestore permissions
+        run: npx --yes firebase-tools@15.34.0 emulators:exec --project demo-hey-rtm --only firestore "npm run test:rules"
       - name: Build static site
         run: npm run build
+        env:
+          VITE_FIREBASE_CONFIG: ${{ vars.FIREBASE_WEB_CONFIG }}
       - name: Upload built site
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3

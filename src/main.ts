@@ -16,6 +16,9 @@ import { PLAYER_STATE, VideoClock, stateName } from './sync';
 import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
 import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
+import type { Song } from './songs';
+import { publishedChart } from './cloud-published';
+import type { CloudChart } from './cloud-schema';
 import { bundledChart } from './bundled-charts';
 import { bpmAt, tempoLabel } from './tempo';
 
@@ -26,8 +29,29 @@ function element<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 const song = findSong(new URLSearchParams(location.search).get('song'));
 // Invalid links return to selection before creating a player or reading chart data.
-if (!song || (!__ADMIN__ && !bundledChart(song))) location.replace(song ? './?unavailable-song=1' : './?missing-song=1');
-else {
+if (!song) location.replace('./?missing-song=1');
+else void startGame(song).catch(() => {
+  element('player-error').hidden = false;
+  element('player-error').textContent = '譜面を読み込めませんでした。接続を確認し、ページを再読み込みしてください。';
+  element('player-status').textContent = '譜面の読み込みに失敗しました';
+  element('stage-hint').querySelector('strong')!.textContent = '譜面を読み込めませんでした';
+});
+async function startGame(song: Song): Promise<void> {
+let online: CloudChart | null = null, previewUid: string | null = null;
+if (!__ADMIN__) {
+  element('player-status').textContent = '譜面を読み込んでいます…';
+  if (new URLSearchParams(location.search).get('preview') === '1') {
+    try {
+      const { requireCloudAdmin } = await import('./cloud-auth');
+      const user = await requireCloudAdmin(), { readDraft } = await import('./cloud-store');
+      online = await readDraft(song, user);
+      if (!online || !online.chart.notes.length) throw new Error('No preview notes');
+      previewUid = user.uid;
+    } catch { location.replace(`./admin.html?song=${encodeURIComponent(song.id)}`); return; }
+  } else online = await publishedChart(song);
+}
+const bundled = bundledChart(song);
+if (!__ADMIN__ && !online && !bundled) { location.replace('./?unavailable-song=1'); return; }
 document.title = `HEY! RHYTHM! — ${song.title}`;
 element('song-title').textContent = song.title;
 element('song-artist').textContent = `${song.artist} / OFFICIAL MV`;
@@ -35,14 +59,19 @@ if (__ADMIN__) element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'e
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
 let settings = loadSettings(song);
 const customChart = __ADMIN__ ? loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song) : null;
-const bundled = bundledChart(song), requested = new URLSearchParams(location.search).get('chart');
+const requested = new URLSearchParams(location.search).get('chart');
 type Source = 'bundled' | 'custom' | 'test';
 let source: Source = __ADMIN__ ? requested === 'test' ? 'test' : requested === 'custom' ? customChart ? 'custom' : 'test' : bundled ? 'bundled' : 'test' : 'bundled';
-const activeChart = () => !__ADMIN__ ? bundled! : source === 'custom' && customChart ? customChart : source === 'bundled' && bundled ? bundled : generateChart(settings.bpm, settings.startTime, song);
+const activeChart = () => !__ADMIN__ ? online?.chart ?? bundled! : source === 'custom' && customChart ? customChart : source === 'bundled' && bundled ? bundled : generateChart(settings.bpm, settings.startTime, song);
 if (!__ADMIN__ && requested !== null) {
   const url = new URL(location.href); url.searchParams.delete('chart'); history.replaceState(null, '', url);
 }
 const engine = new GameEngine(activeChart());
+if (previewUid) {
+  const back = document.createElement('a'); back.href = `./admin.html?song=${encodeURIComponent(song.id)}`;
+  back.className = 'editor-link'; back.textContent = '管理画面'; back.setAttribute('aria-label', '管理画面へ戻る');
+  document.querySelector('.header-actions')!.prepend(back);
+}
 const clock = new VideoClock();
 const renderer = new Renderer(element<HTMLCanvasElement>('game-canvas'));
 const score = element('score'), combo = element('combo'), maxCombo = element('max-combo');
@@ -357,7 +386,7 @@ if (__ADMIN__) {
     engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
     if (player && !failed) restart.click();
   }, { signal });
-} else notice.textContent = '長い帯は終点まで押し続け、◇でつながったノーツは同時に押してください。';
+} else notice.textContent = previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長い帯は終点まで押し続け、◇でつながったノーツは同時に押してください。';
 
 let debugUpdated = 0;
 function frame(now: number): void {
@@ -416,9 +445,18 @@ function frame(now: number): void {
 }
 frameId = requestAnimationFrame(frame);
 function dispose(): void {
+  if (disposed) return;
   disposed = true;
   cancelAnimationFrame(frameId);
   listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); unbindTargets(); unbindLayout();
 }
-if (import.meta.hot) import.meta.hot.dispose(dispose);
+let stopAccess = () => {};
+if (previewUid) {
+  const { watchAdminAccess } = await import('./cloud-auth');
+  stopAccess = watchAdminAccess(state => {
+    if (state.phase === 'checking' && state.user?.uid === previewUid) return;
+    if (state.phase !== 'allowed' || state.user?.uid !== previewUid) { dispose(); location.replace('./admin.html'); }
+  });
+}
+if (import.meta.hot) import.meta.hot.dispose(() => { stopAccess(); dispose(); });
 }

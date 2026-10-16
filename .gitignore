@@ -4,3 +4,6 @@ dist-admin/
 playwright-report/
 test-results/
 *.local
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

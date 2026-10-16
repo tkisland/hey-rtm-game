@@ -1,5 +1,5 @@
 import smg002 from './charts/smg002.json';
-import { copyChart, parseChart } from './editor-model';
+import { copyChart, parseChart } from './chart-data';
 import { DEFAULT_SONG } from './songs';
 import type { Song } from './songs';
 
