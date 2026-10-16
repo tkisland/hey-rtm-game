@@ -2,7 +2,7 @@ import type { ChartNote } from './chart';
 
 /** Distinct lanes with starts within 1ms are shown as simultaneous inputs. */
 export function chordGroups(notes: readonly ChartNote[]): ChartNote[][] {
-  const ordered = notes.filter(note => note.gimmick !== 'dd').sort((a, b) => a.time - b.time || a.lane - b.lane);
+  const ordered = notes.filter(note => note.gimmick !== 'dd' && note.gimmick !== 'box').sort((a, b) => a.time - b.time || a.lane - b.lane);
   const groups: ChartNote[][] = [];
   let group: ChartNote[] = [];
   const finish = () => { if (new Set(group.map(note => note.lane)).size > 1) groups.push(group); };
@@ -19,6 +19,11 @@ export function boxGroups<T extends ChartNote>(notes: readonly T[]): T[][] {
     const group = groups.get(note.boxId) ?? []; group.push(note); groups.set(note.boxId, group);
   }
   return [...groups.values()].map(group => group.sort((a, b) => a.time - b.time));
+}
+/** Keep the six authored MIDI markers, but play and score each box as one gesture. */
+export function playableNotes(notes: readonly ChartNote[]): ChartNote[] {
+  const first = new Set(boxGroups(notes).map(group => group[0]));
+  return notes.filter(note => note.gimmick !== 'box' || first.has(note)).map(note => note.gimmick === 'box' ? {...note, lane:2} : note);
 }
 export function noteThickness(size: number, spacing: number, base: number): number {
   return Math.max(2, Math.min(base * size / 100, spacing * 0.6));

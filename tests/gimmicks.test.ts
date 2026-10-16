@@ -4,8 +4,8 @@ import { convertMidi, MIDI_LANES } from '../src/midi';
 import { parseChart, copyChart, EditorModel } from '../src/editor-model';
 import { EditorPreview } from '../src/editor-preview';
 import { tutorialChart } from '../src/tutorial-chart';
-import { GameEngine, playLane } from '../src/engine';
-import { chordGroups } from '../src/note-display';
+import { BOX_WINDOWS, BOX_SWEEP_SECONDS, GameEngine, playLane } from '../src/engine';
+import { chordGroups, playableNotes } from '../src/note-display';
 import { VIDEO_ID } from '../src/chart';
 import type { Chart, ChartNote } from '../src/chart';
 import { chartJson, parseCloudChart } from '../src/cloud-schema';
@@ -33,45 +33,73 @@ describe('DD and box play', () => {
     expect(engine.input(3,1)?.noteId).toBe(2); expect(engine.score).toBe(1000);
     expect(engine.input(0,1)?.noteId).toBe(1); expect(engine.score).toBe(2000);
   });
-  it('completes a box only after all six successful taps without a score multiplier', () => {
-    const engine = new GameEngine(box());
-    for (let lane=0;lane<6;lane++) {
-      const hit = engine.input(lane,lane + 1 + (lane === 2 ? .15 : 0));
-      expect(Boolean(hit?.boxComplete)).toBe(lane === 5);
-    }
-    expect(engine.score).toBe(5300); expect(engine.combo).toBe(6);
-  });
-  it('does not complete failed or skipped boxes, and reset starts a new box', () => {
-    for (const skip of [false,true]) {
-      const engine = new GameEngine(box());
-      if (skip) engine.seek(1.5,false); else engine.advance(1.5);
-      for (let lane=1;lane<6;lane++) expect(engine.input(lane,lane + 1)?.boxComplete).toBeUndefined();
-      engine.reset(); let last;
-      for (let lane=0;lane<6;lane++) last=engine.input(lane,lane + 1);
-      expect(last?.boxComplete).toBe(true);
+  it('scores a rapid sweep in either direction as one note, combo and judgement', () => {
+    for (const direction of [1,-1]) {
+      const data=box(), engine=new GameEngine(data);
+      expect(engine.notes).toHaveLength(1); expect(data.notes).toHaveLength(6);
+      for (let step=0;step<6;step++) {
+        const hit=engine.input(direction===1?step:5-step,1+step*.02);
+        expect(hit?.boxStep).toBe(step+1);
+        expect(engine.score).toBe(step===5?1000:0);
+        if(step<5) expect(hit?.phase).toBe('sweep'); else expect(hit?.boxComplete).toBe(true);
+      }
+      expect(engine.counts).toEqual({PERFECT:1,GREAT:0,GOOD:0,MISS:0});
+      expect(engine.combo).toBe(1); expect(engine.accuracy).toBe(100); expect(engine.finished).toBe(true);
+      for(let lane=0;lane<6;lane++)expect(engine.input(lane,1.12)).toBeNull();
     }
   });
-  it('uses authored time order for box accents, including reverse lanes and interleaved boxes', () => {
-    const data = box();
-    data.notes.forEach(note => { note.lane = 5 - note.lane; });
-    const second = box().notes.map(note => ({...note, id:note.id + 6, boxId:2, time:note.time + .5}));
-    data.notes = [...second, ...data.notes].reverse();
-    const engine = new GameEngine(data);
-    for (let step = 1; step <= 6; step++) {
-      expect(engine.input(6 - step, step)).toMatchObject({boxId:1, boxStep:step});
-      expect(engine.input(step - 1, step + .5)).toMatchObject({boxId:2, boxStep:step});
+  it('uses the wider start window and allows a quarter-second sweep to finish after it closes', () => {
+    for(const [error,grade,points] of [[-.35,'GOOD',300],[-.25,'GREAT',700],[.15,'PERFECT',1000],[.35,'GOOD',300]] as const) {
+      const engine=new GameEngine(box());
+      for(let lane=0;lane<6;lane++) {
+        const time=1+error+lane*(BOX_SWEEP_SECONDS/5);
+        engine.advance(time); const hit=engine.input(lane,time);
+        expect(hit?.judgement).toBe(grade);
+      }
+      expect(engine.score).toBe(points); expect(engine.combo).toBe(1);
     }
-    expect(engine.score).toBe(12000);
-    engine.reset(); expect(engine.input(5, 1)).toMatchObject({boxId:1, boxStep:1});
+    for(const error of [-.3501,.3501])expect(new GameEngine(box()).input(0,1+error)).toBeNull();
   });
-  it('previews the same rapid six-tone box run without emitting skipped accents after seeking', () => {
-    const data = tutorialChart(3), preview = new EditorPreview(); preview.sync(data);
-    expect(data.notes[5].time - data.notes[0].time).toBeCloseTo(5 / 6);
-    preview.seek(data.notes[0].time - .1);
-    for (let step = 1; step <= 6; step++) {
-      expect(preview.update(data.notes[step - 1].time, true)).toEqual([expect.objectContaining({boxStep:step, boxId:1, boxComplete:step === 6})]);
+  it('rejects slow rolls, middle starts, repeats, direction reversals and two-finger stitching', () => {
+    for(const lanes of [[2,3,4,5,0,1],[0,0,0,0,0,0],[0,1,2,1,4,5]]) {
+      const engine=new GameEngine(box()); lanes.forEach((lane,i)=>engine.input(lane,1+i*.02));
+      engine.advance(2);expect(engine.score).toBe(0);expect(engine.counts.MISS).toBe(1);
     }
-    preview.seek(0); expect(preview.update(4, true)).toEqual([]);
+    const slow=new GameEngine(box());for(let lane=0;lane<6;lane++)slow.input(lane,1+lane*.06);
+    slow.advance(2);expect(slow.score).toBe(0);expect(slow.counts.MISS).toBe(1);
+    const fingers=new GameEngine(box());
+    fingers.input(0,1,{id:'finger1'});for(let lane=1;lane<6;lane++)fingers.input(lane,1.05,{id:'finger2'});
+    expect(fingers.score).toBe(0);expect(fingers.notes[0].boxProgress).toBe(1);
+  });
+  it('cancels a released pointer, allows a fresh attempt and records an expired box only once', () => {
+    const engine=new GameEngine(box());engine.input(0,1,{id:'finger'});engine.input(1,1.02,{id:'finger'});
+    engine.cancelBoxGesture('finger');expect(engine.notes[0].boxProgress).toBeUndefined();
+    for(let lane=2;lane<6;lane++)engine.input(lane,1.03,{id:'other'});
+    expect(engine.score).toBe(0);
+    engine.cancelBoxGesture();for(let lane=5;lane>=0;lane--)engine.input(lane,1.1+(5-lane)*.02);
+    expect(engine.score).toBe(1000);engine.reset();engine.advance(1+BOX_WINDOWS.GOOD+.001);
+    engine.advance(5);expect(engine.counts.MISS).toBe(1);expect(engine.combo).toBe(0);
+    engine.reset();engine.seek(1.2,false);expect(engine.skipped).toBe(0);
+    engine.seek(1.4,false);expect(engine.skipped).toBe(1);expect(engine.finished).toBe(true);
+    engine.seek(0,true);expect(engine.skipped).toBe(0);expect(engine.notes[0].boxProgress).toBeUndefined();
+  });
+  it('never lets interpolated sweep crossings hit ordinary notes or DD', () => {
+    for(const gimmick of [undefined,'dd'] as const) {
+      const engine=new GameEngine(chart([{id:1,type:'tap',lane:2,time:1,gimmick}]));
+      expect(engine.input(2,1,{id:'finger',sweepOnly:true})).toBeNull();expect(engine.score).toBe(0);
+      expect(engine.input(2,1)?.judgement).toBe('PERFECT');
+    }
+  });
+  it('keeps independent boxes and previews one arpeggio per anchor without seek backlogs', () => {
+    const data=box();data.notes.push(...box().notes.map(note=>({...note,id:note.id+6,boxId:2,time:note.time+1})));
+    data.notes.reverse();const engine=new GameEngine(data);expect(engine.notes).toHaveLength(2);
+    for(const time of [1,2])for(let lane=0;lane<6;lane++)engine.input(lane,time+lane*.01);
+    expect(engine.score).toBe(2000);expect(engine.combo).toBe(2);
+    const tutorial=tutorialChart(3),preview=new EditorPreview();preview.sync(tutorial);
+    expect(playableNotes(tutorial.notes)).toHaveLength(1);preview.seek(tutorial.startTime-.1);
+    expect(preview.update(tutorial.startTime,true)).toEqual([expect.objectContaining({boxStep:6,boxComplete:true})]);
+    expect(preview.update(tutorial.startTime+.1,true)).toEqual([]);
+    preview.seek(0);expect(preview.update(4,true)).toEqual([]);
   });
 });
 
@@ -121,6 +149,7 @@ describe('MIDI, persistence and editor', () => {
     const data = convertMidi(new Uint8Array(sample),config);
     expect(data.startTime).toBe(9.65);
     expect(data.notes.filter(note => note.gimmick==='box')).toHaveLength(6);
+    expect(new Set(data.notes.filter(note => note.gimmick==='box').map(note=>note.time)).size).toBe(1);
     expect(data.notes.filter(note => note.gimmick==='dd')).toHaveLength(2);
     expect(data.notes.find(note => note.gimmick==='slide')).toMatchObject({time:22.65,endTime:25.65,lane:0,path:[{time:23.65,lane:1},{time:24.65,lane:2}]});
     expect(parseChart(JSON.stringify(data),true)).toEqual(data);
@@ -150,11 +179,13 @@ describe('MIDI, persistence and editor', () => {
     model.undo(); expect(model.chart.notes.find(note => note.id===14)?.path![0]).toEqual({time:19,lane:1}); expect(clip.notes[6].path![0].time).toBe(8);
     const copy=copyChart(data);copy.notes[6].path![0].time=999;expect(data.notes[6].path![0].time).toBe(8);
   });
-  it('dissolves incomplete boxes for partial copy/delete/type changes', () => {
-    const model=new EditorModel(box());const partial=model.copyRange({start:1,end:3});expect(partial.notes.every(note => !note.gimmick)).toBe(true);
+  it('copies and deletes whole boxes by anchor, while changing their type dissolves the markers', () => {
+    const model=new EditorModel(box());const partial=model.copyRange({start:1,end:3});expect(partial.notes.every(note => note.gimmick==='box')).toBe(true);
+    expect(partial.notes).toHaveLength(6);expect(new Set(partial.notes.map(note=>note.time))).toEqual(new Set([1]));
+    expect(model.pasteRange(partial,10)).toBe(1);model.undo();
     model.selected=1;model.remove();expect(model.chart.notes.every(note => !note.gimmick)).toBe(true);
     model.undo();model.selected=1;model.changeType('dd');expect(model.chart.notes.slice(1).every(note => !note.gimmick)).toBe(true);
-    model.undo();model.removeRange({start:1,end:2});expect(model.chart.notes.every(note => !note.gimmick)).toBe(true);
+    model.undo();expect(model.removeRange({start:1,end:2})).toBe(1);expect(model.chart.notes).toHaveLength(0);
   });
   it('supports manual DD/slide/box editing and refuses invalid path edits atomically', () => {
     const model=new EditorModel(chart([{id:1,type:'tap',time:1,lane:0}]));model.selected=1;
@@ -163,6 +194,17 @@ describe('MIDI, persistence and editor', () => {
     expect(() => model.resize(1,2)).toThrow();expect(JSON.stringify(model.chart)).toBe(before);
     expect(() => model.setSlidePath([{time:2,lane:4}])).toThrow();expect(JSON.stringify(model.chart)).toBe(before);
     const base=box();base.notes.forEach(note => {delete note.gimmick;delete note.boxId;});model.replace(base);model.boxRange({start:1,end:7});expect(model.chart.notes.every(note => note.gimmick==='box')).toBe(true);
+  });
+  it('edits, quantizes, removes and undoes one box as a complete unit', () => {
+    const data=box();data.notes.forEach(note=>{note.time+=.07;delete note.gimmick;delete note.boxId;});
+    const model=new EditorModel(data);model.boxRange({start:1,end:7});
+    expect(new Set(model.chart.notes.map(note=>note.time))).toEqual(new Set([1.07]));
+    model.selected=3;model.quantize(4,true,false);
+    expect(new Set(model.chart.notes.map(note=>note.time))).toEqual(new Set([1.125]));
+    model.move(3,2,4);expect(new Set(model.chart.notes.map(note=>note.time))).toEqual(new Set([2]));
+    expect(new Set(model.chart.notes.map(note=>note.lane)).size).toBe(6);
+    const before=JSON.stringify(model.chart);expect(()=>model.move(3,7201,0)).toThrow();expect(JSON.stringify(model.chart)).toBe(before);
+    model.remove();expect(model.chart.notes).toHaveLength(0);model.undo();expect(playableNotes(model.chart.notes)).toHaveLength(1);
   });
   it('autoplays slide changes on the preview clock and suppresses seek backlogs', () => {
     const preview=new EditorPreview();preview.sync(chart([slide()]));preview.seek(.9);

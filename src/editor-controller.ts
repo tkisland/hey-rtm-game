@@ -1,6 +1,7 @@
 import { decoratePenlight } from './penlight';
 import { convertMidi, MIDI_LANES } from './midi';
 import { noteName } from './chart';
+import { playableNotes } from './note-display';
 import { playLane } from './engine';
 import './style.css';
 import './editor.css';
@@ -117,7 +118,7 @@ const timeline = new Timeline(el<HTMLCanvasElement>('timeline'), {
   seek: seconds => seek(seconds),
 });
 function refreshRange(): void {
-  const count = selectedRange ? model.chart.notes.filter(note => inRange(note, selectedRange!)).length : 0;
+  const count = selectedRange ? playableNotes(model.chart.notes).filter(note => inRange(note, selectedRange!)).length : 0;
   el('range-status').textContent = selectedRange ? `${selectedRange.start.toFixed(3)}〜${selectedRange.end.toFixed(3)}秒 · ${count}個のノーツを選択` : '「範囲を選択」に切り替えて横にドラッグ、または下の範囲編集で秒数を指定します。';
   for (const id of ['copy-range', 'delete-range']) el<HTMLButtonElement>(id).disabled = count === 0;
   el<HTMLButtonElement>('clear-range').disabled = selectedRange === null;
@@ -142,7 +143,7 @@ function copyRange(): void {
   if (!selectedRange) return;
   try {
     clipboard = model.copyRange(selectedRange);
-    el('clipboard-status').textContent = `${clipboard.notes.length}個をコピー済み · 区間の長さ ${(clipboard.end - clipboard.start).toFixed(3)}秒（このページ内で保持）`;
+    el('clipboard-status').textContent = `${playableNotes(clipboard.notes).length}個をコピー済み · 区間の長さ ${(clipboard.end - clipboard.start).toFixed(3)}秒（このページ内で保持）`;
     message('範囲をコピーしました。貼り付け位置を指定してください。'); refreshRange();
   } catch (error) { message(error instanceof Error ? error.message : '範囲をコピーできませんでした。'); }
 }
@@ -200,7 +201,7 @@ function refreshSelection(): void {
 }
 function refreshList(): void {
   const body = el('note-list'); body.replaceChildren();
-  const notes = model.chart.notes.filter(note => note.time >= viewStart && note.time <= viewStart + viewSpan).slice(0, 100);
+  const notes = playableNotes(model.chart.notes).filter(note => note.time >= viewStart && note.time <= viewStart + viewSpan).slice(0, 100);
   for (const note of notes) {
     const row = document.createElement('tr'); row.dataset.selected = String(note.id === model.selected);
     const cell = document.createElement('td'), button = document.createElement('button');
@@ -208,14 +209,14 @@ function refreshList(): void {
     // Rebuilt lists don't retain listeners or old document closures.
     button.onclick = () => selectNote(note.id);
     cell.append(button); row.append(cell);
-    for (const value of [note.time.toFixed(3), `${note.lane + 1} · ${'SDFJKL'[note.lane]}`, note.type === 'hold' ? `${noteName(note)} → ${note.endTime.toFixed(3)}` : noteName(note), note.sourceTime?.toFixed(3) ?? '—']) { const td = document.createElement('td'); td.textContent = value; row.append(td); }
+    for (const value of [note.time.toFixed(3), note.gimmick === 'box' ? '全6色 ↔' : `${note.lane + 1} · ${'SDFJKL'[note.lane]}`, note.type === 'hold' ? `${noteName(note)} → ${note.endTime.toFixed(3)}` : noteName(note), note.sourceTime?.toFixed(3) ?? '—']) { const td = document.createElement('td'); td.textContent = value; row.append(td); }
     body.append(row);
   }
 }
 function refresh(): void {
   input('editor-bpm').value = String(model.chart.bpm); input('beat-origin').value = String(model.chart.beatOrigin ?? model.chart.startTime);
   el('tempo-info').textContent = model.chart.tempoChanges?.length ? `${tempoLabel(model.chart)} BPM · ${model.chart.tempoChanges.length}箇所のテンポ変更を拍グリッド・スナップ・クオンタイズに反映します。BPM欄は開始時点の値です。` : '開始時点のBPMと拍の基準を合わせてください。BPM140はテスト用の仮の値です。';
-  el('note-count').textContent = `${model.chart.notes.length} NOTES`;
+  el('note-count').textContent = `${playableNotes(model.chart.notes).length} NOTES`;
   el<HTMLButtonElement>('undo').disabled = !model.canUndo; el<HTMLButtonElement>('redo').disabled = !model.canRedo;
   el<HTMLButtonElement>('quantize').disabled = !model.chart.notes.length;
   el<HTMLButtonElement>('try-game').disabled = !model.chart.notes.length;
@@ -523,16 +524,16 @@ function frame(now: number): void {
   sound.setPlaybackActive(playing && !previewing && input('editor-sound').checked);
   previewSound.setPlaybackActive(playing && previewing && seekTarget === null);
   if (!previewing && playing && !armed && input('audition').checked) {
-    if (lastAudition !== null && time > lastAudition && time - lastAudition < 0.5) model.chart.notes.filter(note => note.time > lastAudition! && note.time <= time).slice(0, 12).forEach(note => sound.play(note.lane));
+    if (lastAudition !== null && time > lastAudition && time - lastAudition < 0.5) playableNotes(model.chart.notes).filter(note => note.time > lastAudition! && note.time <= time).slice(0, 12).forEach(note => note.gimmick === 'box' ? sound.playBoxSweep() : sound.play(note.lane));
     lastAudition = time;
   } else lastAudition = null;
   preview.sync(model.chart);
   const previewEvents = seekTarget === null ? preview.update(time, playing && previewing) : [];
   previewEvents.forEach(event => {
     previewSound.play(event.lane); previewRenderer.flash(event.lane, now);
-    if (event.boxStep !== undefined && event.boxId !== undefined) { previewSound.playBox(event.boxStep); previewRenderer.flashBox(event.lane, now, event.boxStep, event.boxId, event.boxComplete); }
+    if (event.boxComplete && event.boxId !== undefined) { previewSound.playBoxSweep(); previewRenderer.completeBox(now, event.boxId); }
     previewFeedback[event.lane] = now;
-    previewLabels[event.lane] = event.phase === 'end' ? '離す' : event.phase === 'move' ? '推し変' : event.phase === 'start' ? 'HOLD' : '単推し';
+    previewLabels[event.lane] = event.boxComplete ? '箱推し' : event.phase === 'end' ? '離す' : event.phase === 'move' ? '推し変' : event.phase === 'start' ? 'HOLD' : '単推し';
   });
   const holds = new Set(preview.notes.filter(note => note.state === 'holding').map(playLane));
   previewSound.syncHolds(previewing && playing && seekTarget === null ? holds : new Set(), now);

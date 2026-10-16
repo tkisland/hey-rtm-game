@@ -59,6 +59,6 @@ export function parseChart(text: string, requireNotes = false, song: Song = DEFA
   notes.sort((a, b) => a.time - b.time || a.lane - b.lane || a.id - b.id);
   const boxes = new Map<number, ChartNote[]>();
   for (const note of notes) if (note.gimmick === 'box') { const group = boxes.get(note.boxId!) ?? []; group.push(note); boxes.set(note.boxId!, group); }
-  for (const group of boxes.values()) if (group.length !== 6 || new Set(group.map(note => note.lane)).size !== 6 || group.some((note, i) => i > 0 && note.time - group[i - 1].time <= 0.001 + 1e-8)) throw new Error('箱推しは6色を1回ずつ、別の時刻に配置してください。');
+  for (const group of boxes.values()) if (group.length !== 6 || new Set(group.map(note => note.lane)).size !== 6) throw new Error('箱推しは6色を1回ずつ、同じboxIdで指定してください。');
   return { videoId: song.videoId, title: value.title, bpm: value.bpm, startTime: notes[0]?.time ?? value.startTime, beatOrigin: value.beatOrigin ?? value.startTime, ...(value.tempoChanges === undefined ? {} : { tempoChanges }), notes };
 }

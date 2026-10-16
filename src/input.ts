@@ -1,7 +1,9 @@
+import type { InputGesture } from './engine';
 export const KEYS = ['KeyS', 'KeyD', 'KeyF', 'KeyJ', 'KeyK', 'KeyL'];
 
 /** A pointer per finger, and independent keyboard state. No repeat hits or shared touch lock. */
-export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) => void, onPressed: (lanes: Set<number>, reason: 'change' | 'cancel') => void, blocked: () => boolean = () => false): () => void {
+export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number, gesture?: InputGesture) => void, onPressed: (lanes: Set<number>, reason: 'change' | 'cancel') => void, blocked: () => boolean = () => false,
+  options: {sweepCrossings?: boolean; onGestureEnd?: (id:string) => void} = {}): () => void {
   const controller = new AbortController();
   const signal = controller.signal;
   const pointers = new Map<number, number>();
@@ -12,7 +14,7 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
     buttons.forEach((button, lane) => button.classList.toggle('pressed', active.has(lane)));
     onPressed(active, reason);
   };
-  const releaseAll = () => { pointers.clear(); keys.clear(); nativeKeys.clear(); render('cancel'); };
+  const releaseAll = () => { for (const id of pointers.keys()) options.onGestureEnd?.(`pointer:${id}`); options.onGestureEnd?.('keyboard'); pointers.clear(); keys.clear(); nativeKeys.clear(); render('cancel'); };
   buttons.forEach((button, lane) => {
     button.addEventListener('pointerdown', event => {
       if (blocked()) return;
@@ -23,7 +25,7 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
       button.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, lane);
       render();
-      onHit(lane);
+      onHit(lane, {id:`pointer:${event.pointerId}`});
     }, { signal });
     button.addEventListener('pointermove', event => {
       if (!pointers.has(event.pointerId) || blocked()) return;
@@ -31,17 +33,21 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number) =>
       // Require the existing pad row, so dragging over settings cannot hit a lane.
       const rects = buttons.map(button => button.getBoundingClientRect());
       const first = rects[0], last = rects.at(-1);
-      if (!first || !last || event.clientY < first.top || event.clientY > first.bottom || event.clientX < first.left || event.clientX > last.right) return;
+      if (!first || !last || event.clientY < first.top || event.clientY > first.bottom) { options.onGestureEnd?.(`pointer:${event.pointerId}`); return; }
       let next = 0;
       rects.forEach((rect, lane) => { if (Math.abs(event.clientX - rect.x - rect.width / 2) < Math.abs(event.clientX - rects[next].x - rects[next].width / 2)) next = lane; });
       if (next === pointers.get(event.pointerId)) return;
-      event.preventDefault(); pointers.set(event.pointerId, next); render(); onHit(next);
+      const previous = pointers.get(event.pointerId)!;
+      event.preventDefault(); pointers.set(event.pointerId, next); render();
+      if (options.sweepCrossings) for (let crossed = previous + Math.sign(next - previous); crossed !== next; crossed += Math.sign(next - previous)) onHit(crossed, {id:`pointer:${event.pointerId}`, sweepOnly:true});
+      onHit(next, {id:`pointer:${event.pointerId}`});
     }, { signal });
-    const up = (event: PointerEvent) => { pointers.delete(event.pointerId); render(); };
+    const up = (event: PointerEvent) => { pointers.delete(event.pointerId); options.onGestureEnd?.(`pointer:${event.pointerId}`); render(); };
     button.addEventListener('pointerup', up, { signal });
-    button.addEventListener('pointercancel', event => { pointers.delete(event.pointerId); render('cancel'); }, { signal });
+    button.addEventListener('pointercancel', event => { pointers.delete(event.pointerId); options.onGestureEnd?.(`pointer:${event.pointerId}`); render('cancel'); }, { signal });
     button.addEventListener('lostpointercapture', event => {
       if (!pointers.delete(event.pointerId)) return;
+      options.onGestureEnd?.(`pointer:${event.pointerId}`);
       render('cancel');
     }, { signal });
     button.addEventListener('contextmenu', event => event.preventDefault(), { signal });

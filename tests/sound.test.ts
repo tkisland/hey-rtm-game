@@ -1,6 +1,34 @@
 import { expect, it } from 'vitest';
-import { BOX_DURATION, BOX_PITCHES, createBoxSamples, createHoldSamples, createTapSamples, TAP_DURATION } from '../src/sound';
+import { BEAT_DURATION, BOX_DURATION, BOX_PITCHES, createBeatSamples, createBoxSamples, createBoxSweepSamples, createHoldSamples, createTapSamples, TAP_DURATION } from '../src/sound';
 import { normalizeSettings } from '../src/settings';
+
+it.each([44100,48000])('renders one bounded box arpeggio whose high note enters after the low note at %s Hz', sampleRate => {
+  const samples=createBoxSweepSamples(sampleRate);
+  expect(samples.length/sampleRate).toBeCloseTo(.45,4);expect(samples.every(Number.isFinite)).toBe(true);
+  expect(Math.abs(samples[0])).toBe(0);expect(Math.abs(samples.at(-1)!)).toBe(0);
+  expect(Math.max(...samples.map(Math.abs))).toBeCloseTo(.7,5);
+  const energy=(frequency:number,start:number,end:number)=>{
+    let real=0,imaginary=0;
+    for(let i=Math.floor(start*sampleRate);i<Math.floor(end*sampleRate);i++){
+      const phase=2*Math.PI*frequency*i/sampleRate;real+=samples[i]*Math.cos(phase);imaginary+=samples[i]*Math.sin(phase);
+    }
+    return real*real+imaginary*imaginary;
+  };
+  const early=energy(BOX_PITCHES[5],0,.011)/energy(BOX_PITCHES[0],0,.011);
+  const late=energy(BOX_PITCHES[5],.105,.12)/energy(BOX_PITCHES[0],.105,.12);
+  expect(early).toBeLessThan(.2);expect(late).toBeGreaterThan(early*4);
+});
+
+it.each([44100,48000])('creates a bounded, audible reference beat with smooth edges at %s Hz', sampleRate => {
+  const samples = createBeatSamples(sampleRate);
+  const rms = (data: Float32Array) => Math.sqrt(data.reduce((sum, v) => sum + v*v, 0) / data.length);
+  expect(samples.length).toBe(Math.ceil(BEAT_DURATION * sampleRate));
+  expect(samples.every(Number.isFinite)).toBe(true);
+  expect(Math.abs(samples[0])).toBe(0); expect(Math.abs(samples.at(-1)!)).toBe(0);
+  expect(Math.max(...samples.map(Math.abs))).toBeLessThan(.7);
+  expect(rms(samples.slice(0,sampleRate*.02))).toBeGreaterThan(.1);
+  expect(rms(samples.slice(-sampleRate*.01))).toBeLessThan(.01);
+});
 
 it.each([44100, 48000])('plays a rising six-note box run with finite, fading bell tones at %s Hz', sampleRate => {
   const energyAt = (samples: Float32Array, frequency: number) => {

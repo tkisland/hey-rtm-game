@@ -1,6 +1,6 @@
 import type { Chart, ChartNote } from './chart';
 import { laneAt } from './chart';
-import { boxGroups } from './note-display';
+import { playableNotes } from './note-display';
 import type { PlayNote } from './engine';
 
 export interface PreviewEvent { lane: number; time: number; phase: 'tap' | 'start' | 'end' | 'move'; boxStep?: number; boxId?: number; boxComplete?: boolean }
@@ -9,13 +9,11 @@ export class EditorPreview {
   notes: PlayNote[] = [];
   private chart: Chart | null = null;
   private previous: number | null = null;
-  private boxes = new Map<number, number>();
   sync(chart: Chart): void {
     if (chart === this.chart) return;
     this.chart = chart;
-    this.notes = chart.notes.map(note => ({ ...note, state: 'pending' }));
-    this.previous = null; this.boxes.clear();
-    for (const group of boxGroups(chart.notes)) group.forEach((note, i) => this.boxes.set(note.id, i + 1));
+    this.notes = playableNotes(chart.notes).map(note => ({ ...note, state: 'pending' }));
+    this.previous = null;
   }
   seek(time: number, includeExact = false): void {
     this.previous = includeExact ? time - 1e-8 : time;
@@ -34,7 +32,7 @@ export class EditorPreview {
       note.pathIndex = note.path?.filter(point => point.time <= time).length;
       if (!crossing) continue;
       for (const point of note.path ?? []) if (point.time > previous && point.time <= time) events.push({lane:point.lane, time:point.time, phase:'move'});
-      if (note.time > previous && note.time <= time) events.push({ lane: note.lane, time: note.time, phase: note.type === 'hold' ? 'start' : 'tap', ...(note.gimmick === 'box' ? {boxStep:this.boxes.get(note.id), boxId:note.boxId, boxComplete:this.boxes.get(note.id) === 6} : {}) });
+      if (note.time > previous && note.time <= time) events.push({ lane: note.lane, time: note.time, phase: note.type === 'hold' ? 'start' : 'tap', ...(note.gimmick === 'box' ? {boxStep:6, boxId:note.boxId, boxComplete:true} : {}) });
       if (note.type === 'hold' && note.endTime > previous && note.endTime <= time) events.push({ lane: laneAt(note, note.endTime), time: note.endTime, phase: 'end' });
     }
     this.previous = time;

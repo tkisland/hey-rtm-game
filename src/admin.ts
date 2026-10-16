@@ -13,6 +13,7 @@ import type { Chart } from './chart';
 import { findSong, SONGS, songUrl } from './songs';
 import type { Song } from './songs';
 import type { EditorHandle } from './editor-controller';
+import { playableNotes } from './note-display';
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const initialApp = el('app').outerHTML, login = el<HTMLButtonElement>('google-login');
@@ -110,7 +111,7 @@ el('admin-logout').addEventListener('click', () => {
 save.addEventListener('click', () => void perform(async () => { await persist(editor!.chart()); }), {signal});
 publish.addEventListener('click', () => void perform(async () => {
   const chart = editor!.chart(); chartJson(chart, song, true);
-  if (!confirm(`「${song.title}」の${chart.notes.length}ノーツを公開します。公開後はプレーヤーが新しい譜面で遊びます。よろしいですか？`)) return;
+  if (!confirm(`「${song.title}」の${playableNotes(chart.notes).length}ノーツを公開します。公開後はプレーヤーが新しい譜面で遊びます。よろしいですか？`)) return;
   const current = generation, actor = user!;
   const snapshot = dirty || !saved ? await persist(chart) : saved;
   const release = await publishDraft(song, actor, snapshot);

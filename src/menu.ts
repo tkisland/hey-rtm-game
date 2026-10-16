@@ -9,6 +9,7 @@ import { tempoLabel } from './tempo';
 import { publishedChart } from './cloud-published';
 import type { Chart } from './chart';
 import { mountTutorial } from './tutorial';
+import { playableNotes } from './note-display';
 
 const list = document.getElementById('song-list')!;
 const search = document.getElementById('song-search') as HTMLInputElement;
@@ -35,8 +36,8 @@ function render(): void {
     for (const color of LANE_COLORS) { const lane = node('i', ''); lane.style.setProperty('--color', color); lanes.append(lane); }
     artwork.append(lanes);
     const body = node('div', 'song-card-body');
-    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · ${__ADMIN__ ? `${song.chartId?.toUpperCase()} · ` : ''}${tempoLabel(bundled)} BPM · ${bundled.notes.length} NOTES` : __ADMIN__ ? `6 LANES · テスト譜面 ${song.bpm} BPM` : '譜面の準備中'));
-    if (__ADMIN__) body.append(node('p', 'saved-summary', saved ? `保存譜面あり · ${saved.notes.length} NOTES` : '管理者の下書きはまだありません。編集から作成できます。'));
+    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · ${__ADMIN__ ? `${song.chartId?.toUpperCase()} · ` : ''}${tempoLabel(bundled)} BPM · ${playableNotes(bundled.notes).length} NOTES` : __ADMIN__ ? `6 LANES · テスト譜面 ${song.bpm} BPM` : '譜面の準備中'));
+    if (__ADMIN__) body.append(node('p', 'saved-summary', saved ? `保存譜面あり · ${playableNotes(saved.notes).length} NOTES` : '管理者の下書きはまだありません。編集から作成できます。'));
     const actions = node('div', 'song-actions');
     if (bundled || __ADMIN__) {
       const play = node('a', 'song-play', __ADMIN__ ? bundled ? '収録譜面で遊ぶ' : 'テスト譜面で遊ぶ' : 'プレイ');
