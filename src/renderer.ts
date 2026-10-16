@@ -207,7 +207,7 @@ export class Renderer {
         if (rawTail >= 0) this.releaseCap(tail, thickness, color);
       }
       if (note.gimmick === 'dd') {
-        const center = project(field, 2.5, p), width = project(field, 5.49, p).x - project(field, -.49, p).x, height = Math.max(12, thickness);
+        const center = project(field, 2.5, p), width = project(field, 5.49, p).x - project(field, -.49, p).x, height = Math.max(16, thickness);
         const left = center.x - width / 2, top = center.y - height / 2;
         const gradient = ctx.createLinearGradient(left, 0, left + width, 0);
         LANE_COLORS.forEach((color, i) => gradient.addColorStop(i / 5, color));
@@ -230,6 +230,10 @@ export class Renderer {
         // A violet keyline preserves white lettering over the white/yellow lanes.
         ctx.strokeStyle = '#593b83'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
         ctx.strokeText('DD', center.x, center.y); ctx.fillText('DD', center.x, center.y);
+        ctx.font = 'bold 10px "RocknRoll One",sans-serif'; ctx.textBaseline = 'alphabetic';
+        const label = 'どこでも1タップ ↓';
+        ctx.strokeStyle = '#21112e'; ctx.lineWidth = 3;
+        ctx.strokeText(label, center.x, top - 7); ctx.fillText(label, center.x, top - 7);
         ctx.restore();
         continue;
       }
@@ -265,21 +269,23 @@ export class Renderer {
     const ctx=this.ctx,field=this.field;
     const left=project(field,-.49,p).x,right=project(field,5.49,p).x;
     const start=project(field,0,p).x,end=project(field,5,p).x,height=Math.max(18,18*size/100),r=height*.4;
-    const rainbow=ctx.createLinearGradient(left,0,right,0);
-    LANE_COLORS.forEach((color,i)=>rainbow.addColorStop(i/5,color));
+    const gold=ctx.createLinearGradient(0,y-height/2,0,y+height/2);
+    gold.addColorStop(0,'#78501c');gold.addColorStop(.5,'#271c13');gold.addColorStop(1,'#5d3916');
     ctx.save();
-    ctx.shadowColor='#f2a1ff';ctx.shadowBlur=10;
-    ctx.fillStyle=rainbow;ctx.beginPath();ctx.roundRect(left,y-height/2,right-left,height,height/2);ctx.fill();
-    ctx.shadowBlur=0;ctx.fillStyle='#21112e88';ctx.fill();
-    ctx.strokeStyle='#ffffffd9';ctx.lineWidth=1.3;ctx.stroke();
+    // Gold pointed ends and an open-looking rail distinguish a sweep from DD's rainbow pill.
+    ctx.shadowColor='#ffd45c';ctx.shadowBlur=8;
+    ctx.fillStyle=gold;
+    this.polygon([{x:left,y},{x:left+height/2,y:y-height/2},{x:right-height/2,y:y-height/2},
+      {x:right,y},{x:right-height/2,y:y+height/2},{x:left+height/2,y:y+height/2}]);
+    ctx.shadowBlur=0;ctx.strokeStyle='#ffe28a';ctx.lineWidth=1.5;ctx.stroke();
     // One continuous arrow spans the first and last pads, rather than six tap markers.
-    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.strokeStyle='#ffe28a';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
     ctx.beginPath();ctx.moveTo(start+r+3,y);ctx.lineTo(end-r-3,y);
     ctx.moveTo(start+r+8,y-4);ctx.lineTo(start+r+3,y);ctx.lineTo(start+r+8,y+4);
     ctx.moveTo(end-r-8,y-4);ctx.lineTo(end-r-3,y);ctx.lineTo(end-r-8,y+4);ctx.stroke();
     for(const x of [start,end]) {
-      ctx.fillStyle='#2c173e';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle='#312211';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#ffe28a';ctx.lineWidth=2;ctx.stroke();
       ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,2,0,Math.PI*2);ctx.fill();
     }
     const progress=note.boxProgress??0,phase=(now%1800)/1000;
@@ -288,12 +294,14 @@ export class Renderer {
     const x=start+(end-start)*fraction,handY=y+height/2+3;
     ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fill();
     // A small pointing hand demonstrates the gesture directly on the travel rail.
-    ctx.save();ctx.translate(x,handY);ctx.fillStyle='#30203f';ctx.strokeStyle='#fff';ctx.lineWidth=1.4;
+    ctx.save();ctx.translate(x,handY);ctx.fillStyle='#312211';ctx.strokeStyle='#ffe28a';ctx.lineWidth=1.4;
     ctx.beginPath();ctx.moveTo(-2,8);ctx.lineTo(-2,1);ctx.quadraticCurveTo(0,-2,2,1);ctx.lineTo(2,6);
     ctx.quadraticCurveTo(7,5,7,9);ctx.lineTo(5,15);ctx.lineTo(-1,15);ctx.lineTo(-5,10);ctx.quadraticCurveTo(-7,6,-4,6);ctx.closePath();ctx.fill();ctx.stroke();
     ctx.restore();
-    ctx.font='bold 10px "RocknRoll One",sans-serif';ctx.textAlign='center';ctx.fillStyle='#fff';ctx.shadowColor='#150b23';ctx.shadowBlur=4;
-    ctx.fillText(progress?'そのまま端まで！':'箱推し · 端から端へスワイプ',field.width/2,y-height/2-7);
+    ctx.font='bold 10px "RocknRoll One",sans-serif';ctx.textAlign='center';ctx.fillStyle='#ffe28a';
+    ctx.strokeStyle='#21170c';ctx.lineWidth=3;
+    const label=progress?'そのまま端まで！':'箱推し · 端から端へスワイプ';
+    ctx.strokeText(label,field.width/2,y-height/2-7);ctx.fillText(label,field.width/2,y-height/2-7);
     ctx.restore();
   }
   private drawBoxEffects(now: number): void {
