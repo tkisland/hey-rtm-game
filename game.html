@@ -85,10 +85,8 @@
           <label for="travel">ノーツ落下時間 <output id="travel-value">2.50秒</output></label>
           <input id="travel" type="range" min="1" max="4" step="0.25" value="2.5" />
           <p class="field-help">ノーツが現れてから判定ラインに届くまでの時間です。大きくすると早めに見えて余裕が増えます。初期値は2.5秒。保存済みの値は引き継ぎます。</p>
-          <label for="note-size">ノーツの厚さ <output id="note-size-value">100%</output></label>
-          <input id="note-size" type="range" min="50" max="150" step="10" value="100" />
           <p class="field-help">判定はノーツの中心で行います。薄い帯がGOOD（±160ms）、中間がGREAT（±100ms）、濃い帯がPERFECT（±50ms）。</p>
-          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。ハート付きのバーを押し、長い帯は二重線の終点で離します。連結線は同時推し、横向きの矢印は推し変の持ち替えタイミングです。</p>
+          <p class="field-help">バーの厚さは曲全体で16分音符に合わせて統一しています。密な譜面は落下時間を短くすると間隔が広がります。ハート付きのバーを押し、長い帯は二重線の終点で離します。連結線は同時推し、横向きの矢印は推し変の持ち替えタイミングです。</p>
           <label for="offset">ノーツ全体の位置 <output id="offset-value">0 ms</output></label>
           <input id="offset" type="range" min="-300" max="300" step="10" value="0" />
           <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>

@@ -120,7 +120,7 @@ test('focused lane buttons support holding Space and seeking skips active holds'
   await page.keyboard.up('s');
 });
 
-test('dense sixteenth heads keep visible gaps, sizing is adjustable and shared with the game', async ({ page }) => {
+test('timeline sizing stays editor-only and the player has no note-size control', async ({ page }) => {
   const notes = Array.from({ length: 24 }, (_, i) => ({ id: i + 1, type: 'tap', time: 12 + i / 8, lane: 0 }));
   await loadEditor(page, { ...chart, notes }); await page.locator('#follow').uncheck(); await page.locator('#view-start').fill('12'); await page.locator('#view-start').blur(); await page.locator('#view-span').selectOption('8');
   const widths = () => page.locator('#timeline').evaluate(async (canvas: HTMLCanvasElement) => {
@@ -135,7 +135,7 @@ test('dense sixteenth heads keep visible gaps, sizing is adjustable and shared w
   await page.locator('#editor-note-size').fill('50'); await page.locator('#editor-note-size').dispatchEvent('input'); const after = await widths();
   expect(Math.max(...after.widths)).toBeLessThan(Math.max(...before.widths));
   await page.locator('#try-game').click(); await expect(page.locator('#restart')).toBeEnabled();
-  await page.locator('#settings-toggle').click(); await expect(page.locator('#note-size')).toHaveValue('50');
-  await page.locator('#note-size').fill('120'); await page.locator('#note-size').dispatchEvent('input');
-  await page.reload(); await page.locator('#settings-toggle').click(); await expect(page.locator('#note-size')).toHaveValue('120');
+  await page.locator('#settings-toggle').click(); await expect(page.locator('#note-size')).toHaveCount(0);
+  await page.locator('#sound-volume').fill('50'); await page.locator('#sound-volume').dispatchEvent('input');
+  await page.goto('/editor.html'); await expect(page.locator('#editor-note-size')).toHaveValue('50');
 });
