@@ -1,5 +1,6 @@
 import type { Chart, ChartNote } from './chart';
 import { copyNote, laneAt } from './chart';
+import { slideRoute } from './slide-route';
 import { LANE_COLORS } from './colors';
 import { chordGroups, noteThickness } from './note-display';
 import { inRange, MAX_TIME, MIN_HOLD } from './editor-model';
@@ -152,7 +153,7 @@ export class Timeline {
       ctx.strokeStyle = ghost ? `${color}60` : selected ? '#fff' : color;
       ctx.fillStyle = color; ctx.lineWidth = selected && !ghost ? 2 : 1;
       if (!ghost && note.gimmick === 'slide') {
-        const points = [{time:note.time, lane:note.lane}, ...note.path!, {time:end, lane:laneAt(note, end)}];
+        const points = slideRoute(note);
         ctx.lineWidth = 8; ctx.strokeStyle = '#bda7f788'; ctx.beginPath();
         points.forEach((point, i) => { const px = this.xAt(point.time), py = TOP + (point.lane + .5) * row; if (i) ctx.lineTo(px,py); else ctx.moveTo(px,py); }); ctx.stroke(); ctx.lineWidth = 1;
         points.slice(1).forEach(point => { ctx.fillStyle = LANE_COLORS[point.lane]; ctx.fillRect(this.xAt(point.time) - 3, TOP + (point.lane + .5) * row - 6, 6, 12); }); ctx.fillStyle = color;

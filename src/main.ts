@@ -1,5 +1,7 @@
+import { decoratePenlight } from './penlight';
 import { playLane } from './engine';
 import './style.css';
+import './penlight.css';
 import { LANE_COLORS } from './colors';
 import { bindDockLayout } from './layout';
 import { bindTargets } from './field-geometry';
@@ -81,6 +83,7 @@ const judgementTimes = Array<number>(6).fill(-Infinity);
 const controlStatus = element('control-status');
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
 buttons.forEach((button, lane) => {
+  decoratePenlight(button);
   button.style.setProperty('--lane', LANE_COLORS[lane]);
   button.parentElement!.style.setProperty('--lane', LANE_COLORS[lane]);
 });
@@ -409,7 +412,7 @@ function frame(now: number): void {
     stageHint.hidden = sample.playing || resultShown;
     const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : '上の再生ボタンで開始';
     stageHint.querySelector('strong')!.textContent = hint;
-    stageHint.querySelector('span:last-child')!.textContent = '横線で下の同じ色をタップ · 長い帯は終点で離す';
+    stageHint.querySelector('span:last-child')!.textContent = 'ハートのバーを同じ色でキャッチ · 二重線の終点で離す';
   }
   judgements.forEach((feedback, lane) => {
     const holding = engine.notes.some(note => playLane(note) === lane && note.state === 'holding');
@@ -421,7 +424,7 @@ function frame(now: number): void {
   });
   const guidance = failed ? '動画を再生できません' : clockStale ? '動画時刻の更新待ち' : sample.playing
     ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
-      ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : '横線に合わせて下のボタン · S D F / J K L'
+      ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : '上の横線でレスをキャッチ · S D F / J K L'
     : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : 'MVを再生してスタート';
   if (controlStatus.textContent !== guidance) controlStatus.textContent = guidance;
   frames++;

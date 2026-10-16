@@ -71,7 +71,10 @@ export class GameEngine {
       if (note.state === 'holding' && note.type === 'hold') {
         const point = note.path?.[note.pathIndex ?? 0];
         if (point && time - point.time > WINDOWS.GOOD + EPSILON) { updates.push(this.record(note, 'MISS', time - point.time)); continue; }
-        if (point && pressed?.has(point.lane) && !previousPressed.has(point.lane) && Math.abs(time - point.time) <= WINDOWS.GOOD + EPSILON) {
+        // Transfer on either the new press, or release of the old key while the next is held.
+        // Holding both before the checkpoint alone cannot score it.
+        const releasedCurrent = previousPressed.has(playLane(note)) && !pressed?.has(playLane(note));
+        if (point && pressed?.has(point.lane) && (!previousPressed.has(point.lane) || releasedCurrent) && Math.abs(time - point.time) <= WINDOWS.GOOD + EPSILON) {
           const error = time - point.time, judgement = judge(error);
           note.activeLane = point.lane; note.pathIndex = (note.pathIndex ?? 0) + 1;
           if (POINTS[judgement] < POINTS[note.startJudgement ?? 'MISS']) { note.startJudgement = judgement; note.startError = error; }
