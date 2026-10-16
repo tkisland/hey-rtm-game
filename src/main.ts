@@ -26,19 +26,22 @@ function element<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 const song = findSong(new URLSearchParams(location.search).get('song'));
 // Invalid links return to selection before creating a player or reading chart data.
-if (!song) location.replace('./?missing-song=1');
+if (!song || (!__ADMIN__ && !bundledChart(song))) location.replace(song ? './?unavailable-song=1' : './?missing-song=1');
 else {
 document.title = `HEY! RHYTHM! — ${song.title}`;
 element('song-title').textContent = song.title;
 element('song-artist').textContent = `${song.artist} / OFFICIAL MV`;
-element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'editor');
+if (__ADMIN__) element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'editor');
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
 let settings = loadSettings(song);
-const customChart = loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song);
+const customChart = __ADMIN__ ? loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song) : null;
 const bundled = bundledChart(song), requested = new URLSearchParams(location.search).get('chart');
 type Source = 'bundled' | 'custom' | 'test';
-let source: Source = requested === 'test' ? 'test' : requested === 'custom' ? customChart ? 'custom' : 'test' : bundled ? 'bundled' : 'test';
-const activeChart = () => source === 'custom' && customChart ? customChart : source === 'bundled' && bundled ? bundled : generateChart(settings.bpm, settings.startTime, song);
+let source: Source = __ADMIN__ ? requested === 'test' ? 'test' : requested === 'custom' ? customChart ? 'custom' : 'test' : bundled ? 'bundled' : 'test' : 'bundled';
+const activeChart = () => !__ADMIN__ ? bundled! : source === 'custom' && customChart ? customChart : source === 'bundled' && bundled ? bundled : generateChart(settings.bpm, settings.startTime, song);
+if (!__ADMIN__ && requested !== null) {
+  const url = new URL(location.href); url.searchParams.delete('chart'); history.replaceState(null, '', url);
+}
 const engine = new GameEngine(activeChart());
 const clock = new VideoClock();
 const renderer = new Renderer(element<HTMLCanvasElement>('game-canvas'));
@@ -201,7 +204,7 @@ function showError(message: string): void {
   element<HTMLButtonElement>('play-start').disabled = true;
 }
 function updateChartInfo(): void {
-  element('chart-info').textContent = `${source === 'custom' ? 'EDITOR CHART' : source === 'bundled' ? 'BUNDLED CHART' : 'TEST CHART'} · ${tempoLabel(engine.chart)} BPM · ${engine.chart.startTime.toFixed(source === 'bundled' ? 2 : 1)}秒〜 · ${engine.notes.length} NOTES`;
+  element('chart-info').textContent = __ADMIN__ ? `${source === 'custom' ? 'EDITOR CHART' : source === 'bundled' ? 'BUNDLED CHART' : 'TEST CHART'} · ${tempoLabel(engine.chart)} BPM · ${engine.chart.startTime.toFixed(source === 'bundled' ? 2 : 1)}秒〜 · ${engine.notes.length} NOTES` : `${tempoLabel(engine.chart)} BPM · ${engine.notes.length} NOTES`;
 }
 
 const disposePlayer = createYouTubePlayer({
@@ -281,7 +284,9 @@ const soundToggle = element<HTMLInputElement>('sound-toggle');
 const soundVolume = element<HTMLInputElement>('sound-volume');
 const noteSize = element<HTMLInputElement>('note-size');
 const inputOffset = element<HTMLInputElement>('input-offset'), soundDelay = element<HTMLInputElement>('sound-delay');
-const bpm = element<HTMLInputElement>('bpm'), startTime = element<HTMLInputElement>('start-time'), debug = element<HTMLInputElement>('debug-toggle');
+const bpm = __ADMIN__ ? element<HTMLInputElement>('bpm') : null;
+const startTime = __ADMIN__ ? element<HTMLInputElement>('start-time') : null;
+const debug = __ADMIN__ ? element<HTMLInputElement>('debug-toggle') : null;
 function reflectSettings(): void {
   inputOffset.value = String(settings.inputOffset); soundDelay.value = String(settings.soundDelay);
   element('input-offset-value').textContent = `${settings.inputOffset > 0 ? '+' : ''}${settings.inputOffset} ms`;
@@ -289,7 +294,10 @@ function reflectSettings(): void {
   noteSize.value = String(settings.noteSize);
   element('note-size-value').textContent = `${settings.noteSize}%`;
   travel.value = String(settings.travel); offset.value = String(settings.offset);
-  bpm.value = String(settings.bpm); startTime.value = String(settings.startTime); debug.checked = settings.debug; soundToggle.checked = settings.sound;
+  if (bpm) bpm.value = String(settings.bpm);
+  if (startTime) startTime.value = String(settings.startTime);
+  if (debug) debug.checked = settings.debug;
+  soundToggle.checked = settings.sound;
   sound.enabled = settings.sound;
   sound.volume = settings.soundVolume;
   sound.delay = settings.soundDelay;
@@ -298,21 +306,21 @@ function reflectSettings(): void {
   element('sound-volume-value').textContent = `${settings.soundVolume}%`;
   element('travel-value').textContent = `${settings.travel.toFixed(2)}秒`;
   element('offset-value').textContent = `${settings.offset > 0 ? '+' : ''}${settings.offset} ms`;
-  element('debug-panel').hidden = !settings.debug;
+  if (__ADMIN__) element('debug-panel').hidden = !settings.debug;
 }
 function changeSettings(): void {
-  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm.valueAsNumber, startTime: startTime.valueAsNumber, debug: debug.checked, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, noteSize: noteSize.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
+  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, noteSize: noteSize.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
   reflectSettings();
   if (settings.sound && settings.soundVolume > 0 && state === PLAYER_STATE.PLAYING) void sound.unlock();
   const saved = saveSettings(settings, song);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
-  if (source === 'test' && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
+  if (__ADMIN__ && source === 'test' && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
 }
 travel.addEventListener('input', changeSettings, { signal });
 offset.addEventListener('input', changeSettings, { signal });
-bpm.addEventListener('change', changeSettings, { signal });
-startTime.addEventListener('change', changeSettings, { signal });
-debug.addEventListener('change', changeSettings, { signal });
+bpm?.addEventListener('change', changeSettings, { signal });
+startTime?.addEventListener('change', changeSettings, { signal });
+debug?.addEventListener('change', changeSettings, { signal });
 soundToggle.addEventListener('change', changeSettings, { signal });
 soundVolume.addEventListener('input', changeSettings, { signal });
 noteSize.addEventListener('input', changeSettings, { signal });
@@ -329,25 +337,27 @@ element('auto-calibrate').addEventListener('click', () => calibration.open(), { 
 element('timing-reset').addEventListener('click', () => { inputOffset.value = '0'; soundDelay.value = '0'; changeSettings(); }, { signal });
 element('sound-test').addEventListener('click', () => sound.play(0), { signal });
 reflectSettings(); updateChartInfo();
-const chartSource = element<HTMLSelectElement>('chart-source');
-chartSource.querySelector<HTMLOptionElement>('option[value="custom"]')!.disabled = !customChart;
-chartSource.querySelector<HTMLOptionElement>('option[value="bundled"]')!.disabled = !bundled;
-function reflectChartSource(): void {
-  chartSource.value = source;
-  bpm.disabled = source !== 'test'; startTime.disabled = source !== 'test';
-  element('chart-settings-help').textContent = source === 'test' ? 'BPM・開始時刻は次のリスタートから反映されます。' : source === 'bundled' ? '収録譜面のテンポと時刻を使用します。全体のずれは「ノーツ全体の位置」で調整できます。' : '編集譜面のBPM・時刻は「譜面編集」で変更できます。';
-  notice.textContent = source === 'bundled' ? '収録譜面 SMG002 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長押しです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
-}
-reflectChartSource();
-if (!customChart && new URLSearchParams(location.search).get('chart') === 'custom') notice.textContent = '編集譜面を読み込めませんでした。「譜面編集」でノーツを追加し「ゲームで試す」を押してください。仮譜面を表示しています。';
-chartSource.addEventListener('change', () => {
-  source = chartSource.value === 'custom' && customChart ? 'custom' : chartSource.value === 'bundled' && bundled ? 'bundled' : 'test';
-  const url = new URL(location.href);
-  url.searchParams.set('chart', source);
-  history.replaceState(null, '', url);
-  engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
-  if (player && !failed) restart.click();
-}, { signal });
+if (__ADMIN__) {
+  const chartSource = element<HTMLSelectElement>('chart-source');
+  chartSource.querySelector<HTMLOptionElement>('option[value="custom"]')!.disabled = !customChart;
+  chartSource.querySelector<HTMLOptionElement>('option[value="bundled"]')!.disabled = !bundled;
+  function reflectChartSource(): void {
+    chartSource.value = source;
+    bpm!.disabled = source !== 'test'; startTime!.disabled = source !== 'test';
+    element('chart-settings-help').textContent = source === 'test' ? 'BPM・開始時刻は次のリスタートから反映されます。' : source === 'bundled' ? '収録譜面のテンポと時刻を使用します。全体のずれは「ノーツ全体の位置」で調整できます。' : '編集譜面のBPM・時刻は「譜面編集」で変更できます。';
+    notice.textContent = source === 'bundled' ? '収録譜面 SMG002 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長押しです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
+  }
+  reflectChartSource();
+  if (!customChart && new URLSearchParams(location.search).get('chart') === 'custom') notice.textContent = '編集譜面を読み込めませんでした。「譜面編集」でノーツを追加し「ゲームで試す」を押してください。仮譜面を表示しています。';
+  chartSource.addEventListener('change', () => {
+    source = chartSource.value === 'custom' && customChart ? 'custom' : chartSource.value === 'bundled' && bundled ? 'bundled' : 'test';
+    const url = new URL(location.href);
+    url.searchParams.set('chart', source);
+    history.replaceState(null, '', url);
+    engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
+    if (player && !failed) restart.click();
+  }, { signal });
+} else notice.textContent = '長い帯は終点まで押し続け、◇でつながったノーツは同時に押してください。';
 
 let debugUpdated = 0;
 function frame(now: number): void {
@@ -386,7 +396,7 @@ function frame(now: number): void {
   if (controlStatus.textContent !== guidance) controlStatus.textContent = guidance;
   frames++;
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }
-  if (settings.debug && now - debugUpdated >= 100) {
+  if (__ADMIN__ && settings.debug && now - debugUpdated >= 100) {
     debugUpdated = now;
     element('debug-time').textContent = `${videoTime.toFixed(3)} s`;
     element('debug-game-time').textContent = `${(smoothedVideoTime - settings.offset / 1000).toFixed(3)} s`;

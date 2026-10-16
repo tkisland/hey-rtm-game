@@ -26,11 +26,12 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 const input = (id: string) => el<HTMLInputElement>(id);
 const select = (id: string) => el<HTMLSelectElement>(id);
 const song = findSong(new URLSearchParams(location.search).get('song'));
-if (!song) location.replace('./?missing-song=1');
+if (!__ADMIN__) location.replace('./');
+else if (!song) location.replace('./?missing-song=1');
 else {
 const editorKey = songStorageKey(EDITOR_KEY, song), customKey = songStorageKey(CUSTOM_CHART_KEY, song);
-document.title = `譜面エディター — ${song.title}`;
-el('editor-song-title').textContent = `${song.title} / CHART EDITOR`;
+document.title = `管理者用 譜面エディター — ${song.title}`;
+el('editor-song-title').textContent = `${song.title} / ADMIN CHART EDITOR`;
 el<HTMLAnchorElement>('back-to-game').href = songUrl(song, 'game');
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
 const model = new EditorModel(loadChart(editorKey, false, song) ?? emptyChart(song));

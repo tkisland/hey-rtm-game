@@ -31,3 +31,4 @@
 .library-help { font-size:11px; line-height:1.9; color:var(--muted); margin:25px 0; max-width:660px; }
 @media(max-width:480px) { .menu-label { font-size:8px; letter-spacing:0; } .menu-heading { padding-top:18px; } .song-card-body { padding:18px; } .song-actions > * { flex-basis:100%; } }
 @media(min-width:760px) { .song-card:only-child { display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1fr); } .song-card:only-child .song-art { min-height:320px; } }
+.song-unavailable { padding:12px; color:var(--muted); font-size:12px; }
