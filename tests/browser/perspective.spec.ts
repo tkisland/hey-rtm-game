@@ -114,3 +114,30 @@ test('real rendered note bars widen and approach smoothly along the perspective 
     expect(samples[i].x).toBeLessThan(samples[i - 1].x);
   }
 });
+
+test('dense bars, hold heads and DD keep their proportions throughout flight and across tempo changes', async ({ page }) => {
+  const groups = await page.locator('#game-canvas').evaluate(async (canvas: HTMLCanvasElement) => {
+    const { Renderer } = await import('/src/renderer.ts'), { GameEngine } = await import('/src/engine.ts');
+    const renderer = new Renderer(canvas), ctx = canvas.getContext('2d')!, original = ctx.roundRect.bind(ctx);
+    let heads: { width: number; height: number }[] = [];
+    ctx.roundRect = function(x,y,width,height,radius) { heads.push({width,height}); original(x,y,width,height,radius); };
+    try {
+      const variants = [
+        [{id:1,lane:0,type:'tap',time:12},{id:2,lane:0,type:'tap',time:12.078125}],
+        [{id:1,lane:2,type:'hold',time:12,endTime:14}],
+        [{id:1,lane:2,type:'tap',gimmick:'dd',time:12}],
+      ];
+      return variants.map(notes => {
+        const engine = new GameEngine({videoId:'pJDfWpZ7CI4',title:'proportions',bpm:166,startTime:12,notes} as any);
+        return [.05,.25,.5,.75,1].map(p => {
+          heads = []; renderer.draw(engine.notes,12+(p-1)*2.5,2.5,0,100,p<.5?166:192);
+          return heads[0];
+        });
+      });
+    } finally { ctx.roundRect = original; renderer.destroy(); }
+  });
+  for (const frames of groups) for (let i=0;i<frames.length;i++) {
+    expect(frames[i].height / frames[i].width).toBeCloseTo(frames[0].height / frames[0].width,7);
+    if (i) { expect(frames[i].width).toBeGreaterThan(frames[i-1].width); expect(frames[i].height).toBeGreaterThan(frames[i-1].height); }
+  }
+});

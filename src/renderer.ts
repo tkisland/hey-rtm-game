@@ -97,11 +97,14 @@ export class Renderer {
     }
     if (note.type === 'hold') {
       const tailP = progressAt(note.endTime);
-      if (tailP >= 0 && tailP <= 1 + WINDOWS.GOOD / travel) this.releaseCap(project(field, laneAt(note, note.endTime), tailP), thickness, LANE_COLORS[laneAt(note, note.endTime)]);
+      if (tailP >= 0 && tailP <= 1 + WINDOWS.GOOD / travel) {
+        const tail = project(field, laneAt(note, note.endTime), tailP);
+        this.releaseCap(tail, thickness * tail.scale, LANE_COLORS[laneAt(note, note.endTime)]);
+      }
     }
     ctx.lineWidth = 1;
   }
-  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, bpm = 140, inputOffsetMs = 0, playing = true, chart?: Chart): void {
+  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, _bpm = 140, inputOffsetMs = 0, playing = true, chart?: Chart): void {
     if (this.canvas.width !== Math.round(this.field.width * (window.devicePixelRatio || 1))) this.resize();
     const ctx = this.ctx, field = this.field, w = field.width, h = field.height;
     // Match the input clock so every compensated PERFECT arrives at a fixed button.
@@ -199,12 +202,14 @@ export class Renderer {
       if (p < 0 || p > 1 + WINDOWS.GOOD / travel + 1e-8) continue;
       const lane = note.state === 'holding' ? playLane(note) : note.lane;
       const head = project(field, lane, p), color = LANE_COLORS[lane];
-      const gap = Math.min(60 / bpm / 2, this.gaps.get(note.id) ?? Infinity);
-      const next = project(field, note.lane, p - gap / travel);
-      const thickness = noteThickness(size, Math.abs(head.y - next.y), 16 * head.scale);
+      // Limit thickness at the receiving line, then scale both dimensions together.
+      // Actual note gaps stay fixed even when playback crosses a tempo event.
+      const gap = this.gaps.get(note.id) ?? Infinity;
+      const referenceThickness = noteThickness(size, gap * field.approach / travel, 16);
+      const thickness = referenceThickness * head.scale;
       if (box) { this.drawBox(note,p,head.y,now,size); continue; }
       if (note.gimmick === 'slide' && note.type === 'hold') {
-        this.drawSlide(note, progressAt, p, thickness, travel);
+        this.drawSlide(note, progressAt, p, referenceThickness, travel);
       } else if (note.type === 'hold') {
         const rawTail = progressAt(note.endTime), tailP = Math.min(p, Math.max(0, rawTail));
         const segments = tailP < 1 && p > 1 ? [tailP, 1, p] : [tailP, p];
@@ -216,10 +221,10 @@ export class Renderer {
         ctx.strokeStyle = color; ctx.lineWidth = note.state === 'holding' ? 2 : 1;
         this.polygon([{ x: tail.x - tail.width * 0.3, y: tail.y }, { x: tail.x + tail.width * 0.3, y: tail.y },
           { x: head.x + head.width * 0.3, y: head.y }, { x: head.x - head.width * 0.3, y: head.y }], false); ctx.lineWidth = 1;
-        if (rawTail >= 0) this.releaseCap(tail, thickness, color);
+        if (rawTail >= 0) this.releaseCap(tail, referenceThickness * tail.scale, color);
       }
       if (note.gimmick === 'dd') {
-        const center = project(field, 2.5, p), width = project(field, 5.49, p).x - project(field, -.49, p).x, height = Math.max(16, thickness);
+        const center = project(field, 2.5, p), width = project(field, 5.49, p).x - project(field, -.49, p).x, height = 16 * center.scale;
         const left = center.x - width / 2, top = center.y - height / 2;
         const gradient = ctx.createLinearGradient(left, 0, left + width, 0);
         LANE_COLORS.forEach((color, i) => gradient.addColorStop(i / 5, color));
@@ -284,7 +289,7 @@ export class Renderer {
   private drawBox(note:PlayNote,p:number,y:number,now:number,size:number):void {
     const ctx=this.ctx,field=this.field;
     const left=project(field,-.49,p).x,right=project(field,5.49,p).x;
-    const start=project(field,0,p).x,end=project(field,5,p).x,height=Math.max(18,18*size/100),r=height*.4;
+    const start=project(field,0,p).x,end=project(field,5,p).x,height=Math.max(18,18*size/100)*project(field,2.5,p).scale,r=height*.4;
     const gold=ctx.createLinearGradient(0,y-height/2,0,y+height/2);
     gold.addColorStop(0,'#78501c');gold.addColorStop(.5,'#271c13');gold.addColorStop(1,'#5d3916');
     ctx.save();

@@ -31,7 +31,7 @@ function render(): void {
   songs.forEach(song => {
     const saved = __ADMIN__ ? savedChart(song) : null, bundled = online.get(song.id) ?? bundledChart(song), card = node('article', 'song-card'); card.dataset.song = song.id;
     const artwork = node('div', 'song-art'); artwork.setAttribute('aria-hidden', 'true');
-    artwork.append(node('span', 'cover-number', String(SONGS.indexOf(song) + 1).padStart(2, '0')), node('strong', 'cover-title', song.title));
+    artwork.append(node('span', 'cover-number', String(SONGS.indexOf(song) + 1).padStart(2, '0')));
     const lanes = node('div', 'cover-lanes');
     for (const color of LANE_COLORS) { const lane = node('i', ''); lane.style.setProperty('--color', color); lanes.append(lane); }
     artwork.append(lanes);

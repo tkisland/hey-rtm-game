@@ -22,6 +22,8 @@ test('menu searches registered songs and loads no video before choosing a song',
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     for (const action of await page.locator('.song-actions > *').all()) expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expect(page.locator('.cover-title')).toHaveCount(0);
+    for (const card of await page.locator('.song-card').all()) expect((await card.boundingBox())!.height).toBeLessThan(310);
   }
   await page.setViewportSize({ width: 320, height: 640 });
   await page.locator('#song-search').fill('second'); await expect(page.locator('.song-card')).toHaveCount(1);

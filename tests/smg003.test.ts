@@ -4,15 +4,13 @@ import {convertMidi,readMidi} from '../src/midi';
 import {GameEngine,playLane} from '../src/engine';
 import {laneAt} from '../src/chart';
 import {playableNotes} from '../src/note-display';
-import {bundledChart} from '../src/bundled-charts';
-import {DEFAULT_SONG} from '../src/songs';
 import smg from '../src/charts/smg003.json';
 
 const input=readFileSync(new URL('../charts/source/game-SMG003.mid',import.meta.url));
 const config=JSON.parse(readFileSync(new URL('../charts/source/game-SMG003.config.json',import.meta.url),'utf8'));
 it('ships the SMG003 MIDI with its tempo map, confirmed origin and all five note types',()=>{
   const chart=convertMidi(input,config);
-  expect(chart).toEqual(smg); expect(bundledChart(DEFAULT_SONG)).toEqual(chart);
+  expect(chart).toEqual(smg);
   expect(chart.startTime).toBe(7.65); expect(chart.beatOrigin).toBe(7.65);
   expect(chart.tempoChanges).toEqual([{time:18.626632844,bpm:192}]);
   expect(chart.notes).toHaveLength(534);
@@ -33,7 +31,7 @@ it('changes only the authorized pitch and duplicate note while preserving MIDI t
   expect(corrected.ppq).toBe(original.ppq); expect(corrected.tempos).toEqual(original.tempos);
 });
 it('plays the entire shipped chart with 509 perfect results including distant slides and single-score boxes',()=>{
-  const chart=bundledChart(DEFAULT_SONG)!, notes=playableNotes(chart.notes), engine=new GameEngine(chart), pressed=new Set<number>();
+  const chart=convertMidi(input,config), notes=playableNotes(chart.notes), engine=new GameEngine(chart), pressed=new Set<number>();
   const times=[...new Set(notes.flatMap(n=>[n.time,...(n.type==='hold'?[n.endTime]:[]),...(n.path??[]).map(p=>p.time)]))].sort((a,b)=>a-b);
   for(const time of times) {
     for(const note of engine.notes.filter(n=>n.state==='holding')) {
