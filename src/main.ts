@@ -152,6 +152,7 @@ function showHit(hit: Hit, now: number): void {
 function clearResults(): void {
   resultShown = false;
   result.hidden = true;
+  element('show-result').hidden = true;
   lastInputError = null;
   judgementTimes.fill(-Infinity);
   judgements.forEach(feedback => { feedback.hidden = true; delete feedback.dataset.kind; });
@@ -162,6 +163,7 @@ function showResults(): void {
   if (resultShown || !engine.finished) return;
   resultShown = true;
   result.hidden = false;
+  element('show-result').hidden = false;
   element('result-score').textContent = engine.score.toLocaleString('ja-JP');
   element('result-combo').textContent = `MAX COMBO ${engine.maxCombo}`;
   const counts = element('result-counts');
@@ -218,23 +220,24 @@ function setState(next: number): void {
   element('status-dot').classList.toggle('playing', next === PLAYER_STATE.PLAYING && !failed && !clockStale);
   const labels: Record<number, string> = {
     [-2]: 'YouTubeプレーヤーを読み込み中…',
-    [-1]: '上のボタンで音を準備して再生',
+    [-1]: '動画の▶または「再生」でスタート',
     [0]: '動画の再生が終了しました',
     [1]: 'MVと同期してプレイ中',
     [2]: '一時停止中 · スコアは保持されます',
     [3]: '動画を読み込み中 · ノーツを停止しています',
-    [5]: '上のボタンで音を準備して再生',
+    [5]: '動画の▶または「再生」でスタート',
   };
-  if (!failed) status.textContent = clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? '上のボタンで音を準備して再生';
+  if (!failed) status.textContent = clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? '動画の▶または「再生」でスタート';
   const playStart = element<HTMLButtonElement>('play-start');
   playStart.disabled = failed || next === -2;
-  playStart.textContent = next === PLAYER_STATE.PLAYING ? '♫ タップ音を準備' : '▶ 音を準備して再生・再開';
+  playStart.textContent = next === PLAYER_STATE.PLAYING ? '♫ 音声' : next === PLAYER_STATE.PAUSED ? '▶ 再開' : '▶ 再生';
+  playStart.setAttribute('aria-label', next === PLAYER_STATE.PLAYING ? 'タップ音を有効にする' : '動画を再生・再開');
 }
 function showError(message: string): void {
   sound.setPlaybackActive(false);
   sound.cancelPending();
   failed = true;
-  element('player-error').textContent = `${message} 上の「YouTube ↗」から公式動画を開けます。ゲームは停止しています。`;
+  element('player-error').textContent = `${message} 楽曲の「詳細」にある「YouTube ↗」から公式動画を開けます。ゲームは停止しています。`;
   element('player-error').hidden = false;
   status.textContent = '動画を再生できないため、ゲームを停止しています';
   element('status-dot').classList.remove('playing');
@@ -260,6 +263,9 @@ const disposePlayer = createYouTubePlayer({
   state: next => { if (!failed) setState(next); },
   error: showError,
 }, song);
+
+element('result-close').addEventListener('click', () => { result.hidden = true; }, {signal});
+element('show-result').addEventListener('click', () => { result.hidden = false; }, {signal});
 
 function hit(lane: number, gesture?: InputGesture): void {
   if (calibration.active) return;
@@ -416,7 +422,7 @@ function frame(now: number): void {
     stageHint.querySelector('span:last-child')!.textContent = '上のエラーメッセージをご確認ください';
   } else {
     stageHint.hidden = sample.playing || resultShown;
-    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : '上の再生ボタンで開始';
+    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'おつかれさまでした！' : '動画の▶でライブをはじめよう';
     stageHint.querySelector('strong')!.textContent = hint;
     stageHint.querySelector('span:last-child')!.textContent = 'ハートのバーを同じ色でキャッチ · 二重線の終点で離す';
   }

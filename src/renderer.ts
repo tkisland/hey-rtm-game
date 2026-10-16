@@ -3,7 +3,7 @@ import { BOX_SWEEP_SECONDS, BOX_WINDOWS, WINDOWS, playLane } from './engine';
 import { laneAt } from './chart';
 import { slideRoute } from './slide-route';
 import { responseMark } from './response-art';
-import { drawStage } from './stage-art';
+import { drawStage, drawVenue } from './stage-art';
 import { LANE_COLORS } from './colors';
 import { chordCurve, chordGroups, noteThickness } from './note-display';
 import type { Chart, ChartNote } from './chart';
@@ -115,6 +115,7 @@ export class Renderer {
     }
     const backdrop = ctx.createLinearGradient(0, 0, 0, h); backdrop.addColorStop(0, '#21172f'); backdrop.addColorStop(1, '#0b1020');
     ctx.clearRect(0, 0, w, h); ctx.fillStyle = backdrop; ctx.fillRect(0, 0, w, h);
+    drawVenue(ctx,field);
     const padTop = field.pads[0].y - field.padHeight / 2 - 8;
     ctx.fillStyle = '#090b16'; ctx.fillRect(0, padTop, w, h - padTop);
     ctx.fillStyle = '#ffffff12'; ctx.fillRect(0, padTop, w, 1);
@@ -125,8 +126,10 @@ export class Renderer {
       const edges = [project(field, lane - 0.49, 0), project(field, lane + 0.49, 0),
         project(field, lane + 0.49, 1), project(field, lane + 0.49, end),
         project(field, lane - 0.49, end), project(field, lane - 0.49, 1)];
-      ctx.fillStyle = lane % 2 ? '#1c2034d9' : '#171b2ed9'; this.polygon(edges);
-      ctx.strokeStyle = '#ffffff12'; ctx.lineWidth = 1; this.polygon(edges, false);
+      const runway = ctx.createLinearGradient(0,field.origin,0,field.near);
+      runway.addColorStop(0,'#121124f2'); runway.addColorStop(1,color+'29');
+      ctx.fillStyle = runway; this.polygon(edges);
+      ctx.strokeStyle = color+'38'; ctx.lineWidth = 1; this.polygon(edges, false);
       const age = now - (this.flashes.get(lane)?.time ?? -1000);
       const alpha = this.pressed.has(lane) ? 0.10 : Math.max(0, 1 - age / 220) * 0.20;
       if (alpha > 0) { ctx.globalAlpha = alpha; ctx.fillStyle = color; this.polygon(edges); ctx.globalAlpha = 1; }
@@ -189,22 +192,7 @@ export class Renderer {
       const gap = Math.min(60 / bpm / 2, this.gaps.get(note.id) ?? Infinity);
       const next = project(field, note.lane, p - gap / travel);
       const thickness = noteThickness(size, Math.abs(head.y - next.y), 10 * head.scale);
-      if (box) {
-        const left = project(field, -.49, p).x, right = project(field, 5.49, p).x, height = Math.max(14, 12 * size / 100);
-        const gradient = ctx.createLinearGradient(left, 0, right, 0);
-        LANE_COLORS.forEach((color, i) => gradient.addColorStop(i / 5, color));
-        ctx.fillStyle = gradient; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.roundRect(left, head.y - height / 2, right - left, height, height / 2); ctx.fill(); ctx.stroke();
-        for (let lane = 0; lane < 6; lane++) {
-          const point = project(field, lane, p), progress = note.boxProgress ?? 0;
-          const visited = note.boxDirection === -1 ? lane >= 6 - progress : lane < progress;
-          ctx.fillStyle = visited ? '#fff' : '#21182d'; ctx.strokeStyle = '#21182d'; ctx.lineWidth = .7;
-          responseMark(ctx, point.x, head.y, height * .3, true); ctx.stroke();
-        }
-        ctx.font = 'bold 10px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-        ctx.fillText(`← 箱推し SWIPE →${note.boxProgress ? ` ${note.boxProgress}/6` : ''}`, field.width / 2, head.y - height / 2 - 5);
-        ctx.textAlign = 'start'; ctx.lineWidth = 1; continue;
-      }
+      if (box) { this.drawBox(note,p,head.y,now,size); continue; }
       if (note.gimmick === 'slide' && note.type === 'hold') {
         this.drawSlide(note, progressAt, p, thickness, travel);
       } else if (note.type === 'hold') {
@@ -272,6 +260,41 @@ export class Renderer {
     if (playing) this.drawHoldEffects(notes, judgeTime);
     this.drawHitEffects(now);
     this.drawBoxEffects(now);
+  }
+  private drawBox(note:PlayNote,p:number,y:number,now:number,size:number):void {
+    const ctx=this.ctx,field=this.field;
+    const left=project(field,-.49,p).x,right=project(field,5.49,p).x;
+    const start=project(field,0,p).x,end=project(field,5,p).x,height=Math.max(18,18*size/100),r=height*.4;
+    const rainbow=ctx.createLinearGradient(left,0,right,0);
+    LANE_COLORS.forEach((color,i)=>rainbow.addColorStop(i/5,color));
+    ctx.save();
+    ctx.shadowColor='#f2a1ff';ctx.shadowBlur=10;
+    ctx.fillStyle=rainbow;ctx.beginPath();ctx.roundRect(left,y-height/2,right-left,height,height/2);ctx.fill();
+    ctx.shadowBlur=0;ctx.fillStyle='#21112e88';ctx.fill();
+    ctx.strokeStyle='#ffffffd9';ctx.lineWidth=1.3;ctx.stroke();
+    // One continuous arrow spans the first and last pads, rather than six tap markers.
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();ctx.moveTo(start+r+3,y);ctx.lineTo(end-r-3,y);
+    ctx.moveTo(start+r+8,y-4);ctx.lineTo(start+r+3,y);ctx.lineTo(start+r+8,y+4);
+    ctx.moveTo(end-r-8,y-4);ctx.lineTo(end-r-3,y);ctx.lineTo(end-r-8,y+4);ctx.stroke();
+    for(const x of [start,end]) {
+      ctx.fillStyle='#2c173e';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,2,0,Math.PI*2);ctx.fill();
+    }
+    const progress=note.boxProgress??0,phase=(now%1800)/1000;
+    const demo=phase<.25?phase/.25:phase<.9?1:phase<1.15?1-(phase-.9)/.25:0;
+    const fraction=progress ? (note.boxDirection===-1 ? (6-progress)/5 : (progress-1)/5) : this.reducedMotion.matches ? 0 : demo;
+    const x=start+(end-start)*fraction,handY=y+height/2+3;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fill();
+    // A small pointing hand demonstrates the gesture directly on the travel rail.
+    ctx.save();ctx.translate(x,handY);ctx.fillStyle='#30203f';ctx.strokeStyle='#fff';ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(-2,8);ctx.lineTo(-2,1);ctx.quadraticCurveTo(0,-2,2,1);ctx.lineTo(2,6);
+    ctx.quadraticCurveTo(7,5,7,9);ctx.lineTo(5,15);ctx.lineTo(-1,15);ctx.lineTo(-5,10);ctx.quadraticCurveTo(-7,6,-4,6);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.restore();
+    ctx.font='bold 10px "RocknRoll One",sans-serif';ctx.textAlign='center';ctx.fillStyle='#fff';ctx.shadowColor='#150b23';ctx.shadowBlur=4;
+    ctx.fillText(progress?'そのまま端まで！':'箱推し · 端から端へスワイプ',field.width/2,y-height/2-7);
+    ctx.restore();
   }
   private drawBoxEffects(now: number): void {
     const ctx = this.ctx, field = this.field, reduced = this.reducedMotion.matches;
