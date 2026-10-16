@@ -5,7 +5,7 @@ import { slideRoute } from './slide-route';
 import { responseMark } from './response-art';
 import { drawStage, drawVenue } from './stage-art';
 import { LANE_COLORS } from './colors';
-import { chordCurve, chordGroups, noteThickness } from './note-display';
+import { chordCurve, chordGroups, playNoteThickness } from './note-display';
 import type { Chart, ChartNote } from './chart';
 import { beatsBetween } from './tempo';
 import { fieldGeometry, project, timingBands } from './field-geometry';
@@ -23,7 +23,6 @@ export class Renderer {
   private cachedNotes: PlayNote[] | null = null;
   private renderNotes: PlayNote[] = [];
   private chords: ChartNote[][] = [];
-  private gaps = new Map<number, number>();
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2Dを利用できません。別のブラウザをお試しください。');
@@ -104,20 +103,17 @@ export class Renderer {
     }
     ctx.lineWidth = 1;
   }
-  draw(notes: PlayNote[], time: number, travel: number, now: number, size = 100, _bpm = 140, inputOffsetMs = 0, playing = true, chart?: Chart): void {
+  draw(notes: PlayNote[], time: number, travel: number, now: number, options: { inputOffsetMs?: number; playing?: boolean; chart?: Chart } = {}): void {
+    const { inputOffsetMs = 0, playing = true, chart } = options;
     if (this.canvas.width !== Math.round(this.field.width * (window.devicePixelRatio || 1))) this.resize();
     const ctx = this.ctx, field = this.field, w = field.width, h = field.height;
     // Match the input clock so every compensated PERFECT arrives at a fixed button.
     const judgeTime = time - inputOffsetMs / 1000;
     const progressAt = (seconds: number) => 1 + (judgeTime - seconds) / travel;
     if (this.cachedNotes !== notes) {
-      this.cachedNotes = notes; this.chords = chordGroups(notes); this.gaps.clear();
+      this.cachedNotes = notes; this.chords = chordGroups(notes);
       // A wide DD must never hide the color of a simultaneous ordinary note.
       this.renderNotes = [...notes].sort((a, b) => Number(b.gimmick === 'dd' || b.gimmick === 'box') - Number(a.gimmick === 'dd' || a.gimmick === 'box'));
-      for (let lane = 0; lane < 6; lane++) {
-        const ordered = notes.filter(note => note.lane === lane && note.gimmick !== 'box').sort((a, b) => a.time - b.time);
-        ordered.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (ordered[i - 1]?.time ?? -Infinity), (ordered[i + 1]?.time ?? Infinity) - note.time)));
-      }
     }
     const backdrop = ctx.createLinearGradient(0, 0, 0, h); backdrop.addColorStop(0, '#151028'); backdrop.addColorStop(1, '#080817');
     ctx.clearRect(0, 0, w, h);
@@ -194,6 +190,7 @@ export class Renderer {
       }
       ctx.stroke(); ctx.lineWidth=1;
     }
+    const referenceThickness = playNoteThickness(chart, field.approach, travel);
     for (const note of this.renderNotes) {
       if (!active(note)) continue;
       const raw = progressAt(note.time), box = note.gimmick === 'box';
@@ -202,12 +199,9 @@ export class Renderer {
       if (p < 0 || p > 1 + WINDOWS.GOOD / travel + 1e-8) continue;
       const lane = note.state === 'holding' ? playLane(note) : note.lane;
       const head = project(field, lane, p), color = LANE_COLORS[lane];
-      // Limit thickness at the receiving line, then scale both dimensions together.
-      // Actual note gaps stay fixed even when playback crosses a tempo event.
-      const gap = this.gaps.get(note.id) ?? Infinity;
-      const referenceThickness = noteThickness(size, gap * field.approach / travel, 16);
+      // Every lane and density shares one size; perspective scales both dimensions together.
       const thickness = referenceThickness * head.scale;
-      if (box) { this.drawBox(note,p,head.y,now,size); continue; }
+      if (box) { this.drawBox(note,p,head.y,now); continue; }
       if (note.gimmick === 'slide' && note.type === 'hold') {
         this.drawSlide(note, progressAt, p, referenceThickness, travel);
       } else if (note.type === 'hold') {
@@ -286,10 +280,10 @@ export class Renderer {
     this.drawBoxEffects(now);
     ctx.restore();
   }
-  private drawBox(note:PlayNote,p:number,y:number,now:number,size:number):void {
+  private drawBox(note:PlayNote,p:number,y:number,now:number):void {
     const ctx=this.ctx,field=this.field;
     const left=project(field,-.49,p).x,right=project(field,5.49,p).x;
-    const start=project(field,0,p).x,end=project(field,5,p).x,height=Math.max(18,18*size/100)*project(field,2.5,p).scale,r=height*.4;
+    const start=project(field,0,p).x,end=project(field,5,p).x,height=18*project(field,2.5,p).scale,r=height*.4;
     const gold=ctx.createLinearGradient(0,y-height/2,0,y+height/2);
     gold.addColorStop(0,'#78501c');gold.addColorStop(.5,'#271c13');gold.addColorStop(1,'#5d3916');
     ctx.save();

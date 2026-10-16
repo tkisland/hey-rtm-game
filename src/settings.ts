@@ -1,6 +1,7 @@
 import { DEFAULT_SONG, songStorageKey } from './songs';
 import type { Song } from './songs';
 
+/** noteSize is retained only for the administrator's editing timeline. */
 export interface Settings { travel: number; offset: number; bpm: number; startTime: number; debug: boolean; sound: boolean; soundVolume: number; noteSize: number; inputOffset: number; soundDelay: number }
 export const DEFAULT_SETTINGS: Settings = { travel: 2.5, offset: 0, bpm: 140, startTime: 12, debug: false, sound: true, soundVolume: 70, noteSize: 100, inputOffset: 0, soundDelay: 0 };
 export const INPUT_OFFSET_LIMIT_MS = 300;

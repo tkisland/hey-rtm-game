@@ -73,7 +73,7 @@ test('reference taps replace the input correction, preserve other settings, and 
   await expect(page.locator('.calibration-dialog')).not.toBeVisible();
   await expect(page.locator('#input-offset')).toHaveValue('80');
   await expect(page.locator('#sound-delay')).toHaveValue('150');
-  await expect(page.locator('#note-size')).toHaveValue('80');
+  await expect(page.locator('#note-size')).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).clickStarts)).toEqual([]);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({ inputOffset: 80, soundDelay: 150, sound: false, soundVolume: 0 });
   await page.goto('/editor.html'); await page.locator('.timing-settings summary').click();

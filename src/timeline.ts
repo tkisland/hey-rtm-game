@@ -2,10 +2,10 @@ import type { Chart, ChartNote } from './chart';
 import { copyNote, laneAt } from './chart';
 import { slideRoute } from './slide-route';
 import { LANE_COLORS } from './colors';
-import { chordGroups, noteThickness, playableNotes } from './note-display';
+import { chordGroups, noteThickness, playableNotes, sixteenthSeconds } from './note-display';
 import { inRange, MAX_TIME, MIN_HOLD } from './editor-model';
 import type { Division, TimeRange } from './editor-model';
-import { beatToTime, bpmAt, snapTime, timeToBeat } from './tempo';
+import { beatToTime, snapTime, timeToBeat } from './tempo';
 
 const LEFT = 42, TOP = 30;
 export interface TimelineState { chart: Chart; selected: number | null; range: TimeRange | null; rangeMode: boolean; noteSize: number; start: number; span: number; division: Division; snap: boolean; time: number }
@@ -19,7 +19,6 @@ export class Timeline {
   private cachedChart: Chart | null = null;
   private chords: ChartNote[][] = [];
   private playable: ChartNote[] = [];
-  private gaps = new Map<number, number>();
   private listeners = new AbortController();
   private observer: ResizeObserver;
   get dragging(): boolean { return this.drag !== null || this.rangeDrag !== null; }
@@ -106,12 +105,8 @@ export class Timeline {
   draw(state: TimelineState): void {
     this.state = state;
     if (this.cachedChart !== state.chart) {
-      this.cachedChart = state.chart; this.chords = chordGroups(state.chart.notes); this.gaps.clear();
+      this.cachedChart = state.chart; this.chords = chordGroups(state.chart.notes);
       this.playable = playableNotes(state.chart.notes);
-      for (let lane = 0; lane < 6; lane++) {
-        const notes = state.chart.notes.filter(note => note.lane === lane);
-        notes.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (notes[i - 1]?.time ?? -Infinity), (notes[i + 1]?.time ?? Infinity) - note.time)));
-      }
     }
     const ctx = this.ctx, row = (this.height - TOP) / 6;
     ctx.clearRect(0, 0, this.width, this.height);
@@ -143,13 +138,14 @@ export class Timeline {
       ctx.strokeStyle = '#ffe77999'; ctx.setLineDash([3, 3]); ctx.beginPath();
       ctx.moveTo(x, TOP + (Math.min(...group.map(note => note.lane)) + 0.5) * row); ctx.lineTo(x, TOP + (Math.max(...group.map(note => note.lane)) + 0.5) * row); ctx.stroke(); ctx.setLineDash([]);
     }
+    const spacing = sixteenthSeconds(state.chart) / state.span * (this.width - LEFT);
+    const width = noteThickness(state.noteSize, spacing, 12);
     const drawNote = (note: ChartNote, ghost = false) => {
       const start = ghost ? note.sourceTime! : note.time;
       const end = note.type === 'hold' ? ghost ? note.sourceEndTime ?? note.endTime : note.endTime : start;
       const x = this.xAt(start), endX = this.xAt(end), y = TOP + (note.lane + 0.5) * row;
       if (endX < LEFT - 8 || x > this.width + 8) return;
-      const spacing = Math.min(60 / bpmAt(state.chart, start) / state.division, this.gaps.get(note.id) ?? Infinity) / state.span * (this.width - LEFT);
-      const width = noteThickness(state.noteSize, spacing, 12), color = LANE_COLORS[note.lane];
+      const color = LANE_COLORS[note.lane];
       const selected = note.id === state.selected || Boolean(range && inRange(note, range));
       ctx.strokeStyle = ghost ? `${color}60` : selected ? '#fff' : color;
       ctx.fillStyle = color; ctx.lineWidth = selected && !ghost ? 2 : 1;

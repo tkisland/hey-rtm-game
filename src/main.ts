@@ -328,7 +328,6 @@ element('settings-close').addEventListener('click', () => showSettings(false), {
 const travel = element<HTMLInputElement>('travel'), offset = element<HTMLInputElement>('offset');
 const soundToggle = element<HTMLInputElement>('sound-toggle');
 const soundVolume = element<HTMLInputElement>('sound-volume');
-const noteSize = element<HTMLInputElement>('note-size');
 const inputOffset = element<HTMLInputElement>('input-offset'), soundDelay = element<HTMLInputElement>('sound-delay');
 const bpm = __ADMIN__ ? element<HTMLInputElement>('bpm') : null;
 const startTime = __ADMIN__ ? element<HTMLInputElement>('start-time') : null;
@@ -337,8 +336,6 @@ function reflectSettings(): void {
   inputOffset.value = String(settings.inputOffset); soundDelay.value = String(settings.soundDelay);
   element('input-offset-value').textContent = `${settings.inputOffset > 0 ? '+' : ''}${settings.inputOffset} ms`;
   element('sound-delay-value').textContent = `${settings.soundDelay} ms`;
-  noteSize.value = String(settings.noteSize);
-  element('note-size-value').textContent = `${settings.noteSize}%`;
   travel.value = String(settings.travel); offset.value = String(settings.offset);
   if (bpm) bpm.value = String(settings.bpm);
   if (startTime) startTime.value = String(settings.startTime);
@@ -355,7 +352,7 @@ function reflectSettings(): void {
   if (__ADMIN__) element('debug-panel').hidden = !settings.debug;
 }
 function changeSettings(): void {
-  settings = normalizeSettings({ travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, noteSize: noteSize.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
+  settings = normalizeSettings({ ...settings, travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
   reflectSettings();
   if (settings.sound && settings.soundVolume > 0 && state === PLAYER_STATE.PLAYING) void sound.unlock();
   const saved = saveSettings(settings, song);
@@ -369,7 +366,6 @@ startTime?.addEventListener('change', changeSettings, { signal });
 debug?.addEventListener('change', changeSettings, { signal });
 soundToggle.addEventListener('change', changeSettings, { signal });
 soundVolume.addEventListener('input', changeSettings, { signal });
-noteSize.addEventListener('input', changeSettings, { signal });
 inputOffset.addEventListener('input', changeSettings, { signal });
 soundDelay.addEventListener('input', changeSettings, { signal });
 const calibration = createCalibrationDialog({
@@ -417,7 +413,7 @@ function frame(now: number): void {
     showResults();
   }
   syncHoldSound(sample.playing, now);
-  renderer.draw(engine.notes, sample.time, settings.travel, now, settings.noteSize, bpmAt(engine.chart, sample.time), settings.inputOffset, sample.playing, engine.chart);
+  renderer.draw(engine.notes, sample.time, settings.travel, now, { inputOffsetMs: settings.inputOffset, playing: sample.playing, chart: engine.chart });
   if (failed) {
     stageHint.hidden = false;
     stageHint.querySelector('strong')!.textContent = '動画を再生できません';

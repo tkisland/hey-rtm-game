@@ -70,7 +70,7 @@ test('actual rendered centers at each perspective-band edge match the engine jud
             zones = [];
             heads = [];
             const time = 12 + offset / 1000 + error;
-            renderer.draw(engine.notes, time, 2, 0, 150, 120, offset);
+            renderer.draw(engine.notes, time, 2, 0, { inputOffsetMs: offset, chart: engine.chart });
             const head = heads[0], band = zones[lane * 3 + zone], edge = error < 0 ? [band[0], band[1]] : [band[2], band[3]];
             const cx = head.x + head.w / 2, cy = head.y + head.h / 2;
             // Sample the coloured bar beside its white heart and outline.
@@ -93,7 +93,7 @@ test('actual rendered centers at each perspective-band edge match the engine jud
     expect(r.visible).toBe(true);
   }
 });
-test('targets and timing bands stay fixed when changing correction or thickness, and speed changes the band', async ({ page }) => {
+test('targets and timing bands stay fixed when changing correction, and speed changes the band', async ({ page }) => {
   await page.locator('#settings-toggle').click();
   await range(page, 'input-offset', '0');
   const normal = await bands(page, '#game-canvas');
@@ -103,8 +103,6 @@ test('targets and timing bands stay fixed when changing correction or thickness,
   await range(page, 'input-offset', '300');
   expect(await bands(page, '#game-canvas')).toEqual(normal);
   expect(await targets()).toEqual(before);
-  await range(page, 'note-size', '50');
-  expect(await bands(page, '#game-canvas')).toEqual(normal);
   await range(page, 'travel', '1');
   const fast = await bands(page, '#game-canvas');
   await range(page, 'travel', '4');

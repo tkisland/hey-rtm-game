@@ -57,6 +57,11 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number, ge
       render('cancel');
     }, { signal });
     button.addEventListener('contextmenu', event => event.preventDefault(), { signal });
+    // Safari's navigation recognizer also observes Touch Events. Pointer capture and
+    // touch-action alone do not cancel that default action on every iOS version.
+    const preventTouchGesture = (event: TouchEvent) => { if (event.cancelable) event.preventDefault(); };
+    button.addEventListener('touchstart', preventTouchGesture, { signal, passive: false });
+    button.addEventListener('touchmove', preventTouchGesture, { signal, passive: false });
     // Safari may still recognize double-tap zoom from compatibility touch events.
     button.addEventListener('touchend', event => event.preventDefault(), { signal, passive: false });
     button.addEventListener('dblclick', event => event.preventDefault(), { signal });

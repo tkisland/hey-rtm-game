@@ -2,6 +2,7 @@
 * { box-sizing:border-box; }
 body { margin:0; background:radial-gradient(ellipse at 50% 0%,#29213a88,transparent 50%),#0c0d16; min-height:100dvh; }
 body:not(.menu-page) { touch-action:manipulation; }
+html:has(.game-page),html:has(.tutorial-dialog[open]),.game-page { overscroll-behavior-x:none; }
 button,input,select,textarea { font:inherit; }
 button { cursor:pointer; color:inherit; }
 button:disabled { opacity:.45; cursor:not-allowed; }

@@ -1,4 +1,4 @@
-import type { ChartNote } from './chart';
+import type { Chart, ChartNote } from './chart';
 
 /** Distinct lanes with starts within 1ms are shown as simultaneous inputs. */
 export function chordGroups(notes: readonly ChartNote[]): ChartNote[][] {
@@ -27,6 +27,15 @@ export function playableNotes(notes: readonly ChartNote[]): ChartNote[] {
 }
 export function noteThickness(size: number, spacing: number, base: number): number {
   return Math.max(2, Math.min(base * size / 100, spacing * 0.6));
+}
+/** Use the fastest section so every sixteenth remains separate without resizing mid-song. */
+export function sixteenthSeconds(chart: Pick<Chart, 'bpm' | 'tempoChanges'> | undefined): number {
+  const bpm = (chart?.tempoChanges ?? []).reduce((fastest, change) => Math.max(fastest, change.bpm), chart?.bpm ?? 140);
+  return 60 / bpm / 4;
+}
+/** One sixteenth-note size for the whole song, including sparse lanes and tempo changes. */
+export function playNoteThickness(chart: Pick<Chart, 'bpm' | 'tempoChanges'> | undefined, approach: number, travel: number): number {
+  return noteThickness(100, sixteenthSeconds(chart) * approach / travel, 16);
 }
 
 type Point = { x: number; y: number };

@@ -18,8 +18,8 @@ test('fixed horizontal transfer arrows match checkpoint timing and do not reshap
       const engine=new GameEngine({videoId:'pJDfWpZ7CI4',title:'test',bpm:120,startTime:10,notes:[{id:1,type:'hold',gimmick:'slide',time:10,endTime:16,lane:1,path:[{time:12,lane:2},{time:14,lane:1}]}]});
       engine.advance(10,new Set([1]));engine.input(1,10);
       const rect=canvas.getBoundingClientRect(),field=fieldGeometry(rect.width,rect.height);
-      renderer.draw(engine.notes,12.3,2.5,0,100,120,300);const before=arrows;arrows=[];
-      engine.advance(12,new Set([2]));renderer.draw(engine.notes,12.3,2.5,0,100,120,300);
+      renderer.draw(engine.notes,12.3,2.5,0,{inputOffsetMs:300,chart:engine.chart});const before=arrows;arrows=[];
+      engine.advance(12,new Set([2]));renderer.draw(engine.notes,12.3,2.5,0,{inputOffsetMs:300,chart:engine.chart});
       return {before,after:arrows,targets:[project(field,1,1),project(field,2,1)]};
     } finally {ctx.moveTo=original.move;ctx.lineTo=original.line;ctx.stroke=original.stroke;renderer.destroy();}
   });

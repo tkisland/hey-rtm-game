@@ -24,12 +24,27 @@ async function start(page:Page,time:number) {
 }
 for(const reverse of [false,true]) test(`real game scores one late ${reverse?'right-to-left':'left-to-right'} fast swipe exactly once`,async({page})=>{
   const points=await start(page,10.25),touch=await page.context().newCDPSession(page);
+  const originalUrl=page.url();
+  await page.evaluate(()=>{
+    (window as any).swipeDefaults=[];
+    for(const type of ['touchstart','touchmove']) document.addEventListener(type,event=>{
+      if((event.target as Element).closest('.lane-button')) (window as any).swipeDefaults.push({type,prevented:event.defaultPrevented});
+    },{passive:true});
+  });
+  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).overscrollBehaviorX)).toBe('none');
+  const edges=await page.locator('.lane-button').evaluateAll(nodes=>({left:nodes[0].getBoundingClientRect().left,right:innerWidth-nodes[5].getBoundingClientRect().right}));
+  expect(edges.left).toBeGreaterThanOrEqual(24);expect(edges.right).toBeGreaterThanOrEqual(24);
   await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[reverse?5:0]]});
   await expect(page.locator('#score')).toHaveText('0');
   await page.clock.runFor(50);
   await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[reverse?0:5]]});
   await expect(page.locator('#score')).toHaveText('300');await expect(page.locator('#combo')).toHaveText('1');
   await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  const defaults=await page.evaluate(()=>(window as any).swipeDefaults);
+  expect(defaults.some((event:any)=>event.type==='touchstart')).toBe(true);
+  expect(defaults.some((event:any)=>event.type==='touchmove')).toBe(true);
+  expect(defaults.every((event:any)=>event.prevented)).toBe(true);
+  expect(page.url()).toBe(originalUrl);
   await expect(page.locator('#result-accuracy')).toContainText('全 1 ノーツ');
   await expect(page.locator('#result-counts div').filter({hasText:'GOOD'}).locator('strong')).toHaveText('1');
   await page.keyboard.press('s');await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('300');await touch.detach();

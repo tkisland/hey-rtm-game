@@ -8,7 +8,8 @@ export interface FieldGeometry {
 }
 export interface FieldPoint { x: number; y: number; width: number; scale: number }
 export function fieldGeometry(width: number, height: number): FieldGeometry {
-  const margin = Math.min(8, width * 0.025), cell = (width - 2 * margin) / 6;
+  // Keep swipe starts away from the browser's edge gesture, retaining 44px touch targets.
+  const margin = Math.max(0, Math.min(20, (width - 6 * 44) / 2)), cell = (width - 2 * margin) / 6;
   const padWidth = Math.min(72, Math.max(44, cell * 0.86));
   const padHeight = Math.min(74, Math.max(60, height * 0.15));
   const origin = Math.min(148, Math.max(28, (height - 240) * .28));

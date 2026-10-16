@@ -64,7 +64,7 @@ test('outer held chord heads stay at the horizontal targets with a straight link
     const heads: { x: number; y: number; width: number }[] = [], tails: { y: number; width: number }[] = [];
     let path: { x: number; y: number }[] = [], link: { x: number; y: number }[] = [];
     ctx.roundRect = function(...args) { heads.push({ x: args[0] + args[2] / 2, y: args[1] + args[3] / 2, width: args[2] }); return original.round(...args); };
-    // Tail caps are solid lane-colored rectangles; their thickness follows note size.
+    // Tail caps are solid lane-colored rectangles with the same size as note heads.
     ctx.fillRect = function(...args) { if ((this.fillStyle === '#ff739c' || this.fillStyle === '#ffe779') && args[3] > 1 && args[2] > 5) tails.push({ y: args[1] + args[3] / 2, width: args[2] }); return original.fill(...args); };
     ctx.moveTo = (x, y) => { path = [{ x, y }]; original.move(x, y); };
     ctx.lineTo = (x, y) => { path.push({ x, y }); original.line(x, y); };
@@ -74,7 +74,7 @@ test('outer held chord heads stay at the horizontal targets with a straight link
       return (original.stroke as any)(...args);
     };
     try {
-      renderer.draw(engine.notes, 13.3, 2, 0, 100, 120, 300);
+      renderer.draw(engine.notes, 13.3, 2, 0, { inputOffsetMs: 300, chart: engine.chart });
       const r = canvas.getBoundingClientRect();
       const targets = [...document.querySelectorAll('.lane-receptor')].map(button => { const b = button.getBoundingClientRect(); return { x: b.x + b.width / 2 - r.x, y: b.y + b.height / 2 - r.y }; });
       return { heads, tails, link, targets };
@@ -128,9 +128,9 @@ test('dense bars, hold heads and DD keep their proportions throughout flight and
         [{id:1,lane:2,type:'tap',gimmick:'dd',time:12}],
       ];
       return variants.map(notes => {
-        const engine = new GameEngine({videoId:'pJDfWpZ7CI4',title:'proportions',bpm:166,startTime:12,notes} as any);
+        const engine = new GameEngine({videoId:'pJDfWpZ7CI4',title:'proportions',bpm:166,startTime:12,tempoChanges:[{time:10.5,bpm:192}],notes} as any);
         return [.05,.25,.5,.75,1].map(p => {
-          heads = []; renderer.draw(engine.notes,12+(p-1)*2.5,2.5,0,100,p<.5?166:192);
+          heads = []; renderer.draw(engine.notes,12+(p-1)*2.5,2.5,0,{chart:engine.chart});
           return heads[0];
         });
       });
@@ -140,4 +140,36 @@ test('dense bars, hold heads and DD keep their proportions throughout flight and
     expect(frames[i].height / frames[i].width).toBeCloseTo(frames[0].height / frames[0].width,7);
     if (i) { expect(frames[i].width).toBeGreaterThan(frames[i-1].width); expect(frames[i].height).toBeGreaterThan(frames[i-1].height); }
   }
+});
+
+test('sparse, sixteenth, hold and slide heads share one thickness before and after a tempo change', async ({ page }) => {
+  const frames = await page.locator('#game-canvas').evaluate(async (canvas: HTMLCanvasElement) => {
+    const { Renderer } = await import('/src/renderer.ts'), { GameEngine } = await import('/src/engine.ts');
+    const { fieldGeometry, project } = await import('/src/field-geometry.ts');
+    const notes = [12, 19].flatMap((time, i) => [
+      { id:i*10+1, type:'tap', lane:0, time },
+      { id:i*10+2, type:'tap', lane:0, time:time+.078125 },
+      { id:i*10+3, type:'tap', lane:1, time },
+      { id:i*10+4, type:'hold', lane:2, time, endTime:time+2 },
+      { id:i*10+5, type:'hold', gimmick:'slide', lane:3, time, endTime:time+2, path:[{time:time+1,lane:5}] },
+    ]);
+    const engine = new GameEngine({videoId:'pJDfWpZ7CI4',title:'uniform sizes',bpm:166,startTime:12,tempoChanges:[{time:18,bpm:192}],notes} as any);
+    const renderer = new Renderer(canvas), ctx = canvas.getContext('2d')!, original = ctx.roundRect.bind(ctx);
+    const rect = canvas.getBoundingClientRect(), field = fieldGeometry(rect.width, rect.height);
+    let heads: { y:number; width:number; height:number }[] = [];
+    ctx.roundRect = function(x,y,w,h,r) { heads.push({y:y+h/2,width:w,height:h}); original(x,y,w,h,r); };
+    try {
+      return [12,19].flatMap(time => [.25,.75,1].map(p => {
+        heads = []; renderer.draw(engine.notes,time+(p-1)*2.5,2.5,0,{chart:engine.chart});
+        const point = project(field,0,p);
+        return { heads:heads.filter(head=>Math.abs(head.y-point.y)<1e-6), scale:point.scale,
+          expected:Math.max(2,Math.min(16,60/192/4*field.approach/2.5*.6)) };
+      }));
+    } finally { ctx.roundRect = original; renderer.destroy(); }
+  });
+  for (const frame of frames) {
+    expect(frame.heads).toHaveLength(4);
+    frame.heads.forEach(head=>expect(head.height/frame.scale).toBeCloseTo(frame.expected,7));
+  }
+  frames.forEach(frame=>expect(frame.expected).toBe(frames[0].expected));
 });
