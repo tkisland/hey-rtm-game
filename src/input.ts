@@ -3,7 +3,7 @@ export const KEYS = ['KeyS', 'KeyD', 'KeyF', 'KeyJ', 'KeyK', 'KeyL'];
 
 /** A pointer per finger, and independent keyboard state. No repeat hits or shared touch lock. */
 export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number, gesture?: InputGesture) => void, onPressed: (lanes: Set<number>, reason: 'change' | 'cancel') => void, blocked: () => boolean = () => false,
-  options: {sweepCrossings?: boolean; onGestureEnd?: (id:string) => void} = {}): () => void {
+  options: {sweepCrossings?: boolean; onGestureEnd?: (id:string) => void; slideDestination?: (lane:number) => number | undefined} = {}): () => void {
   const controller = new AbortController();
   const signal = controller.signal;
   const pointers = new Map<number, number>();
@@ -38,6 +38,12 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number, ge
       rects.forEach((rect, lane) => { if (Math.abs(event.clientX - rect.x - rect.width / 2) < Math.abs(event.clientX - rects[next].x - rects[next].width / 2)) next = lane; });
       if (next === pointers.get(event.pointerId)) return;
       const previous = pointers.get(event.pointerId)!;
+      const destination = options.slideDestination?.(previous);
+      // Keep the held lane while this finger crosses the bridge. Only the
+      // authored destination transfers the hold; intermediate pads cannot tap notes.
+      if (destination !== undefined && next > Math.min(previous, destination) && next < Math.max(previous, destination)) {
+        event.preventDefault(); return;
+      }
       event.preventDefault(); pointers.set(event.pointerId, next); render();
       if (options.sweepCrossings) for (let crossed = previous + Math.sign(next - previous); crossed !== next; crossed += Math.sign(next - previous)) onHit(crossed, {id:`pointer:${event.pointerId}`, sweepOnly:true});
       onHit(next, {id:`pointer:${event.pointerId}`});

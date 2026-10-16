@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { api, seekPlay, waitForVideoTime } from './mock-video';
 import { readFileSync } from 'node:fs';
-const smg = JSON.parse(readFileSync(new URL('../../src/charts/smg002.json', import.meta.url), 'utf8'));
+const smg = JSON.parse(readFileSync(new URL('../../src/charts/smg003.json', import.meta.url), 'utf8'));
 
 const draft = { videoId: 'pJDfWpZ7CI4', title: 'my draft', bpm: 120, startTime: 10, beatOrigin: 10, notes: [{ id: 1, time: 10, lane: 0, type: 'tap' }] };
 test.beforeEach(async ({ page }) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
 });
-test('the primary menu entry plays SMG002 at 7.65s, including its first yellow note', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('.song-meta')).toContainText('SMG002 · 166 → 192 BPM · 509 NOTES');
+test('the primary menu entry plays SMG003 at 7.65s, including its first yellow note', async ({ page }) => {
+  await page.goto('/'); await expect(page.locator('.song-meta')).toContainText('SMG003 · 166 → 192 BPM · 509 NOTES');
   await expect(page.locator('.song-play')).toHaveText('収録譜面で遊ぶ'); await page.locator('.song-play').click();
   await expect(page.locator('#restart')).toBeEnabled(); await expect(page.locator('#chart-source')).toHaveValue('bundled');
   await expect(page.locator('#chart-info')).toContainText('BUNDLED CHART · 166 → 192 BPM · 7.65秒〜 · 509 NOTES');
@@ -58,7 +58,7 @@ test('the editor loads a bundled copy explicitly, preserves undo and exports the
   await page.locator('#redo').click(); await expect(page.locator('#note-count')).toHaveText('509 NOTES');
   await expect(page.locator('#save-status')).toContainText('保存しました');
   const data = await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-editor-v1')!));
-  expect(data).toEqual(smg); expect(data.notes.filter((n: any) => n.type === 'hold')).toHaveLength(22);
+  expect(data).toEqual(smg); expect(data.notes.filter((n: any) => n.type === 'hold')).toHaveLength(23);
   const downloadEvent = page.waitForEvent('download'); await page.locator('#export-chart').click(); const download = await downloadEvent;
   const stream = await download.createReadStream(); const chunks = []; for await (const chunk of stream!) chunks.push(chunk);
   expect(JSON.parse(Buffer.concat(chunks).toString())).toEqual(smg);
