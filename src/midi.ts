@@ -117,10 +117,10 @@ export function convertMidi(buffer: Uint8Array, config: MidiConfig): Chart {
   }
   // Six tagged colours describe one box gesture, anchored at the first marker.
   const box = midi.notes.filter(note => BOX_PITCHES.includes(note.pitch));
-  if (box.length % 6) throw new Error('箱推しは6音ずつ指定してください。');
+  if (box.length % 6) throw new Error('箱オシは6音ずつ指定してください。');
   for (let i = 0; i < box.length; i += 6) {
     const group = box.slice(i, i + 6);
-    if (new Set(group.map(note => note.pitch)).size !== 6) throw new Error('箱推しは6色を1回ずつ指定してください。');
+    if (new Set(group.map(note => note.pitch)).size !== 6) throw new Error('箱オシは6色を1回ずつ指定してください。');
     group.forEach(note => notes.push({id:0, time:videoTime(group[0].tick), lane:BOX_PITCHES.indexOf(note.pitch), type:'tap', gimmick:'box', boxId:i / 6 + 1}));
   }
   // Consecutive touching slide-bank notes describe one continuous gesture. A gap starts another.
@@ -128,12 +128,12 @@ export function convertMidi(buffer: Uint8Array, config: MidiConfig): Chart {
   for (let i = 0; i < slides.length;) {
     const group = [slides[i++]];
     while (i < slides.length && slides[i].tick <= group.at(-1)!.endTick) {
-      if (slides[i].tick !== group.at(-1)!.endTick) throw new Error('推し変の音符は重ねず、終端と次の始端をぴったりつないでください。');
+      if (slides[i].tick !== group.at(-1)!.endTick) throw new Error('オシ変の音符は重ねず、終端と次の始端をぴったりつないでください。');
       group.push(slides[i++]);
     }
-    if (group.length < 2 || group.length > 129) throw new Error('推し変は2〜129音を隙間なくつないで指定してください。');
+    if (group.length < 2 || group.length > 129) throw new Error('オシ変は2〜129音を隙間なくつないで指定してください。');
     const lanes = group.map(note => SLIDE_PITCHES.indexOf(note.pitch));
-    if (lanes.some((lane, j) => j > 0 && lane === lanes[j - 1]) || group.some(note => videoTime(note.endTick) - videoTime(note.tick) < .03 - 1e-8)) throw new Error('推し変は30ms以上の間隔で別の色へ移動してください。');
+    if (lanes.some((lane, j) => j > 0 && lane === lanes[j - 1]) || group.some(note => videoTime(note.endTick) - videoTime(note.tick) < .03 - 1e-8)) throw new Error('オシ変は30ms以上の間隔で別の色へ移動してください。');
     notes.push({id:0, time:videoTime(group[0].tick), endTime:videoTime(group.at(-1)!.endTick), lane:lanes[0], type:'hold', gimmick:'slide', path:group.slice(1).map((note, j) => ({time:videoTime(note.tick), lane:lanes[j + 1]}))});
   }
   notes.sort((a, b) => a.time - b.time || a.lane - b.lane);

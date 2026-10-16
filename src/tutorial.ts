@@ -13,12 +13,12 @@ import { compensateInput } from './timing';
 import { tutorialChart, TUTORIAL_BEAT, TUTORIAL_BPM, TUTORIAL_TRAVEL } from './tutorial-chart';
 
 const steps = [
-  {title:'単推し', description:'届くハートのバーが上の横線に重なったら、下の同じ色のペンライトを1回押そう。'},
-  {title:'同時推し', description:'線でつながった2つを一緒に押そう。片方でもMISSなら、その組は0点です。'},
-  {title:'長推し', description:'ハートの先頭で押し、二重線の終点がラインに来たら離そう。早すぎても遅すぎてもMISSです。'},
-  {title:'箱推し', description:'金色で両端がとがった矢印レールが来たら、ボタンの端から端へ一瞬でスワイプ！ 指のガイドが目印。左右どちらからでもOK。約0.25秒以内になぞり切ると1ノーツ分の得点・コンボ。PCは6キーを素早く順に押そう。'},
+  {title:'単オシ', description:'届くハートのバーが上の横線に重なったら、下の同じ色のペンライトを1回押そう。'},
+  {title:'同時オシ', description:'線でつながった2つを一緒に押そう。片方でもMISSなら、その組は0点です。'},
+  {title:'長オシ', description:'ハートの先頭で押し、二重線の終点がラインに来たら離そう。早すぎても遅すぎてもMISSです。'},
+  {title:'箱オシ', description:'金色の矢印レールが来たら、中央の白・赤に指を2本置き、左はピンク、右は黄色へパッと開こう！ 約0.35秒で左右へなぞると1ノーツ分の得点・コンボ。PCは F＋J → D＋K → S＋L の順に押そう。'},
   {title:'DD', description:'虹色に光る丸いバーがDD！ 「どこでも1タップ」の案内に合わせて、好きなボタンを1つだけタイミングよく押そう。'},
-  {title:'推し変', description:'縦の帯では同じ色を保持。横矢印が上の横線に来たら、指をつけたまま矢印の先の色へ移ろう。離れた色にも移れます。PCは次キーを押すか、先に次を押して矢印で前を離す。二重線で離そう。'},
+  {title:'オシ変', description:'縦の帯では同じ色を保持。横矢印が上の横線に来たら、指をつけたまま矢印の先の色へ移ろう。離れた色にも移れます。PCは次キーを押すか、先に次を押して矢印で前を離す。二重線で離そう。'},
 ];
 
 export function mountTutorial(): () => void {
@@ -93,15 +93,15 @@ export function mountTutorial(): () => void {
   function showHit(hit: Hit, now: number): void {
     if (hit.phase === 'sweep') {
       if (hit.judgement !== 'MISS') renderer?.flash(hit.lane, now, hit.judgement);
-      feedback.textContent = 'そのまま端までスワイプ！'; return;
+      feedback.textContent = '2本指で中央から左右の端へ！'; return;
     }
-    const feedbackLane = hit.boxComplete ? 2 : hit.lane, label = labels[feedbackLane]; label.hidden = false; label.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
+    const feedbackLane = hit.boxComplete ? 2 : hit.lane, label = labels[feedbackLane]; label.hidden = false; label.textContent = hit.boxComplete ? '箱オシ成功！' : hit.phase === 'move' ? 'オシ変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
     label.dataset.kind = hit.judgement; hitTimes[feedbackLane] = now;
     if (hit.judgement !== 'MISS') {
       renderer?.flash(hit.lane, now, hit.judgement);
-      if (hit.boxComplete && hit.boxId !== undefined) { sound?.playBoxSweep(); renderer?.completeBox(now, hit.boxId, hit.boxDirection); }
+      if (hit.boxComplete && hit.boxId !== undefined) { sound?.playBoxSweep(); renderer?.completeBox(now, hit.boxId); }
     }
-    feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、矢印の先の色へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
+    feedback.textContent = hit.boxComplete ? '箱オシ成功！' : hit.phase === 'move' ? 'オシ変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、矢印の先の色へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
     feedback.classList.toggle('success', hit.judgement !== 'MISS'); updateScore();
   }
   function draw(now: number, time: number): void {

@@ -37,21 +37,21 @@ export function parseChart(text: string, requireNotes = false, song: Song = DEFA
     ids.add(item.id as number);
     if (item.gimmick !== undefined && !['box', 'dd', 'slide'].includes(item.gimmick as string)) throw new Error('ギミックはbox・dd・slideを指定してください。');
     const gimmick = item.gimmick as ChartNote['gimmick'];
-    if ((gimmick === 'dd' || gimmick === 'box') && item.type !== 'tap' || gimmick === 'slide' && item.type !== 'hold') throw new Error('DD・箱推しは単推し、推し変は長推しの形式で指定してください。');
-    if ((gimmick === 'box' && (!Number.isSafeInteger(item.boxId) || (item.boxId as number) < 1)) || (gimmick !== 'box' && item.boxId !== undefined)) throw new Error('箱推しには一意のチェーン番号boxIdを指定してください。');
-    if (gimmick !== 'slide' && item.path !== undefined) throw new Error('pathは推し変だけに指定してください。');
+    if ((gimmick === 'dd' || gimmick === 'box') && item.type !== 'tap' || gimmick === 'slide' && item.type !== 'hold') throw new Error('DD・箱オシは単オシ、オシ変は長オシの形式で指定してください。');
+    if ((gimmick === 'box' && (!Number.isSafeInteger(item.boxId) || (item.boxId as number) < 1)) || (gimmick !== 'box' && item.boxId !== undefined)) throw new Error('箱オシには一意のチェーン番号boxIdを指定してください。');
+    if (gimmick !== 'slide' && item.path !== undefined) throw new Error('pathはオシ変だけに指定してください。');
     const path: {time: number; lane: number}[] = [];
     if (gimmick === 'slide') {
-      if (!Array.isArray(item.path) || !item.path.length || item.path.length > 128) throw new Error('推し変の移動先は1〜128個で指定してください。');
+      if (!Array.isArray(item.path) || !item.path.length || item.path.length > 128) throw new Error('オシ変の移動先は1〜128個で指定してください。');
       let previousTime = item.time, previousLane = item.lane;
       for (const point of item.path) {
-        if (!object(point) || !finite(point.time, 0, MAX_TIME) || point.time - previousTime < 0.03 - 1e-8 || !finite(point.lane, 0, 5) || !Number.isInteger(point.lane) || point.lane === previousLane || !finite(item.endTime, 0, MAX_TIME) || item.endTime - point.time < 0.03 - 1e-8) throw new Error('推し変は30ms以上の間隔で別のレーンへ移動し、終点まで30ms以上残してください。');
+        if (!object(point) || !finite(point.time, 0, MAX_TIME) || point.time - previousTime < 0.03 - 1e-8 || !finite(point.lane, 0, 5) || !Number.isInteger(point.lane) || point.lane === previousLane || !finite(item.endTime, 0, MAX_TIME) || item.endTime - point.time < 0.03 - 1e-8) throw new Error('オシ変は30ms以上の間隔で別のレーンへ移動し、終点まで30ms以上残してください。');
         path.push({time: point.time, lane: point.lane}); previousTime = point.time; previousLane = point.lane;
       }
     }
     const base = { id: item.id as number, time: item.time, lane: item.lane, ...(item.sourceTime === undefined ? {} : { sourceTime: item.sourceTime }), ...(gimmick ? {gimmick} : {}), ...(gimmick === 'box' ? {boxId: item.boxId as number} : {}), ...(gimmick === 'slide' ? {path} : {}) };
     if (item.type === 'hold') {
-      if (!finite(item.endTime, 0, MAX_TIME) || item.endTime - item.time < MIN_HOLD - 1e-8 || (item.sourceEndTime !== undefined && (!finite(item.sourceEndTime, 0, MAX_TIME) || item.sourceEndTime <= (item.sourceTime ?? item.time)))) throw new Error('長推しの終点は始点より30ms以上後にしてください。');
+      if (!finite(item.endTime, 0, MAX_TIME) || item.endTime - item.time < MIN_HOLD - 1e-8 || (item.sourceEndTime !== undefined && (!finite(item.sourceEndTime, 0, MAX_TIME) || item.sourceEndTime <= (item.sourceTime ?? item.time)))) throw new Error('長オシの終点は始点より30ms以上後にしてください。');
       return { ...base, type: 'hold', endTime: item.endTime, ...(item.sourceEndTime === undefined ? {} : { sourceEndTime: item.sourceEndTime }) };
     }
     return { ...base, type: 'tap' };
@@ -59,6 +59,6 @@ export function parseChart(text: string, requireNotes = false, song: Song = DEFA
   notes.sort((a, b) => a.time - b.time || a.lane - b.lane || a.id - b.id);
   const boxes = new Map<number, ChartNote[]>();
   for (const note of notes) if (note.gimmick === 'box') { const group = boxes.get(note.boxId!) ?? []; group.push(note); boxes.set(note.boxId!, group); }
-  for (const group of boxes.values()) if (group.length !== 6 || new Set(group.map(note => note.lane)).size !== 6) throw new Error('箱推しは6色を1回ずつ、同じboxIdで指定してください。');
+  for (const group of boxes.values()) if (group.length !== 6 || new Set(group.map(note => note.lane)).size !== 6) throw new Error('箱オシは6色を1回ずつ、同じboxIdで指定してください。');
   return { videoId: song.videoId, title: value.title, bpm: value.bpm, startTime: notes[0]?.time ?? value.startTime, beatOrigin: value.beatOrigin ?? value.startTime, ...(value.tempoChanges === undefined ? {} : { tempoChanges }), notes };
 }

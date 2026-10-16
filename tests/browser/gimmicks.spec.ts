@@ -45,9 +45,9 @@ test('edits DD and slide checkpoints through the browser and uses the real game 
   await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(9.75);video.playVideo();});
   await page.clock.runFor(250);await page.keyboard.down('s');
   await page.clock.runFor(1000);await page.keyboard.down('d');await page.keyboard.up('s');
-  await expect(page.locator('.judgement-label').nth(1)).toHaveText(/推し変|HOLD/);
+  await expect(page.locator('.judgement-label').nth(1)).toHaveText(/オシ変|HOLD/);
   await page.clock.runFor(1000);await page.keyboard.down('f');await page.keyboard.up('d');
   await page.clock.runFor(1000);await page.keyboard.up('f');await expect(page.locator('#score')).toHaveText('1,000');
   await page.clock.runFor(1000);await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('2,000');
-  await expect(page.locator('#result-score')).toHaveText('2,000');
+  await page.clock.runFor(1600);await expect(page.locator('#result-score')).toHaveText('2,000');
 });

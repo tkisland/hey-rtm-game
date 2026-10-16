@@ -33,73 +33,77 @@ describe('DD and box play', () => {
     expect(engine.input(3,1)?.noteId).toBe(2); expect(engine.score).toBe(1000);
     expect(engine.input(0,1)?.noteId).toBe(1); expect(engine.score).toBe(2000);
   });
-  it('scores a rapid sweep in either direction as one note, combo and judgement', () => {
-    for (const direction of [1,-1]) {
-      const data=box(), engine=new GameEngine(data);
-      expect(engine.notes).toHaveLength(1); expect(data.notes).toHaveLength(6);
-      for (let step=0;step<6;step++) {
-        const hit=engine.input(direction===1?step:5-step,1+step*.02);
-        expect(hit?.boxStep).toBe(step+1);
-        expect(engine.score).toBe(step===5?1000:0);
-        if(step<5) expect(hit?.phase).toBe('sweep'); else expect(hit?.boxComplete).toBe(true);
-      }
+  it('scores two distinct fingers opening from the center in either starting order exactly once', () => {
+    for(const order of [[2,3,1,4,0,5],[3,2,4,1,5,0]]) {
+      const engine=new GameEngine(box());
+      order.forEach((lane,i)=>{
+        const hit=engine.input(lane,1+Math.floor(i/2)*.04,{id:lane<3?'left':'right'});
+        expect(hit?.boxStep).toBe(i+1);expect(engine.score).toBe(i===5?1000:0);
+      });
       expect(engine.counts).toEqual({PERFECT:1,GREAT:0,GOOD:0,MISS:0});
-      expect(engine.combo).toBe(1); expect(engine.accuracy).toBe(100); expect(engine.finished).toBe(true);
-      for(let lane=0;lane<6;lane++)expect(engine.input(lane,1.12)).toBeNull();
+      expect(engine.combo).toBe(1);expect(engine.finished).toBe(true);
+      expect(engine.input(5,1.1,{id:'right'})).toBeNull();
     }
   });
-  it('uses the wider start window and allows a quarter-second sweep to finish after it closes', () => {
+  it('keeps broad start windows and accepts both hands finishing 350ms after starting', () => {
     for(const [error,grade,points] of [[-.35,'GOOD',300],[-.25,'GREAT',700],[.15,'PERFECT',1000],[.35,'GOOD',300]] as const) {
       const engine=new GameEngine(box());
-      for(let lane=0;lane<6;lane++) {
-        const time=1+error+lane*(BOX_SWEEP_SECONDS/5);
-        engine.advance(time); const hit=engine.input(lane,time);
-        expect(hit?.judgement).toBe(grade);
-      }
-      expect(engine.score).toBe(points); expect(engine.combo).toBe(1);
+      [2,3,1,4,0,5].forEach((lane,i)=>{
+        const time=1+error+Math.floor(i/2)*BOX_SWEEP_SECONDS/2;
+        engine.advance(time);expect(engine.input(lane,time)?.judgement).toBe(grade);
+      });
+      expect(engine.score).toBe(points);expect(engine.combo).toBe(1);
     }
-    for(const error of [-.3501,.3501])expect(new GameEngine(box()).input(0,1+error)).toBeNull();
+    for(const error of [-.3501,.3501])expect(new GameEngine(box()).input(2,1+error)).toBeNull();
   });
-  it('rejects slow rolls, middle starts, repeats, direction reversals and two-finger stitching', () => {
-    for(const lanes of [[2,3,4,5,0,1],[0,0,0,0,0,0],[0,1,2,1,4,5]]) {
-      const engine=new GameEngine(box()); lanes.forEach((lane,i)=>engine.input(lane,1+i*.02));
+  it('rejects a single finger, old edge-to-edge sweeps, inward moves and reversal', () => {
+    for(const lanes of [[2,3,1,4,0,5],[0,1,2,3,4,5],[5,4,3,2,1,0],[2,3,1,4,2,5]]) {
+      const engine=new GameEngine(box());
+      lanes.forEach((lane,i)=>engine.input(lane,1+i*.02,{id:lanes[0]===2&&lanes[4]===0?'one':lane<3?'left':'right'}));
       engine.advance(2);expect(engine.score).toBe(0);expect(engine.counts.MISS).toBe(1);
     }
-    const slow=new GameEngine(box());for(let lane=0;lane<6;lane++)slow.input(lane,1+lane*.06);
+  });
+  it('requires nearly simultaneous central contacts and an outward gesture within the deadline', () => {
+    const late=new GameEngine(box());late.input(2,1,{id:'left'});
+    expect(late.input(3,1.1501,{id:'right'})).toBeNull();
+    late.input(1,1.2,{id:'left'});late.input(0,1.25,{id:'left'});late.advance(2);
+    expect(late.score).toBe(0);expect(late.counts.MISS).toBe(1);
+    const slow=new GameEngine(box());[2,3,1,4,0,5].forEach((lane,i)=>slow.input(lane,1+i*.08));
     slow.advance(2);expect(slow.score).toBe(0);expect(slow.counts.MISS).toBe(1);
-    const fingers=new GameEngine(box());
-    fingers.input(0,1,{id:'finger1'});for(let lane=1;lane<6;lane++)fingers.input(lane,1.05,{id:'finger2'});
-    expect(fingers.score).toBe(0);expect(fingers.notes[0].boxProgress).toBe(1);
+    const edge=new GameEngine(box());edge.input(2,1);expect(edge.input(3,1.15)?.phase).toBe('sweep');
   });
-  it('cancels a released pointer, allows a fresh attempt and records an expired box only once', () => {
-    const engine=new GameEngine(box());engine.input(0,1,{id:'finger'});engine.input(1,1.02,{id:'finger'});
-    engine.cancelBoxGesture('finger');expect(engine.notes[0].boxProgress).toBeUndefined();
-    for(let lane=2;lane<6;lane++)engine.input(lane,1.03,{id:'other'});
-    expect(engine.score).toBe(0);
-    engine.cancelBoxGesture();for(let lane=5;lane>=0;lane--)engine.input(lane,1.1+(5-lane)*.02);
-    expect(engine.score).toBe(1000);engine.reset();engine.advance(1+BOX_WINDOWS.GOOD+.001);
-    engine.advance(5);expect(engine.counts.MISS).toBe(1);expect(engine.combo).toBe(0);
-    engine.reset();engine.seek(1.2,false);expect(engine.skipped).toBe(0);
-    engine.seek(1.4,false);expect(engine.skipped).toBe(1);expect(engine.finished).toBe(true);
-    engine.seek(0,true);expect(engine.skipped).toBe(0);expect(engine.notes[0].boxProgress).toBeUndefined();
+  it('cancels partial lifts, allows a new attempt and lets a completed hand lift after both have joined', () => {
+    const engine=new GameEngine(box());engine.input(2,.75,{id:'left'});engine.input(3,.75,{id:'right'});
+    engine.cancelBoxGesture('left');expect(engine.notes[0].boxProgress).toBeUndefined();
+    [2,3,1,4,0,5].forEach(lane=>engine.input(lane,1,{id:lane<3?'left2':'right2'}));
+    expect(engine.score).toBe(1000); // A cancelled attempt cannot retain its worse grade.
+    const lifted=new GameEngine(box());
+    lifted.input(2,1,{id:'left'});lifted.input(3,1,{id:'right'});
+    lifted.input(1,1.04,{id:'left'});lifted.input(0,1.08,{id:'left'});lifted.cancelBoxGesture('left');
+    lifted.input(4,1.1,{id:'right'});lifted.input(5,1.12,{id:'right'});expect(lifted.score).toBe(1000);
+    const single=new GameEngine(box());[2,1,0].forEach((lane,i)=>single.input(lane,1+i*.02,{id:'first'}));
+    single.cancelBoxGesture('first');expect(single.input(3,1.08,{id:'second'})).toBeNull();
+    single.advance(2);expect(single.score).toBe(0);
   });
-  it('never lets interpolated sweep crossings hit ordinary notes or DD', () => {
+  it('expires and seeks a box only once and never lets interpolated crossings hit ordinary notes', () => {
+    const engine=new GameEngine(box());engine.input(2,1);engine.cancelBoxGesture('keyboard');
+    expect(engine.notes[0].boxProgress).toBeUndefined();engine.advance(1.351);engine.advance(5);
+    expect(engine.counts.MISS).toBe(1);engine.reset();engine.seek(1.2,false);expect(engine.skipped).toBe(0);
+    engine.seek(1.4,false);expect(engine.skipped).toBe(1);engine.seek(0,true);expect(engine.notes[0].boxHands).toBeUndefined();
     for(const gimmick of [undefined,'dd'] as const) {
-      const engine=new GameEngine(chart([{id:1,type:'tap',lane:2,time:1,gimmick}]));
-      expect(engine.input(2,1,{id:'finger',sweepOnly:true})).toBeNull();expect(engine.score).toBe(0);
-      expect(engine.input(2,1)?.judgement).toBe('PERFECT');
+      const ordinary=new GameEngine(chart([{id:1,type:'tap',lane:2,time:1,gimmick}]));
+      expect(ordinary.input(2,1,{id:'finger',sweepOnly:true})).toBeNull();expect(ordinary.score).toBe(0);
+      expect(ordinary.input(2,1)?.judgement).toBe('PERFECT');
     }
   });
   it('keeps independent boxes and previews one arpeggio per anchor without seek backlogs', () => {
     const data=box();data.notes.push(...box().notes.map(note=>({...note,id:note.id+6,boxId:2,time:note.time+1})));
-    data.notes.reverse();const engine=new GameEngine(data);expect(engine.notes).toHaveLength(2);
-    for(const time of [1,2])for(let lane=0;lane<6;lane++)engine.input(lane,time+lane*.01);
+    data.notes.reverse();const engine=new GameEngine(data);
+    for(const time of [1,2])for(const lane of [2,3,1,4,0,5])engine.input(lane,time);
     expect(engine.score).toBe(2000);expect(engine.combo).toBe(2);
-    const tutorial=tutorialChart(3),preview=new EditorPreview();preview.sync(tutorial);
-    expect(playableNotes(tutorial.notes)).toHaveLength(1);preview.seek(tutorial.startTime-.1);
+    const tutorial=tutorialChart(3),preview=new EditorPreview();preview.sync(tutorial);preview.seek(tutorial.startTime-.1);
     expect(preview.update(tutorial.startTime,true)).toEqual([expect.objectContaining({boxStep:6,boxComplete:true})]);
-    expect(preview.update(tutorial.startTime+.1,true)).toEqual([]);
-    preview.seek(0);expect(preview.update(4,true)).toEqual([]);
+    expect(preview.update(tutorial.startTime+.1,true)).toEqual([]);preview.seek(0);expect(preview.update(4,true)).toEqual([]);
   });
 });
 
@@ -196,7 +200,7 @@ describe('MIDI, persistence and editor', () => {
   });
   it('rejects malformed special MIDI instead of dropping or reclassifying notes', () => {
     const mutate = (pitch: number, replacement: number) => { const bytes=Buffer.from(sample); for (const status of [0x90,0x80]) {const at=bytes.indexOf(Buffer.from([status,pitch,status === 0x90 ? 100 : 0]));bytes[at + 1]=replacement;}return bytes; };
-    expect(() => convertMidi(mutate(50,52),config)).toThrow('箱推し');
+    expect(() => convertMidi(mutate(50,52),config)).toThrow('箱オシ');
     expect(() => convertMidi(mutate(65,64),config)).toThrow('別の色');
     expect(() => convertMidi(mutate(65,47),config)).not.toThrow(); // Shorter valid slide, followed by an ordinary hold.
     expect(() => convertMidi(mutate(62,38),config)).not.toThrow(); // Ordinary hold, then a valid two-segment slide.

@@ -112,6 +112,8 @@ let restartTarget: number | null = null;
 let restartDeadline = 0;
 let lastInputError: number | null = null;
 let resultShown = false;
+let completionAt: number | null = null;
+const RESULT_DELAY_MS = 1500;
 let disposed = false;
 let frameId = 0;
 let previousFrame = performance.now(), fpsStarted = previousFrame, frames = 0, fps = 0;
@@ -142,19 +144,20 @@ function showHit(hit: Hit, now: number): void {
   judgementTimes[feedbackLane] = now;
   feedback.hidden = false;
   feedback.dataset.kind = hit.judgement;
-  feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
+  feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱オシ成功！' : hit.phase === 'move' ? 'オシ変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
   feedback.querySelector('.judgement-error')!.textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
   feedback.classList.remove('pop');
   void feedback.offsetWidth;
   feedback.classList.add('pop');
   if (hit.judgement !== 'MISS') {
     renderer.flash(hit.lane, now, hit.judgement);
-    if (hit.boxComplete && hit.boxId !== undefined) { sound.playBoxSweep(); renderer.completeBox(now, hit.boxId, hit.boxDirection); }
+    if (hit.boxComplete && hit.boxId !== undefined) { sound.playBoxSweep(); renderer.completeBox(now, hit.boxId); }
   }
   updateScore();
 }
 function clearResults(): void {
   resultShown = false;
+  completionAt = null;
   result.hidden = true;
   element('show-result').hidden = true;
   lastInputError = null;
@@ -165,6 +168,10 @@ function clearResults(): void {
 }
 function showResults(): void {
   if (resultShown || !engine.finished) return;
+  if (completionAt === null && state !== PLAYER_STATE.PLAYING && state !== PLAYER_STATE.ENDED) return;
+  const now = performance.now();
+  completionAt ??= now;
+  if (now - completionAt < RESULT_DELAY_MS) return;
   resultShown = true;
   result.hidden = false;
   element('show-result').hidden = false;
@@ -203,7 +210,9 @@ function readTime(now: number): { time: number; playing: boolean } {
         notice.textContent = '指定位置へのシークが完了しませんでした。動画を確認して、もう一度リスタートしてください。';
       } else return { time: gameTime, playing: false };
     }
-    if (sample.seek) {
+    // Completed sessions keep their score and result until an explicit restart.
+    // YouTube may reset its playhead or deliver a final discontinuity after ENDED.
+    if (sample.seek && !engine.finished && state !== PLAYER_STATE.ENDED) {
       sound.cancelPending();
       engine.seek(compensateInput(gameTime, settings.inputOffset), sample.backwards);
       clearResults();
@@ -389,7 +398,7 @@ if (__ADMIN__) {
     chartSource.value = source;
     bpm!.disabled = source !== 'test'; startTime!.disabled = source !== 'test';
     element('chart-settings-help').textContent = source === 'test' ? 'BPM・開始時刻は次のリスタートから反映されます。' : source === 'bundled' ? '収録譜面のテンポと時刻を使用します。全体のずれは「ノーツ全体の位置」で調整できます。' : '編集譜面のBPM・時刻は「譜面編集」で変更できます。';
-    notice.textContent = source === 'bundled' ? '収録譜面 SMG003 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長推しです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
+    notice.textContent = source === 'bundled' ? '収録譜面 SMG003 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長オシです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
   }
   reflectChartSource();
   if (!customChart && new URLSearchParams(location.search).get('chart') === 'custom') notice.textContent = '編集譜面を読み込めませんでした。「譜面編集」でノーツを追加し「ゲームで試す」を押してください。仮譜面を表示しています。';
@@ -401,7 +410,7 @@ if (__ADMIN__) {
     engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
     if (player && !failed) restart.click();
   }, { signal });
-} else notice.textContent = previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長推しは終点で離そう。同時推しは片方でもMISSになると、その組は0点です。';
+} else notice.textContent = previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長オシは終点で離そう。同時オシは片方でもMISSになると、その組は0点です。';
 
 let debugUpdated = 0;
 function frame(now: number): void {
@@ -412,8 +421,12 @@ function frame(now: number): void {
   if (sample.playing) {
     const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
     updates.forEach(update => showHit(update, now));
-    showResults();
+  } else if (state === PLAYER_STATE.ENDED && !engine.finished) {
+    const end = Math.max(sample.time,...engine.notes.map(note => note.type === 'hold' ? note.endTime : note.time));
+    // Close any remaining judgement windows when playback has actually ended.
+    engine.advance(end + 1,renderer.pressed).forEach(update => showHit(update,now));
   }
+  showResults();
   syncHoldSound(sample.playing, now);
   renderer.draw(engine.notes, sample.time, settings.travel, now, { inputOffsetMs: settings.inputOffset, playing: sample.playing, chart: engine.chart });
   if (failed) {

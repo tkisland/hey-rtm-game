@@ -52,6 +52,8 @@ export function bindTargets(canvas: HTMLCanvasElement, elements: HTMLElement[]):
       const target = field.targets[lane], pad = field.pads[lane];
       element.style.left = `${pad.x}px`; element.style.top = `${pad.y}px`;
       element.style.width = `${pad.width}px`; element.style.height = `${pad.height}px`;
+      const extra = Math.min(32, Math.max(0,pad.y - pad.height / 2 - target.y - target.height / 2 - 4));
+      element.style.setProperty('--hit-extra',`${extra}px`);
       element.style.setProperty('--receptor-y', `${target.y - pad.y + pad.height / 2}px`);
     });
   };

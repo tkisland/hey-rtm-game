@@ -230,7 +230,7 @@ function refresh(): void {
       previousStart = note.time;
     }
   }
-  el('collision-status').textContent = overlaps ? `同じレーンでノーツが${overlaps}個重なっています（長推しの区間も含む）。一覧で選択して移動・削除できます。` : '';
+  el('collision-status').textContent = overlaps ? `同じレーンでノーツが${overlaps}個重なっています（長オシの区間も含む）。一覧で選択して移動・削除できます。` : '';
 }
 function setView(start: number, manual = false): void {
   viewStart = Math.min(MAX_TIME, Math.max(0, start)); input('view-start').value = viewStart.toFixed(3);
@@ -329,7 +329,7 @@ select('editor-playback-rate').addEventListener('change', () => {
 }, { signal });
 function cancelCaptures(): void {
   if (!captures.size) return;
-  captures.clear(); message('未完了の長推しを破棄しました。再生を確認してもう一度打ち込んでください。');
+  captures.clear(); message('未完了の長オシを破棄しました。再生を確認してもう一度打ち込んでください。');
 }
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
 buttons.forEach((button, lane) => { decoratePenlight(button); button.style.setProperty('--lane', LANE_COLORS[lane]); });
@@ -348,14 +348,14 @@ const unbindInput = bindInput(buttons, lane => {
   if (calibration.active || previewing) return;
   const released = [...previous].filter(lane => !lanes.has(lane));
   if (!released.length || !captures.size) return;
-  if (reason === 'cancel') { released.forEach(lane => captures.delete(lane)); message('入力がキャンセルされたため未完了の長推しを破棄しました。'); return; }
+  if (reason === 'cancel') { released.forEach(lane => captures.delete(lane)); message('入力がキャンセルされたため未完了の長オシを破棄しました。'); return; }
   readTime();
   for (const lane of released) {
     const start = captures.get(lane); captures.delete(lane);
     if (start === undefined || !armed || !playing) continue;
     const end = Math.max(0, compensateInput(time, settings.inputOffset, playbackRate));
-    if (end - start < MIN_HOLD) { message('長推しは30ms以上保持してください。'); continue; }
-    try { model.add(start, lane, true, end); changed(); } catch (error) { message(error instanceof Error ? error.message : '長推しを記録できませんでした。'); }
+    if (end - start < MIN_HOLD) { message('長オシは30ms以上保持してください。'); continue; }
+    try { model.add(start, lane, true, end); changed(); } catch (error) { message(error instanceof Error ? error.message : '長オシを記録できませんでした。'); }
   }
 }, () => calibration.active || previewing);
 el('record-pads').addEventListener('pointerdown', event => { if (event.pointerType === 'mouse' && event.target === el('record-pads')) el('record-pads').focus({ preventScroll: true }); }, { signal });
@@ -365,7 +365,7 @@ el('load-bundled-chart').hidden = !bundled;
 on('load-bundled-chart', () => {
   if (bundled) edit(() => { model.replace(bundled); setView(Math.max(0, bundled.startTime - 1)); message('収録譜面を読み込みました。「元に戻す」で前の編集内容に戻せます。'); });
 });
-on('box-range', () => { if (!selectedRange) { message('先に6色の単推し6個を含む範囲を選択してください。'); return; } edit(() => model.boxRange(selectedRange!)); });
+on('box-range', () => { if (!selectedRange) { message('先に6色の単オシ6個を含む範囲を選択してください。'); return; } edit(() => model.boxRange(selectedRange!)); });
 on('select-range', () => chooseRange({ start: input('range-start').valueAsNumber, end: input('range-end').valueAsNumber }));
 on('select-view-range', () => chooseRange({ start: viewStart, end: Math.min(MAX_TIME, viewStart + viewSpan) }));
 on('clear-range', () => chooseRange(null)); on('copy-range', copyRange); on('delete-range', deleteRange); on('paste-range', pasteRange);
@@ -412,7 +412,7 @@ on('add-note', () => {
   readTime();
   edit(() => {
     const length = input('add-length').valueAsNumber;
-    if (select('add-type').value === 'hold' && (!Number.isFinite(length) || length < 0.25 || length > 16)) throw new Error('長推しの長さは0.25〜16拍にしてください。');
+    if (select('add-type').value === 'hold' && (!Number.isFinite(length) || length < 0.25 || length > 16)) throw new Error('長オシの長さは0.25〜16拍にしてください。');
     return model.add(time, Number(select('add-lane').value), false, select('add-type').value === 'hold' ? beatToTime(model.chart, timeToBeat(model.chart, time) + length) : undefined);
   });
 });
@@ -533,7 +533,7 @@ function frame(now: number): void {
     previewSound.play(event.lane); previewRenderer.flash(event.lane, now);
     if (event.boxComplete && event.boxId !== undefined) { previewSound.playBoxSweep(); previewRenderer.completeBox(now, event.boxId); }
     previewFeedback[event.lane] = now;
-    previewLabels[event.lane] = event.boxComplete ? '箱推し' : event.phase === 'end' ? '離す' : event.phase === 'move' ? '推し変' : event.phase === 'start' ? 'HOLD' : '単推し';
+    previewLabels[event.lane] = event.boxComplete ? '箱オシ' : event.phase === 'end' ? '離す' : event.phase === 'move' ? 'オシ変' : event.phase === 'start' ? 'HOLD' : '単オシ';
   });
   const holds = new Set(preview.notes.filter(note => note.state === 'holding').map(playLane));
   previewSound.syncHolds(previewing && playing && seekTarget === null ? holds : new Set(), now);
@@ -555,7 +555,7 @@ function frame(now: number): void {
       : !player ? 'YouTubeプレーヤーを読み込み中…' : previewEndMessage || `${previewing ? seekTarget !== null ? '開始位置へ移動中' : playing ? 'プレビュー再生中' : '一時停止・再生待ち' : '停止中'} · ${time.toFixed(3)} s`;
     el('preview-status').textContent = previewStatus;
     lastUi = now; el('playhead').textContent = `${time.toFixed(3)} s`;
-    el('record-status').textContent = armed ? playing ? captures.size ? `● 長推し記録中 ${captures.size}本 · 離すと保存します` : '● 打ち込み中 · キーまたは6ボタンを押してください' : '● 打ち込み待機 · MVを再生してください（一時停止・読み込み中は記録しません）' : '打ち込み停止中 · ノーツを選択して編集できます';
+    el('record-status').textContent = armed ? playing ? captures.size ? `● 長オシ記録中 ${captures.size}本 · 離すと保存します` : '● 打ち込み中 · キーまたは6ボタンを押してください' : '● 打ち込み待機 · MVを再生してください（一時停止・読み込み中は記録しません）' : '打ち込み停止中 · ノーツを選択して編集できます';
   }
   frameId = requestAnimationFrame(frame);
 }
