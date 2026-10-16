@@ -2,7 +2,7 @@ import type { ChartNote } from './chart';
 
 /** Distinct lanes with starts within 1ms are shown as simultaneous inputs. */
 export function chordGroups(notes: readonly ChartNote[]): ChartNote[][] {
-  const ordered = [...notes].sort((a, b) => a.time - b.time || a.lane - b.lane);
+  const ordered = notes.filter(note => note.gimmick !== 'dd').sort((a, b) => a.time - b.time || a.lane - b.lane);
   const groups: ChartNote[][] = [];
   let group: ChartNote[] = [];
   const finish = () => { if (new Set(group.map(note => note.lane)).size > 1) groups.push(group); };

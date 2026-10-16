@@ -1,3 +1,4 @@
+import { playLane } from './engine';
 import './style.css';
 import { LANE_COLORS } from './colors';
 import { bindDockLayout } from './layout';
@@ -124,7 +125,7 @@ function updateScore(): void {
 function syncHoldSound(playing: boolean, now: number): void {
   const lanes = new Set<number>();
   if (playing) for (const note of engine.notes) {
-    if (note.state === 'holding' && renderer.pressed.has(note.lane)) lanes.add(note.lane);
+    if (note.state === 'holding' && renderer.pressed.has(playLane(note))) lanes.add(playLane(note));
   }
   sound.syncHolds(lanes, now);
 }
@@ -133,7 +134,7 @@ function showHit(hit: Hit, now: number): void {
   judgementTimes[hit.lane] = now;
   feedback.hidden = false;
   feedback.dataset.kind = hit.judgement;
-  feedback.querySelector('.judgement-label')!.textContent = hit.phase === 'start' ? 'HOLD' : hit.judgement;
+  feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
   feedback.querySelector('.judgement-error')!.textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
   feedback.classList.remove('pop');
   void feedback.offsetWidth;
@@ -270,9 +271,9 @@ const unbindInput = bindInput(buttons, hit, lanes => {
   const previous = renderer.pressed; renderer.pressed = lanes;
   if (calibration.active) return;
   const released = [...previous].filter(lane => !lanes.has(lane));
-  if (!released.length) return;
   const now = performance.now(), sample = readTime(now);
   if (!sample.playing) { syncHoldSound(false, now); return; }
+  engine.advance(compensateInput(sample.time, settings.inputOffset), lanes).forEach(result => showHit(result, now));
   released.forEach(lane => engine.release(lane, compensateInput(sample.time, settings.inputOffset)).forEach(result => showHit(result, now)));
   syncHoldSound(true, now);
   showResults();
@@ -374,7 +375,7 @@ if (__ADMIN__) {
     chartSource.value = source;
     bpm!.disabled = source !== 'test'; startTime!.disabled = source !== 'test';
     element('chart-settings-help').textContent = source === 'test' ? 'BPM・開始時刻は次のリスタートから反映されます。' : source === 'bundled' ? '収録譜面のテンポと時刻を使用します。全体のずれは「ノーツ全体の位置」で調整できます。' : '編集譜面のBPM・時刻は「譜面編集」で変更できます。';
-    notice.textContent = source === 'bundled' ? '収録譜面 SMG002 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長押しです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
+    notice.textContent = source === 'bundled' ? '収録譜面 SMG002 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長推しです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
   }
   reflectChartSource();
   if (!customChart && new URLSearchParams(location.search).get('chart') === 'custom') notice.textContent = '編集譜面を読み込めませんでした。「譜面編集」でノーツを追加し「ゲームで試す」を押してください。仮譜面を表示しています。';
@@ -386,7 +387,7 @@ if (__ADMIN__) {
     engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
     if (player && !failed) restart.click();
   }, { signal });
-} else notice.textContent = previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長押しは終点で離そう。同時押しは片方でもMISSになると、その組は0点です。';
+} else notice.textContent = previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長推しは終点で離そう。同時推しは片方でもMISSになると、その組は0点です。';
 
 let debugUpdated = 0;
 function frame(now: number): void {
@@ -411,7 +412,7 @@ function frame(now: number): void {
     stageHint.querySelector('span:last-child')!.textContent = '横線で下の同じ色をタップ · 長い帯は終点で離す';
   }
   judgements.forEach((feedback, lane) => {
-    const holding = engine.notes.some(note => note.lane === lane && note.state === 'holding');
+    const holding = engine.notes.some(note => playLane(note) === lane && note.state === 'holding');
     buttons[lane].classList.toggle('holding', holding);
     if (holding) {
       feedback.hidden = false;

@@ -8,7 +8,12 @@ interface NoteBase {
   lane: number;
   /** Original recorded timestamp; retained through quantization and manual edits. */
   sourceTime?: number;
+  /** Explicit opt-in: legacy MIDI/JSON never acquires a gimmick implicitly. */
+  gimmick?: 'box' | 'dd' | 'slide';
+  boxId?: number;
+  path?: SlidePoint[];
 }
+export interface SlidePoint { time: number; lane: number }
 export interface TapNote extends NoteBase { type: 'tap' }
 export interface HoldNote extends NoteBase {
   type: 'hold';
@@ -16,6 +21,16 @@ export interface HoldNote extends NoteBase {
   sourceEndTime?: number;
 }
 export type ChartNote = TapNote | HoldNote;
+export const copyNote = <T extends ChartNote>(note: T): T => ({ ...note, ...(note.path ? { path: note.path.map(point => ({ ...point })) } : {}) });
+/** The scheduled lane, also used for editor autoplay. Live play keeps the accepted checkpoint. */
+export function laneAt(note: ChartNote, time: number): number {
+  let lane = note.lane;
+  for (const point of note.path ?? []) { if (point.time > time) break; lane = point.lane; }
+  return lane;
+}
+export function noteName(note: ChartNote): string {
+  return note.gimmick === 'box' ? '箱推し' : note.gimmick === 'dd' ? 'DD' : note.gimmick === 'slide' ? '推し変' : note.type === 'hold' ? '長推し' : '単推し';
+}
 export interface TempoChange { time: number; bpm: number }
 export interface Chart {
   videoId: string;

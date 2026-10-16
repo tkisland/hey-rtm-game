@@ -1,7 +1,8 @@
 import type { Chart, ChartNote } from './chart';
+import { laneAt } from './chart';
 import type { PlayNote } from './engine';
 
-export interface PreviewEvent { lane: number; time: number; phase: 'tap' | 'start' | 'end' }
+export interface PreviewEvent { lane: number; time: number; phase: 'tap' | 'start' | 'end' | 'move' }
 /** Read-only playback of the edited chart, using the editor's video clock. */
 export class EditorPreview {
   notes: PlayNote[] = [];
@@ -26,9 +27,12 @@ export class EditorPreview {
     const crossing = playing && previous !== null && time >= previous && time - previous <= 0.5;
     for (const note of this.notes) {
       note.state = time < note.time ? 'pending' : note.type === 'hold' && time < note.endTime ? 'holding' : 'hit';
+      note.activeLane = laneAt(note, time);
+      note.pathIndex = note.path?.filter(point => point.time <= time).length;
       if (!crossing) continue;
+      for (const point of note.path ?? []) if (point.time > previous && point.time <= time) events.push({lane:point.lane, time:point.time, phase:'move'});
       if (note.time > previous && note.time <= time) events.push({ lane: note.lane, time: note.time, phase: note.type === 'hold' ? 'start' : 'tap' });
-      if (note.type === 'hold' && note.endTime > previous && note.endTime <= time) events.push({ lane: note.lane, time: note.endTime, phase: 'end' });
+      if (note.type === 'hold' && note.endTime > previous && note.endTime <= time) events.push({ lane: laneAt(note, note.endTime), time: note.endTime, phase: 'end' });
     }
     this.previous = time;
     // Release before a new note in the same lane at the same instant.

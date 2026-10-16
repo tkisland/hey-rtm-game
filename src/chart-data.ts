@@ -1,13 +1,14 @@
 import { DEFAULT_SONG } from './songs';
 import type { Song } from './songs';
 import type { Chart, ChartNote } from './chart';
+import { copyNote } from './chart';
 
 export const MAX_NOTES = 5000;
 export const MAX_TIME = 7200;
 export const MIN_HOLD = 0.03;
 const MAX_JSON_BYTES = 1024 * 1024;
 
-export const copyChart = (chart: Chart): Chart => ({ ...chart, ...(chart.tempoChanges ? { tempoChanges: chart.tempoChanges.map(change => ({ ...change })) } : {}), notes: chart.notes.map(note => ({ ...note })) });
+export const copyChart = (chart: Chart): Chart => ({ ...chart, ...(chart.tempoChanges ? { tempoChanges: chart.tempoChanges.map(change => ({ ...change })) } : {}), notes: chart.notes.map(copyNote) });
 export const emptyChart = (song: Song = DEFAULT_SONG): Chart => ({ videoId: song.videoId, title: song.title, bpm: song.bpm, startTime: 0, beatOrigin: song.startTime, notes: [] });
 export const finite = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -34,13 +35,30 @@ export function parseChart(text: string, requireNotes = false, song: Song = DEFA
   const notes: ChartNote[] = value.notes.map(item => {
     if (!object(item) || !Number.isSafeInteger(item.id) || (item.id as number) < 1 || ids.has(item.id as number) || !finite(item.time, 0, MAX_TIME) || !Number.isInteger(item.lane) || !finite(item.lane, 0, 5) || (item.type !== 'tap' && item.type !== 'hold') || (item.sourceTime !== undefined && !finite(item.sourceTime, 0, MAX_TIME))) throw new Error('ノーツのID（一意の正整数）・秒数・レーン（0〜5）・typeを確認してください。');
     ids.add(item.id as number);
-    const base = { id: item.id as number, time: item.time, lane: item.lane, ...(item.sourceTime === undefined ? {} : { sourceTime: item.sourceTime }) };
+    if (item.gimmick !== undefined && !['box', 'dd', 'slide'].includes(item.gimmick as string)) throw new Error('ギミックはbox・dd・slideを指定してください。');
+    const gimmick = item.gimmick as ChartNote['gimmick'];
+    if ((gimmick === 'dd' || gimmick === 'box') && item.type !== 'tap' || gimmick === 'slide' && item.type !== 'hold') throw new Error('DD・箱推しは単推し、推し変は長推しの形式で指定してください。');
+    if ((gimmick === 'box' && (!Number.isSafeInteger(item.boxId) || (item.boxId as number) < 1)) || (gimmick !== 'box' && item.boxId !== undefined)) throw new Error('箱推しには一意のチェーン番号boxIdを指定してください。');
+    if (gimmick !== 'slide' && item.path !== undefined) throw new Error('pathは推し変だけに指定してください。');
+    const path: {time: number; lane: number}[] = [];
+    if (gimmick === 'slide') {
+      if (!Array.isArray(item.path) || !item.path.length || item.path.length > 128) throw new Error('推し変の移動先は1〜128個で指定してください。');
+      let previousTime = item.time, previousLane = item.lane;
+      for (const point of item.path) {
+        if (!object(point) || !finite(point.time, 0, MAX_TIME) || point.time - previousTime < 0.03 - 1e-8 || !finite(point.lane, 0, 5) || !Number.isInteger(point.lane) || Math.abs(point.lane - previousLane) !== 1 || !finite(item.endTime, 0, MAX_TIME) || item.endTime - point.time < 0.03 - 1e-8) throw new Error('推し変は30ms以上の間隔で隣のレーンへ移動し、終点まで30ms以上残してください。');
+        path.push({time: point.time, lane: point.lane}); previousTime = point.time; previousLane = point.lane;
+      }
+    }
+    const base = { id: item.id as number, time: item.time, lane: item.lane, ...(item.sourceTime === undefined ? {} : { sourceTime: item.sourceTime }), ...(gimmick ? {gimmick} : {}), ...(gimmick === 'box' ? {boxId: item.boxId as number} : {}), ...(gimmick === 'slide' ? {path} : {}) };
     if (item.type === 'hold') {
-      if (!finite(item.endTime, 0, MAX_TIME) || item.endTime - item.time < MIN_HOLD - 1e-8 || (item.sourceEndTime !== undefined && (!finite(item.sourceEndTime, 0, MAX_TIME) || item.sourceEndTime <= (item.sourceTime ?? item.time)))) throw new Error('長押しの終点は始点より30ms以上後にしてください。');
+      if (!finite(item.endTime, 0, MAX_TIME) || item.endTime - item.time < MIN_HOLD - 1e-8 || (item.sourceEndTime !== undefined && (!finite(item.sourceEndTime, 0, MAX_TIME) || item.sourceEndTime <= (item.sourceTime ?? item.time)))) throw new Error('長推しの終点は始点より30ms以上後にしてください。');
       return { ...base, type: 'hold', endTime: item.endTime, ...(item.sourceEndTime === undefined ? {} : { sourceEndTime: item.sourceEndTime }) };
     }
     return { ...base, type: 'tap' };
   });
   notes.sort((a, b) => a.time - b.time || a.lane - b.lane || a.id - b.id);
+  const boxes = new Map<number, ChartNote[]>();
+  for (const note of notes) if (note.gimmick === 'box') { const group = boxes.get(note.boxId!) ?? []; group.push(note); boxes.set(note.boxId!, group); }
+  for (const group of boxes.values()) if (group.length !== 6 || new Set(group.map(note => note.lane)).size !== 6 || group.some((note, i) => i > 0 && note.time - group[i - 1].time <= 0.001 + 1e-8)) throw new Error('箱推しは6色を1回ずつ、別の時刻に配置してください。');
   return { videoId: song.videoId, title: value.title, bpm: value.bpm, startTime: notes[0]?.time ?? value.startTime, beatOrigin: value.beatOrigin ?? value.startTime, ...(value.tempoChanges === undefined ? {} : { tempoChanges }), notes };
 }

@@ -1,4 +1,5 @@
 import type { Chart, ChartNote } from './chart';
+import { copyNote, laneAt } from './chart';
 import { LANE_COLORS } from './colors';
 import { chordGroups, noteThickness } from './note-display';
 import { inRange, MAX_TIME, MIN_HOLD } from './editor-model';
@@ -41,11 +42,11 @@ export class Timeline {
       }
       const lane = this.laneAt(y);
       const distance = (note: ChartNote) => Math.min(Math.abs(this.xAt(note.time) - x), note.type === 'hold' ? Math.abs(this.xAt(note.endTime) - x) : Infinity);
-      const matches = this.state.chart.notes.filter(note => note.lane === lane && (distance(note) <= 10 || (note.type === 'hold' && x >= this.xAt(note.time) && x <= this.xAt(note.endTime))));
+      const matches = this.state.chart.notes.filter(note => (note.lane === lane || note.gimmick === 'dd' || note.gimmick === 'slide' && laneAt(note, this.timeAt(x)) === lane) && (distance(note) <= 10 || (note.type === 'hold' && x >= this.xAt(note.time) && x <= this.xAt(note.endTime))));
       const note = matches.sort((a, b) => distance(a) - distance(b))[0];
       callbacks.select(note?.id ?? null);
       if (note) {
-        this.drag = { pointer: event.pointerId, id: note.id, x, y, moved: false, mode: note.type === 'hold' && Math.abs(this.xAt(note.endTime) - x) <= 10 && Math.abs(this.xAt(note.endTime) - x) < Math.abs(this.xAt(note.time) - x) ? 'end' : 'move', preview: { ...note } };
+        this.drag = { pointer: event.pointerId, id: note.id, x, y, moved: false, mode: note.type === 'hold' && Math.abs(this.xAt(note.endTime) - x) <= 10 && Math.abs(this.xAt(note.endTime) - x) < Math.abs(this.xAt(note.time) - x) ? 'end' : 'move', preview: copyNote(note) };
         canvas.setPointerCapture(event.pointerId);
       }
     }, { signal });
@@ -68,6 +69,7 @@ export class Timeline {
         drag.preview.endTime = original.endTime + drag.preview.time - original.time;
       }
       drag.preview.lane = this.laneAt(y);
+      if (original.path) drag.preview.path = original.path.map(point => ({time:point.time + drag.preview.time - original.time, lane:point.lane + drag.preview.lane - original.lane}));
     }, { signal });
     canvas.addEventListener('pointerup', event => {
       if (this.rangeDrag?.pointer === event.pointerId) {
@@ -149,12 +151,22 @@ export class Timeline {
       const selected = note.id === state.selected || Boolean(range && inRange(note, range));
       ctx.strokeStyle = ghost ? `${color}60` : selected ? '#fff' : color;
       ctx.fillStyle = color; ctx.lineWidth = selected && !ghost ? 2 : 1;
-      if (note.type === 'hold') {
+      if (!ghost && note.gimmick === 'slide') {
+        const points = [{time:note.time, lane:note.lane}, ...note.path!, {time:end, lane:laneAt(note, end)}];
+        ctx.lineWidth = 8; ctx.strokeStyle = '#bda7f788'; ctx.beginPath();
+        points.forEach((point, i) => { const px = this.xAt(point.time), py = TOP + (point.lane + .5) * row; if (i) ctx.lineTo(px,py); else ctx.moveTo(px,py); }); ctx.stroke(); ctx.lineWidth = 1;
+        points.slice(1).forEach(point => { ctx.fillStyle = LANE_COLORS[point.lane]; ctx.fillRect(this.xAt(point.time) - 3, TOP + (point.lane + .5) * row - 6, 6, 12); }); ctx.fillStyle = color;
+      } else if (note.type === 'hold') {
         const left = Math.max(LEFT - 8, x), right = Math.min(this.width + 8, endX);
         if (!ghost) { ctx.fillStyle = `${color}40`; ctx.fillRect(left, y - 7, right - left, 14); }
         ctx.strokeRect(left, y - 7, right - left, 14); ctx.fillStyle = color;
         if (!ghost) ctx.fillRect(endX - width / 2, y - 11, width, 22);
       }
+      if (!ghost && note.gimmick === 'dd') {
+        const gradient = ctx.createLinearGradient(0, TOP, 0, this.height); LANE_COLORS.forEach((color,i) => gradient.addColorStop(i / 5,color));
+        ctx.fillStyle = gradient; ctx.fillRect(x - width / 2, TOP, width, this.height - TOP);
+      }
+      if (!ghost && note.gimmick) { ctx.fillStyle = '#fff'; ctx.fillText(note.gimmick === 'box' ? '箱' : note.gimmick === 'dd' ? 'DD' : '→', x + 5, y - 14); ctx.fillStyle = color; }
       if (!ghost) ctx.fillRect(x - width / 2, y - 11, width, 22);
       ctx.strokeRect(x - width / 2, y - 11, width, 22); ctx.lineWidth = 1;
       if (!ghost && this.chordIds.has(note.id)) {
