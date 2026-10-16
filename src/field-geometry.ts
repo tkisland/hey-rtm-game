@@ -11,7 +11,7 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
   const margin = Math.min(8, width * 0.025), cell = (width - 2 * margin) / 6;
   const padWidth = Math.min(72, Math.max(44, cell * 0.86));
   const padHeight = Math.min(68, Math.max(60, height * 0.15));
-  const origin = Math.min(76, height * 0.25); // Room for the stage; the travel time stays unchanged.
+  const origin = Math.min(46, height * 0.25);
   // This clearance is in addition to the canvas's safe-area inset.
   const padY = height - 44 - padHeight / 2;
   // Keep even the latest GOOD above the thumb area, at the fastest supported speed (1s).

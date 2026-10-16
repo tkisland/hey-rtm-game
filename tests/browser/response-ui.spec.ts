@@ -66,3 +66,21 @@ test('DD spans all six lanes throughout its flight while keeping a single note h
     expect(frame.heads[0].y).toBeCloseTo(frame.y,6);
   }
 });
+
+test('an ordinary note stays visible in front of a simultaneous full-width DD in either chart order', async ({page}) => {
+  const colors = await page.locator('#game-canvas').evaluate(async (canvas: HTMLCanvasElement) => {
+    const {Renderer} = await import('/src/renderer.ts'), {GameEngine} = await import('/src/engine.ts');
+    const {fieldGeometry, project} = await import('/src/field-geometry.ts');
+    const renderer = new Renderer(canvas), ctx = canvas.getContext('2d')!;
+    const r = canvas.getBoundingClientRect(), field = fieldGeometry(r.width, r.height), head = project(field, 0, 1);
+    const notes = [{id:1,type:'tap' as const,gimmick:'dd' as const,lane:2,time:10},{id:2,type:'tap' as const,lane:0,time:10}];
+    try {
+      return [notes, [...notes].reverse()].map(notes => {
+        const engine = new GameEngine({videoId:'pJDfWpZ7CI4',title:'DD overlap',bpm:120,startTime:10,notes});
+        renderer.draw(engine.notes,10,2.5,0);
+        return Array.from(ctx.getImageData(Math.round((head.x + head.width * .2) * devicePixelRatio), Math.round(head.y * devicePixelRatio), 1, 1).data);
+      });
+    } finally {renderer.destroy();}
+  });
+  expect(colors).toEqual([[255,115,156,255],[255,115,156,255]]);
+});

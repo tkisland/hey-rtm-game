@@ -4,7 +4,10 @@ import type { FieldGeometry } from './field-geometry';
 
 /** Six anonymous performers at the source of the lanes. No movement of the input field. */
 export function drawStage(ctx: CanvasRenderingContext2D, field: FieldGeometry, responses: readonly number[]): void {
-  const { width, origin } = field;
+  const { width } = field;
+  // Background scenery shares the top of the runway, preserving its usable length.
+  // Notes are drawn in front, emerging beside the performers' raised hands.
+  const origin = field.origin + Math.min(30, field.approach * .25);
   const top = Math.max(12, origin - 36), floor = origin - 3;
   const shape = (points: number[][]) => {
     ctx.beginPath(); points.forEach(([x,y], i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y)); ctx.closePath(); ctx.fill();

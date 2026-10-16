@@ -20,6 +20,7 @@ export class Renderer {
   private reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   pressed = new Set<number>();
   private cachedNotes: PlayNote[] | null = null;
+  private renderNotes: PlayNote[] = [];
   private chords: ChartNote[][] = [];
   private boxes: ChartNote[][] = [];
   private gaps = new Map<number, number>();
@@ -100,6 +101,8 @@ export class Renderer {
     const progressAt = (seconds: number) => 1 + (judgeTime - seconds) / travel;
     if (this.cachedNotes !== notes) {
       this.cachedNotes = notes; this.chords = chordGroups(notes); this.gaps.clear();
+      // A wide DD must never hide the color of a simultaneous ordinary note.
+      this.renderNotes = [...notes].sort((a, b) => Number(b.gimmick === 'dd') - Number(a.gimmick === 'dd'));
       this.boxes = boxGroups(notes);
       for (let lane = 0; lane < 6; lane++) {
         const ordered = notes.filter(note => note.lane === lane).sort((a, b) => a.time - b.time);
@@ -177,7 +180,7 @@ export class Renderer {
       visible.forEach((note, i) => { const point = project(field, note.lane, progressAt(note.time)); if (i) ctx.lineTo(point.x, point.y); else ctx.moveTo(point.x, point.y); });
       ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
     }
-    for (const note of notes) {
+    for (const note of this.renderNotes) {
       if (!active(note)) continue;
       const p = note.state === 'holding' ? 1 : progressAt(note.time);
       if (p < 0 || p > 1 + WINDOWS.GOOD / travel + 1e-8) continue;
