@@ -5,7 +5,7 @@ import type { Song } from './songs';
 import type { Chart, ChartNote, SlidePoint } from './chart';
 import { copyNote } from './chart';
 import { beatToTime, snapTime, timeToBeat } from './tempo';
-import { boxGroups } from './note-display';
+import { boxGroups, playableNotes } from './note-display';
 
 export const EDITOR_KEY = 'hey-rhythm-editor-v1';
 export const CUSTOM_CHART_KEY = 'hey-rhythm-custom-chart-v1';
@@ -149,14 +149,22 @@ export class EditorModel {
   remove(): boolean { const chart = copyChart(this.chart); const boxId = this.selectedNote?.gimmick === 'box' ? this.selectedNote.boxId : undefined; chart.notes = this.completeBoxes(chart.notes.filter(note => boxId ? note.boxId !== boxId : note.id !== this.selected)); return this.commit(chart); }
   copyRange(range: TimeRange): NoteClipboard {
     validateRange(range);
-    const notes = this.completeBoxes(this.chart.notes.filter(note => inRange(note, range)).map(copyNote));
+    const selected = playableNotes(this.chart.notes).filter(note => inRange(note, range));
+    const anchors = new Map(selected.filter(note => note.gimmick === 'box').map(note => [note.boxId!,note.time]));
+    const ids = new Set(selected.map(note => note.id));
+    const notes = this.chart.notes.filter(note => note.gimmick === 'box' ? anchors.has(note.boxId!) : ids.has(note.id)).map(note => {
+      const copy = copyNote(note); if (copy.gimmick === 'box') copy.time = anchors.get(copy.boxId!)!; return copy;
+    });
     if (!notes.length) throw new Error('選択範囲にノーツがありません。');
     return { ...range, notes };
   }
   removeRange(range: TimeRange): number {
     validateRange(range);
-    const notes = this.completeBoxes(this.chart.notes.filter(note => !inRange(note, range)).map(copyNote));
-    const removed = this.chart.notes.length - notes.length;
+    const selected = playableNotes(this.chart.notes).filter(note => inRange(note, range));
+    const boxes = new Set(selected.filter(note => note.gimmick === 'box').map(note => note.boxId));
+    const ids = new Set(selected.map(note => note.id));
+    const notes = this.chart.notes.filter(note => note.gimmick === 'box' ? !boxes.has(note.boxId) : !ids.has(note.id)).map(copyNote);
+    const removed = selected.length;
     if (removed) this.commit({ ...copyChart(this.chart), notes });
     return removed;
   }
@@ -187,7 +195,7 @@ export class EditorModel {
       return note;
     });
     this.commit({ ...copyChart(this.chart), notes: [...this.chart.notes, ...pasted] }); this.selected = null;
-    return pasted.length;
+    return playableNotes(pasted).length;
   }
   quantize(division: Division, selectedOnly: boolean, fromSource: boolean): boolean {
     const chart = copyChart(this.chart);

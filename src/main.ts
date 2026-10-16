@@ -133,11 +133,12 @@ function syncHoldSound(playing: boolean, now: number): void {
   sound.syncHolds(lanes, now);
 }
 function showHit(hit: Hit, now: number): void {
-  const feedback = judgements[hit.lane];
-  judgementTimes[hit.lane] = now;
+  if (hit.phase === 'sweep') { if (hit.judgement !== 'MISS') renderer.flash(hit.lane, now, hit.judgement); return; }
+  const feedbackLane = hit.boxComplete ? 2 : hit.lane, feedback = judgements[feedbackLane];
+  judgementTimes[feedbackLane] = now;
   feedback.hidden = false;
   feedback.dataset.kind = hit.judgement;
-  feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'sweep' ? 'SWIPE!' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
+  feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
   feedback.querySelector('.judgement-error')!.textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
   feedback.classList.remove('pop');
   void feedback.offsetWidth;

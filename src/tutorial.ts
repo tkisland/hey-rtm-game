@@ -91,13 +91,17 @@ export function mountTutorial(): () => void {
     sound?.syncHolds(lanes, now);
   }
   function showHit(hit: Hit, now: number): void {
-    const label = labels[hit.lane]; label.hidden = false; label.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'sweep' ? 'SWIPE!' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
-    label.dataset.kind = hit.judgement; hitTimes[hit.lane] = now;
+    if (hit.phase === 'sweep') {
+      if (hit.judgement !== 'MISS') renderer?.flash(hit.lane, now, hit.judgement);
+      feedback.textContent = 'そのまま端までスワイプ！'; return;
+    }
+    const feedbackLane = hit.boxComplete ? 2 : hit.lane, label = labels[feedbackLane]; label.hidden = false; label.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
+    label.dataset.kind = hit.judgement; hitTimes[feedbackLane] = now;
     if (hit.judgement !== 'MISS') {
       renderer?.flash(hit.lane, now, hit.judgement);
       if (hit.boxComplete && hit.boxId !== undefined) { sound?.playBoxSweep(); renderer?.completeBox(now, hit.boxId, hit.boxDirection); }
     }
-    feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'sweep' ? 'そのまま端までスワイプ！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、隣へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
+    feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、隣へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
     feedback.classList.toggle('success', hit.judgement !== 'MISS'); updateScore();
   }
   function draw(now: number, time: number): void {

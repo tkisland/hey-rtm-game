@@ -179,11 +179,13 @@ describe('MIDI, persistence and editor', () => {
     model.undo(); expect(model.chart.notes.find(note => note.id===14)?.path![0]).toEqual({time:19,lane:1}); expect(clip.notes[6].path![0].time).toBe(8);
     const copy=copyChart(data);copy.notes[6].path![0].time=999;expect(data.notes[6].path![0].time).toBe(8);
   });
-  it('dissolves incomplete boxes for partial copy/delete/type changes', () => {
-    const model=new EditorModel(box());const partial=model.copyRange({start:1,end:3});expect(partial.notes.every(note => !note.gimmick)).toBe(true);
+  it('copies and deletes whole boxes by anchor, while changing their type dissolves the markers', () => {
+    const model=new EditorModel(box());const partial=model.copyRange({start:1,end:3});expect(partial.notes.every(note => note.gimmick==='box')).toBe(true);
+    expect(partial.notes).toHaveLength(6);expect(new Set(partial.notes.map(note=>note.time))).toEqual(new Set([1]));
+    expect(model.pasteRange(partial,10)).toBe(1);model.undo();
     model.selected=1;model.remove();expect(model.chart.notes.every(note => !note.gimmick)).toBe(true);
     model.undo();model.selected=1;model.changeType('dd');expect(model.chart.notes.slice(1).every(note => !note.gimmick)).toBe(true);
-    model.undo();model.removeRange({start:1,end:2});expect(model.chart.notes.every(note => !note.gimmick)).toBe(true);
+    model.undo();expect(model.removeRange({start:1,end:2})).toBe(1);expect(model.chart.notes).toHaveLength(0);
   });
   it('supports manual DD/slide/box editing and refuses invalid path edits atomically', () => {
     const model=new EditorModel(chart([{id:1,type:'tap',time:1,lane:0}]));model.selected=1;

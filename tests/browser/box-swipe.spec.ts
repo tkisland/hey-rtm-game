@@ -14,6 +14,8 @@ test.beforeEach(async ({page}) => {
   });
   await page.goto('/game.html?chart=custom');await page.clock.runFor(100);
   await expect(page.locator('#restart')).toBeEnabled();await expect(page.locator('#chart-info')).toContainText('1 NOTES');
+  await page.locator('.lane-buttons').evaluate(node=>node.scrollIntoView({block:'center',behavior:'instant'}));
+  await page.clock.runFor(32);
 });
 async function start(page:Page,time:number) {
   await page.evaluate(time=>{const video=(window as any).testVideo;video.pauseVideo();video.seekTo(time);video.playVideo();},time);
