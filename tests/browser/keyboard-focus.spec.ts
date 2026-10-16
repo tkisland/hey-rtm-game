@@ -55,7 +55,7 @@ test('PC playback returns focus to the game for F input; touch playback retains 
   const scrollBefore = await page.evaluate(() => scrollY);
   await page.evaluate(() => (window as any).testVideo.seekTo(12 + 60 / 140));
   await page.keyboard.down('f'); await expect(page.locator('.lane-button[data-lane="2"]')).toHaveClass(/pressed/); await page.keyboard.up('f');
-  expect(Number(await page.locator('#score').textContent())).toBeGreaterThanOrEqual(700);
+  expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThanOrEqual(700);
   expect(await page.evaluate(() => (window as any).playerShortcuts)).toEqual([]);
   expect(await page.evaluate(() => scrollY)).toBe(scrollBefore);
   await page.frameLocator('iframe').locator('#pause').click();

@@ -48,7 +48,8 @@ test('all six visible receptors are the rendered PERFECT position above the inpu
     await page.evaluate(() => (window as any).testVideo.playVideo());
     await page.keyboard.press('s');
     await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT');
-    await expect(page.locator('#score')).toHaveText('001000');
+    // One successful lane does not award this six-note chord.
+    await expect(page.locator('#score')).toHaveText('0');
   }
 });
 

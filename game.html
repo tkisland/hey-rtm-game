@@ -37,7 +37,7 @@
           <label for="note-size">ノーツの厚さ <output id="note-size-value">100%</output></label>
           <input id="note-size" type="range" min="50" max="150" step="10" value="100" />
           <p class="field-help">判定はノーツの中心で行います。薄い帯がGOOD（±160ms）、中間がGREAT（±100ms）、濃い帯がPERFECT（±50ms）。</p>
-          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。長い帯は終点まで保持、◇は同時押しです。</p>
+          <p class="field-help">16分音符の間隔に合わせて薄く表示します。密な譜面は落下時間を短くすると間隔が広がります。長い帯は終点で離す、◇は同時押しです。</p>
           <label for="offset">ノーツ全体の位置 <output id="offset-value">0 ms</output></label>
           <input id="offset" type="range" min="-300" max="300" step="10" value="0" />
           <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>
@@ -63,7 +63,7 @@
           <div class="stage"><div class="surface-field">
             <canvas id="game-canvas" tabindex="0" aria-label="6レーンのノーツ。ボタンより上の横線が判定位置。下の同じ色のボタンで入力。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
             <div class="scoreboard">
-              <div><span class="metric-label">SCORE</span><strong id="score">000000</strong></div>
+              <div><span class="metric-label">SCORE</span><strong id="score">0</strong></div>
               <div class="combo-metric"><span class="metric-label">COMBO</span><strong id="combo">0</strong><span id="max-combo">MAX 0</span></div>
             </div>
             <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LET’S PLAY!</span><strong>上の再生ボタンで開始</strong><span>ノーツが横線に重なったら、下の同じ色をタップ</span></div>

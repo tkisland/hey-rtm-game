@@ -97,7 +97,7 @@ test('plays the edited chart and keeps it on restart, then switches back to prac
   await expect(page.locator('#chart-info')).toContainText('EDITOR CHART · 120 BPM · 10.1秒〜 · 2 NOTES');
   await expect(page.locator('#restart')).toBeEnabled();
   await page.locator('#game-canvas').click(); await seekPlay(page, 10.149); await page.keyboard.press('s');
-  expect(Number(await page.locator('#score').textContent())).toBeGreaterThanOrEqual(700);
+  expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThanOrEqual(700);
   await page.locator('#restart').click(); await expect(page.locator('#chart-info')).toContainText('2 NOTES');
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(8);
   await page.locator('#settings-toggle').click(); await expect(page.locator('#bpm')).toBeDisabled();

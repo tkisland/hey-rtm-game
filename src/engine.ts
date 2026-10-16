@@ -1,12 +1,12 @@
 import type { Chart, ChartNote } from './chart';
+import { chordGroups } from './note-display';
 
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 export const POINTS = { PERFECT: 1000, GREAT: 700, GOOD: 300, MISS: 0 } as const;
 export type Judgement = keyof typeof POINTS;
 export type NoteState = 'pending' | 'holding' | 'hit' | 'miss' | 'skipped';
-export type PlayNote = ChartNote & { state: NoteState; startJudgement?: Judgement; startError?: number };
+export type PlayNote = ChartNote & { state: NoteState; judgement?: Judgement; startJudgement?: Judgement; startError?: number };
 export interface Hit { judgement: Judgement; lane: number; errorMs: number; noteId: number; phase?: 'start' }
-export const HOLD_RELEASE_GRACE = 0.05;
 const EPSILON = 1e-8;
 
 export function judge(error: number): Judgement {
@@ -25,11 +25,16 @@ export class GameEngine {
   maxCombo = 0;
   counts: Record<Judgement, number> = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
   lastHit: Hit | null = null;
+  private scoreGroups = new Map<PlayNote, PlayNote[]>();
+  private awarded = new Set<PlayNote[]>();
   constructor(public chart: Chart) { this.reset(); }
 
   reset(chart: Chart = this.chart): void {
     this.chart = chart;
     this.notes = chart.notes.map(note => ({ ...note, state: 'pending' }));
+    this.scoreGroups.clear(); this.awarded.clear();
+    this.notes.forEach(note => this.scoreGroups.set(note, [note]));
+    for (const group of chordGroups(this.notes) as PlayNote[][]) for (const note of group) this.scoreGroups.set(note, group);
     this.score = this.combo = this.maxCombo = 0;
     this.counts = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
     this.lastHit = null;
@@ -37,7 +42,12 @@ export class GameEngine {
 
   private record(note: PlayNote, judgement: Judgement, error: number): Hit {
     note.state = judgement === 'MISS' ? 'miss' : 'hit';
-    this.score += POINTS[judgement];
+    note.judgement = judgement;
+    const group = this.scoreGroups.get(note)!;
+    if (!this.awarded.has(group) && group.every(member => member.state === 'hit')) {
+      this.score += group.reduce((sum, member) => sum + POINTS[member.judgement!], 0);
+      this.awarded.add(group);
+    }
     this.counts[judgement]++;
     this.combo = judgement !== 'MISS' ? this.combo + 1 : 0;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
@@ -52,7 +62,7 @@ export class GameEngine {
         updates.push(this.record(note, 'MISS', time - note.time));
       }
       if (note.state === 'holding' && note.type === 'hold') {
-        if (time >= note.endTime || (pressed && !pressed.has(note.lane))) {
+        if (time - note.endTime > WINDOWS.GOOD + EPSILON || (pressed && !pressed.has(note.lane))) {
           const hit = this.finishHold(note, time);
           updates.push(hit);
         }
@@ -84,9 +94,9 @@ export class GameEngine {
   }
 
   private finishHold(note: PlayNote & { type: 'hold' }, time: number): Hit {
-    return time < note.endTime - HOLD_RELEASE_GRACE - EPSILON
-      ? this.record(note, 'MISS', time - note.endTime)
-      : this.record(note, note.startJudgement ?? 'MISS', note.startError ?? 0);
+    const endJudgement = judge(time - note.endTime), startJudgement = note.startJudgement ?? 'MISS';
+    const endIsWorse = POINTS[endJudgement] < POINTS[startJudgement];
+    return this.record(note, endIsWorse ? endJudgement : startJudgement, endIsWorse ? time - note.endTime : note.startError ?? 0);
   }
   release(lane: number, time: number): Hit[] {
     return this.notes.filter((note): note is PlayNote & { type: 'hold' } => note.lane === lane && note.type === 'hold' && note.state === 'holding').map(note => this.finishHold(note, time));

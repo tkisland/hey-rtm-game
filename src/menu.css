@@ -2,6 +2,7 @@
 .menu-page #app { max-width:1040px; }
 .menu-page main { display:block; }
 .menu-label { color:var(--muted); font-size:10px; letter-spacing:1.3px; }
+.site-description { margin:18px 0 8px; font-size:clamp(18px,3.5vw,28px); line-height:1.6; overflow-wrap:anywhere; }
 .menu-heading { padding:12px 0 16px; }
 .library-toolbar { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:12px; margin-bottom:22px; }
 .library-toolbar label { width:min(100%,420px); font-size:12px; color:var(--muted); }

@@ -8,13 +8,14 @@ const hold = (lane = 0, id = 1, time = 10, endTime = 11): ChartNote => ({ id, ti
 const game = (notes: ChartNote[] = [hold()]) => new GameEngine({ ...emptyChart(), startTime: 10, notes });
 const held = (...lanes: number[]) => new Set(lanes);
 
-describe('hold judgement and independent chord lanes', () => {
-  it('scores one note only after reaching its end, retaining the start judgement', () => {
+describe('hold endpoint judgement and chord scoring', () => {
+  it('scores only on a valid endpoint release, using the worse of head and tail', () => {
     const engine = game();
     expect(engine.input(0, 10.08)).toMatchObject({ judgement: 'GREAT', phase: 'start' });
     expect(engine.notes[0].state).toBe('holding'); expect(engine.score).toBe(0); expect(engine.finished).toBe(false);
     expect(engine.advance(10.5, held(0))).toEqual([]);
-    expect(engine.advance(11, held(0))).toMatchObject([{ judgement: 'GREAT', noteId: 1 }]);
+    expect(engine.advance(11, held(0))).toEqual([]); expect(engine.score).toBe(0);
+    expect(engine.release(0, 11)).toMatchObject([{ judgement: 'GREAT', noteId: 1 }]);
     expect(engine.score).toBe(700); expect(engine.combo).toBe(1); expect(engine.finished).toBe(true);
     expect(engine.release(0, 11.1)).toEqual([]); expect(engine.advance(12, held(0))).toEqual([]);
     expect(engine.counts.GREAT).toBe(1);
@@ -26,7 +27,7 @@ describe('hold judgement and independent chord lanes', () => {
     expect(engine.combo).toBe(0); expect(engine.maxCombo).toBe(1); expect(engine.counts.MISS).toBe(1);
     expect(engine.input(0, 10.05)).toBeNull(); expect(engine.advance(12, held())).toEqual([]);
   });
-  it.each([[10.9499, 'MISS'], [10.95, 'PERFECT'], [11, 'PERFECT']])('has a 50ms release grace at %s', (time, expected) => {
+  it.each([[10.8399, 'MISS'], [10.84, 'GOOD'], [10.9, 'GREAT'], [10.95, 'PERFECT'], [11, 'PERFECT'], [11.05, 'PERFECT'], [11.1, 'GREAT'], [11.16, 'GOOD'], [11.1601, 'MISS']])('judges the actual endpoint release at %s', (time, expected) => {
     const engine = game(); engine.input(0, 10);
     expect(engine.release(0, time as number)[0].judgement).toBe(expected);
   });
@@ -42,19 +43,26 @@ describe('hold judgement and independent chord lanes', () => {
     expect(short.input(0, 10.04)?.judgement).toBe('MISS');
     expect(short.finished).toBe(true);
   });
-  it('judges hold/tap chords independently and allows a tap at the hold endpoint', () => {
+  it('defers a hold/tap chord score until its tail succeeds and allows an endpoint tap', () => {
     const engine = game([hold(), { id: 2, time: 10, lane: 3, type: 'tap' }, { id: 3, time: 11, lane: 0, type: 'tap' }]);
     engine.input(0, 10); engine.input(3, 10.12);
     expect(engine.combo).toBe(1); expect(engine.input(0, 10)).toBeNull();
-    engine.advance(11, held(0)); engine.input(0, 11.05);
+    expect(engine.score).toBe(0); engine.advance(11, held(0)); engine.release(0, 11); engine.input(0, 11.05);
     expect(engine.score).toBe(2300); expect(engine.combo).toBe(3); expect(engine.finished).toBe(true);
   });
   it('keeps two holds independent when one finger releases', () => {
     const engine = game([hold(), hold(3, 2)]);
     engine.input(0, 10); engine.input(3, 10);
-    engine.release(0, 10.4); engine.advance(11, held(3));
+    engine.release(0, 10.4); engine.release(3, 11);
     expect(engine.counts).toEqual({ PERFECT: 1, GREAT: 0, GOOD: 0, MISS: 1 });
-    expect(engine.score).toBe(1000); expect(engine.combo).toBe(1);
+    expect(engine.score).toBe(0); expect(engine.combo).toBe(1);
+  });
+  it('fails a hold that stays pressed beyond the endpoint window without adding points', () => {
+    const engine = game(); engine.input(0, 10);
+    expect(engine.advance(11.16, held(0))).toEqual([]); expect(engine.score).toBe(0);
+    expect(engine.advance(11.161, held(0))).toMatchObject([{judgement:'MISS'}]);
+    expect(engine.score).toBe(0); expect(engine.release(0, 11.2)).toEqual([]);
+    expect(engine.counts.MISS).toBe(1);
   });
   it('skips an active hold on forward seek and resets on backwards seek', () => {
     const engine = game([hold(), { id: 2, type: 'tap', time: 15, lane: 3 }]);

@@ -19,7 +19,7 @@ describe('judgement and score', () => {
     expect(game.score).toBe(1000);
     expect(game.input(1, 12)).toBeNull();
   });
-  it('judges simultaneous notes independently and continues combo for every non-MISS judgement', () => {
+  it('awards a complete chord and continues combo for every non-MISS judgement', () => {
     const game = new GameEngine(chart([[12, 0], [12, 3], [13, 1], [14, 2]]));
     game.input(0, 12); game.input(3, 12.08);
     expect(game.combo).toBe(2);

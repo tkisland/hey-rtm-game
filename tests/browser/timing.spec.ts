@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { api, seekPlay } from './mock-video';
+import { api, seekPlay, waitForVideoTime } from './mock-video';
 const chart = { videoId: 'pJDfWpZ7CI4', title: 'SUPER MOMMY GIRLS', bpm: 120, startTime: 12, beatOrigin: 12, notes: [{ id: 1, time: 12, lane: 0, type: 'tap' }, { id: 2, time: 14, lane: 3, type: 'tap' }] };
 async function game(page: Page, notes: unknown = chart.notes) {
   await page.goto('/game.html?chart=test');
@@ -26,7 +26,7 @@ test('input correction works after the original MISS deadline and audio delay do
   await range(page, 'offset', '100'); await range(page, 'input-offset', '300'); await range(page, 'sound-delay', '150');
   await page.locator('#debug-toggle').check(); await page.locator('#settings-close').click();
   await seekPlay(page, 12.38); await page.keyboard.press('s');
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('001000');
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('1,000');
   await expect.poll(() => starts(page).then(events => events.length)).toBe(2);
   const delayed = (await starts(page))[1]; expect(delayed.when - delayed.now).toBeGreaterThan(0.12); expect(delayed.when - delayed.now).toBeLessThanOrEqual(0.151);
   await expect(page.locator('#debug-input-offset')).toHaveText('300 ms');
@@ -43,8 +43,8 @@ test('negative correction accepts early taps and positive correction applies at 
   await game(page, [{ id: 1, time: 12, endTime: 12.9, lane: 0, type: 'hold' }]);
   await page.locator('#settings-toggle').click(); await range(page, 'input-offset', '200'); await page.locator('#settings-close').click();
   await seekPlay(page, 12.19); await page.keyboard.down('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
-  await expect(page.locator('#score')).toHaveText('000000');
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await page.keyboard.up('s'); await expect(page.locator('#score')).toHaveText('001000');
+  await expect(page.locator('#score')).toHaveText('0');
+  await waitForVideoTime(page, 13.1); await page.keyboard.up('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('1,000');
 });
 
 test('editor tap and hold recordings compensate input while preserving hold length and shared settings', async ({ page }) => {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { api, seekPlay } from './mock-video';
+import { api, seekPlay, waitForVideoTime } from './mock-video';
 import { readFileSync } from 'node:fs';
 const smg = JSON.parse(readFileSync(new URL('../../src/charts/smg002.json', import.meta.url), 'utf8'));
 
@@ -15,20 +15,22 @@ test('the primary menu entry plays SMG002 at 7.65s, including its first yellow n
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBe(0);
   await seekPlay(page, 7.65); await page.keyboard.press('l');
   await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
-  expect(Number(await page.locator('#score').textContent())).toBeGreaterThan(0);
-  await page.locator('#restart').click(); await expect(page.locator('#score')).toHaveText('000000');
+  expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThan(0);
+  await page.locator('#restart').click(); await expect(page.locator('#score')).toHaveText('0');
   await expect(page.locator('#chart-info')).toContainText('509 NOTES');
 });
-test('the shipped two-lane hold completes both notes independently', async ({ page }) => {
+test('the shipped two-lane hold scores only after both endpoint releases', async ({ page }) => {
   await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
   await seekPlay(page, 74.761398469);
   await page.keyboard.down('s'); await page.keyboard.down('l');
   await expect(page.locator('.lane-button.holding')).toHaveCount(2);
+  const tails = smg.notes.filter((note: any) => note.type === 'hold' && Math.abs(note.time - 74.761398469) < .001).sort((a: any,b: any) => a.endTime - b.endTime);
+  for (const note of tails) { await waitForVideoTime(page, note.endTime); await page.keyboard.up(note.lane === 0 ? 's' : 'l'); }
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
   await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
   await expect(page.locator('.lane-button.holding')).toHaveCount(0);
-  const score = Number(await page.locator('#score').textContent()); expect(score).toBeGreaterThanOrEqual(600); expect(score).toBeLessThanOrEqual(2000);
-  await page.keyboard.up('s'); await page.keyboard.up('l'); await expect(page.locator('#score')).toHaveText(String(score).padStart(6, '0'));
+  const score = Number((await page.locator('#score').textContent())!.replaceAll(',', '')); expect(score).toBeGreaterThanOrEqual(600); expect(score).toBeLessThanOrEqual(2000);
+  await page.keyboard.up('s'); await page.keyboard.up('l'); await expect(page.locator('#score')).toHaveText(score.toLocaleString('ja-JP'));
 });
 test('bundled, practice and saved charts coexist without changing existing drafts or settings', async ({ page }) => {
   await page.addInitScript(data => {

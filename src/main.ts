@@ -117,7 +117,7 @@ canvas.addEventListener('pointerdown', event => {
 }, { signal });
 
 function updateScore(): void {
-  score.textContent = engine.score.toString().padStart(6, '0');
+  score.textContent = engine.score.toLocaleString('ja-JP');
   combo.textContent = String(engine.combo);
   maxCombo.textContent = `MAX ${engine.maxCombo}`;
 }
@@ -386,7 +386,7 @@ if (__ADMIN__) {
     engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
     if (player && !failed) restart.click();
   }, { signal });
-} else notice.textContent = previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長い帯は終点まで押し続け、◇でつながったノーツは同時に押してください。';
+} else notice.textContent = previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長押しは終点で離そう。同時押しは片方でもMISSになると、その組は0点です。';
 
 let debugUpdated = 0;
 function frame(now: number): void {
@@ -408,7 +408,7 @@ function frame(now: number): void {
     stageHint.hidden = sample.playing || resultShown;
     const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? 'MVの再生が終了しました' : '上の再生ボタンで開始';
     stageHint.querySelector('strong')!.textContent = hint;
-    stageHint.querySelector('span:last-child')!.textContent = '横線で下の同じ色をタップ · 長い帯は終点まで保持';
+    stageHint.querySelector('span:last-child')!.textContent = '横線で下の同じ色をタップ · 長い帯は終点で離す';
   }
   judgements.forEach((feedback, lane) => {
     const holding = engine.notes.some(note => note.lane === lane && note.state === 'holding');

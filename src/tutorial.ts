@@ -12,8 +12,8 @@ import { tutorialChart, TUTORIAL_BEAT, TUTORIAL_BPM, TUTORIAL_TRAVEL } from './t
 
 const steps = [
   {title:'タップ', description:'流れてくるノーツが判定ラインに重なったら、同じ色のボタンを1回押そう。'},
-  {title:'同時押し', description:'線でつながった2つのノーツは、同じタイミングで一緒に押そう。'},
-  {title:'長押し', description:'長い帯の先頭で押して、そのまま帯の終点がラインに来るまでキープしよう。'},
+  {title:'同時押し', description:'線でつながった2つを一緒に押そう。片方でもMISSなら、その組は0点です。'},
+  {title:'長押し', description:'帯の先頭で押し、終点がラインに来たら離そう。早すぎても遅すぎてもMISSです。'},
 ];
 
 export function mountTutorial(): () => void {
@@ -59,7 +59,7 @@ export function mountTutorial(): () => void {
     const label = labels[hit.lane]; label.hidden = false; label.textContent = hit.phase === 'start' ? 'HOLD' : hit.judgement;
     label.dataset.kind = hit.judgement; hitTimes[hit.lane] = now;
     if (hit.judgement !== 'MISS') renderer?.flash(hit.lane, now, hit.judgement);
-    feedback.textContent = hit.phase === 'start' ? 'そのまま帯の終点までキープ！' : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
+    feedback.textContent = hit.phase === 'start' ? '終点がラインに重なったら離そう！' : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
     feedback.classList.toggle('success', hit.judgement !== 'MISS'); updateScore();
   }
   function draw(now: number, time: number): void {

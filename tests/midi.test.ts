@@ -72,7 +72,9 @@ it('the shipped chart can be played through with all 22 holds and 32 chords scor
   const times = [...new Set(chart.notes.flatMap(note => note.type === 'hold' ? [note.time, note.endTime] : [note.time]))].sort((a, b) => a - b);
   for (const time of times) {
     engine.advance(time, pressed);
-    for (const note of chart.notes) if (note.type === 'hold' && note.endTime === time) pressed.delete(note.lane);
+    for (const note of chart.notes) if (note.type === 'hold' && note.endTime === time) {
+      engine.release(note.lane, time); pressed.delete(note.lane);
+    }
     for (const note of chart.notes.filter(note => note.time === time)) {
       expect(engine.input(note.lane, time)?.judgement).toBe('PERFECT');
       if (note.type === 'hold') pressed.add(note.lane);
