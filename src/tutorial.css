@@ -14,7 +14,7 @@ body.tutorial-visible { overflow:hidden; }
 .tutorial-toolbar button { min-height:44px; }
 .tutorial-toolbar label { display:flex; align-items:center; gap:6px; font-size:11px; min-height:44px; }
 .tutorial-audio-controls { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-.tutorial-audio-controls button { min-height:44px; }
+.tutorial-audio-controls button { min-height:44px; padding:8px 10px; border:1px solid #bda7f766; border-radius:8px; background:#bda7f712; color:#e7dfff; font-size:12px; }
 .tutorial-audio-controls label { display:flex; align-items:center; flex:1; gap:6px; min-height:44px; font-size:11px; }
 .tutorial-audio-controls input { flex:1; min-width:60px; width:90px; accent-color:#bda7f7; }
 .tutorial-status-row { font-size:11px; color:#c8c6dd; }
