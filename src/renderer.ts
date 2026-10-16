@@ -1,5 +1,5 @@
 import type { PlayNote } from './engine';
-import { BOX_SWEEP_SECONDS, BOX_WINDOWS, WINDOWS, playLane } from './engine';
+import { BOX_SWEEP_SECONDS, BOX_WINDOWS, HOLD_WINDOWS, WINDOWS, playLane } from './engine';
 import { laneAt } from './chart';
 import { slideRoute } from './slide-route';
 import { responseMark } from './response-art';
@@ -78,7 +78,7 @@ export class Renderer {
       const from = route[i - 1], to = route[i];
       if (from.time === to.time) {
         const q = progressAt(to.time);
-        if (q < 0 || q > 1 + WINDOWS.GOOD / travel) continue;
+        if (q < 0 || q > 1 + HOLD_WINDOWS.GOOD / travel) continue;
         const start = project(field, from.lane, q), end = project(field, to.lane, q);
         const gradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
         gradient.addColorStop(0, LANE_COLORS[from.lane]); gradient.addColorStop(1, LANE_COLORS[to.lane]);
@@ -95,8 +95,9 @@ export class Renderer {
       }
     }
     if (note.type === 'hold') {
-      const tailP = progressAt(note.endTime);
-      if (tailP >= 0 && tailP <= 1 + WINDOWS.GOOD / travel) {
+      // A held endpoint waits at the receptor throughout the extended release window.
+      const tailP = Math.min(p, progressAt(note.endTime));
+      if (tailP >= 0 && tailP <= 1 + HOLD_WINDOWS.GOOD / travel) {
         const tail = project(field, laneAt(note, note.endTime), tailP);
         this.releaseCap(tail, thickness * tail.scale, LANE_COLORS[laneAt(note, note.endTime)]);
       }
@@ -218,7 +219,7 @@ export class Renderer {
         if (rawTail >= 0) this.releaseCap(tail, referenceThickness * tail.scale, color);
       }
       if (note.gimmick === 'dd') {
-        const center = project(field, 2.5, p), width = project(field, 5.49, p).x - project(field, -.49, p).x, height = 16 * center.scale;
+        const center = project(field, 2.5, p), width = project(field, 5.49, p).x - project(field, -.49, p).x, height = 10 * center.scale;
         const left = center.x - width / 2, top = center.y - height / 2;
         const gradient = ctx.createLinearGradient(left, 0, left + width, 0);
         LANE_COLORS.forEach((color, i) => gradient.addColorStop(i / 5, color));

@@ -3,6 +3,8 @@ import { copyNote } from './chart';
 import { playableNotes, chordGroups } from './note-display';
 
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
+/** More forgiving releases and slide checkpoints; starts still use WINDOWS. */
+export const HOLD_WINDOWS = { PERFECT: 0.1, GREAT: 0.18, GOOD: 0.25 } as const;
 export const POINTS = { PERFECT: 1000, GREAT: 700, GOOD: 300, MISS: 0 } as const;
 export const BOX_WINDOWS = { PERFECT:.15, GREAT:.25, GOOD:.35 } as const;
 export const BOX_SWEEP_SECONDS = .25;
@@ -14,11 +16,11 @@ export interface Hit { judgement: Judgement; lane: number; errorMs: number; note
 export const playLane = (note: PlayNote): number => note.activeLane ?? note.lane;
 const EPSILON = 1e-8;
 
-export function judge(error: number): Judgement {
+export function judge(error: number, windows: Readonly<Record<'PERFECT' | 'GREAT' | 'GOOD', number>> = WINDOWS): Judgement {
   const absolute = Math.abs(error);
-  if (absolute <= WINDOWS.PERFECT + EPSILON) return 'PERFECT';
-  if (absolute <= WINDOWS.GREAT + EPSILON) return 'GREAT';
-  if (absolute <= WINDOWS.GOOD + EPSILON) return 'GOOD';
+  if (absolute <= windows.PERFECT + EPSILON) return 'PERFECT';
+  if (absolute <= windows.GREAT + EPSILON) return 'GREAT';
+  if (absolute <= windows.GOOD + EPSILON) return 'GOOD';
   return 'MISS';
 }
 
@@ -84,17 +86,17 @@ export class GameEngine {
       }
       if (note.state === 'holding' && note.type === 'hold') {
         const point = note.path?.[note.pathIndex ?? 0];
-        if (point && time - point.time > WINDOWS.GOOD + EPSILON) { updates.push(this.record(note, 'MISS', time - point.time)); continue; }
+        if (point && time - point.time > HOLD_WINDOWS.GOOD + EPSILON) { updates.push(this.record(note, 'MISS', time - point.time)); continue; }
         // Transfer on either the new press, or release of the old key while the next is held.
         // Holding both before the checkpoint alone cannot score it.
         const releasedCurrent = previousPressed.has(playLane(note)) && !pressed?.has(playLane(note));
-        if (point && pressed?.has(point.lane) && (!previousPressed.has(point.lane) || releasedCurrent) && Math.abs(time - point.time) <= WINDOWS.GOOD + EPSILON) {
-          const error = time - point.time, judgement = judge(error);
+        if (point && pressed?.has(point.lane) && (!previousPressed.has(point.lane) || releasedCurrent) && Math.abs(time - point.time) <= HOLD_WINDOWS.GOOD + EPSILON) {
+          const error = time - point.time, judgement = judge(error, HOLD_WINDOWS);
           note.activeLane = point.lane; note.pathIndex = (note.pathIndex ?? 0) + 1;
           if (POINTS[judgement] < POINTS[note.startJudgement ?? 'MISS']) { note.startJudgement = judgement; note.startError = error; }
           updates.push({judgement, lane: point.lane, errorMs: error * 1000, noteId: note.id, phase: 'move'});
         }
-        if (time - note.endTime > WINDOWS.GOOD + EPSILON || (pressed && !pressed.has(playLane(note)))) {
+        if (time - note.endTime > HOLD_WINDOWS.GOOD + EPSILON || (pressed && !pressed.has(playLane(note)))) {
           const hit = this.finishHold(note, time);
           updates.push(hit);
         }
@@ -160,7 +162,7 @@ export class GameEngine {
 
   private finishHold(note: PlayNote & { type: 'hold' }, time: number): Hit {
     if ((note.pathIndex ?? 0) < (note.path?.length ?? 0)) return this.record(note, 'MISS', time - note.endTime);
-    const endJudgement = judge(time - note.endTime), startJudgement = note.startJudgement ?? 'MISS';
+    const endJudgement = judge(time - note.endTime, HOLD_WINDOWS), startJudgement = note.startJudgement ?? 'MISS';
     const endIsWorse = POINTS[endJudgement] < POINTS[startJudgement];
     return this.record(note, endIsWorse ? endJudgement : startJudgement, endIsWorse ? time - note.endTime : note.startError ?? 0);
   }

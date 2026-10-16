@@ -27,7 +27,7 @@ describe('hold endpoint judgement and chord scoring', () => {
     expect(engine.combo).toBe(0); expect(engine.maxCombo).toBe(1); expect(engine.counts.MISS).toBe(1);
     expect(engine.input(0, 10.05)).toBeNull(); expect(engine.advance(12, held())).toEqual([]);
   });
-  it.each([[10.8399, 'MISS'], [10.84, 'GOOD'], [10.9, 'GREAT'], [10.95, 'PERFECT'], [11, 'PERFECT'], [11.05, 'PERFECT'], [11.1, 'GREAT'], [11.16, 'GOOD'], [11.1601, 'MISS']])('judges the actual endpoint release at %s', (time, expected) => {
+  it.each([[10.7499, 'MISS'], [10.75, 'GOOD'], [10.8199, 'GOOD'], [10.82, 'GREAT'], [10.8999, 'GREAT'], [10.9, 'PERFECT'], [11, 'PERFECT'], [11.1, 'PERFECT'], [11.1001, 'GREAT'], [11.18, 'GREAT'], [11.1801, 'GOOD'], [11.25, 'GOOD'], [11.2501, 'MISS']])('judges the actual endpoint release at %s', (time, expected) => {
     const engine = game(); engine.input(0, 10);
     expect(engine.release(0, time as number)[0].judgement).toBe(expected);
   });
@@ -59,9 +59,9 @@ describe('hold endpoint judgement and chord scoring', () => {
   });
   it('fails a hold that stays pressed beyond the endpoint window without adding points', () => {
     const engine = game(); engine.input(0, 10);
-    expect(engine.advance(11.16, held(0))).toEqual([]); expect(engine.score).toBe(0);
-    expect(engine.advance(11.161, held(0))).toMatchObject([{judgement:'MISS'}]);
-    expect(engine.score).toBe(0); expect(engine.release(0, 11.2)).toEqual([]);
+    expect(engine.advance(11.25, held(0))).toEqual([]); expect(engine.score).toBe(0);
+    expect(engine.advance(11.2501, held(0))).toMatchObject([{judgement:'MISS'}]);
+    expect(engine.score).toBe(0); expect(engine.release(0, 11.3)).toEqual([]);
     expect(engine.counts.MISS).toBe(1);
   });
   it('skips an active hold on forward seek and resets on backwards seek', () => {

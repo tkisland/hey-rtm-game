@@ -30,7 +30,7 @@ it('groups the same 1ms heads as the visible connector, but leaves separate note
   engine.advance(10.2); expect(engine.score).toBe(1000);
 });
 it('cancels the tap portion of a chord when its hold tail misses', () => {
-  for (const release of [10.5,11.2]) {
+  for (const release of [10.5,11.2501]) {
     const engine=game([hold(0),tap(1)]); engine.input(1,10); engine.input(0,10);
     expect(engine.score).toBe(0); engine.release(0,release);
     expect(engine.score).toBe(0); expect(engine.counts.MISS).toBe(1);
@@ -39,8 +39,8 @@ it('cancels the tap portion of a chord when its hold tail misses', () => {
 it('waits for different hold endpoints and uses their actual tail judgement', () => {
   const engine=game([hold(0),hold(1,12)]); engine.input(0,10); engine.input(1,10);
   engine.release(0,11.08); expect(engine.score).toBe(0);
-  engine.release(1,12.15); expect(engine.score).toBe(1000);
-  expect(engine.counts).toEqual({PERFECT:0,GREAT:1,GOOD:1,MISS:0});
+  engine.release(1,12.15); expect(engine.score).toBe(1700);
+  expect(engine.counts).toEqual({PERFECT:1,GREAT:1,GOOD:0,MISS:0});
 });
 it('discards incomplete chord points on a seek and resets the group settlement for replay', () => {
   const engine=game([tap(0),hold(1)]); engine.input(0,10); engine.input(1,10);
