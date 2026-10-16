@@ -11,7 +11,7 @@ test('video starts at zero, resume keeps its position and restart returns to zer
   await expect(page.locator('#chart-info')).toContainText('7.65秒〜 · 509 NOTES');
   await page.locator('#play-start').click();
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(.5);
-  await expect(page.locator('#score')).toHaveText('000000');
+  await expect(page.locator('#score')).toHaveText('0');
   await page.evaluate(() => { const v = (window as any).testVideo; v.pauseVideo(); v.seekTo(3.4); });
   await page.locator('#play-start').click();
   const resumed = await page.evaluate(() => (window as any).testVideo.getCurrentTime()); expect(resumed).toBeGreaterThanOrEqual(3.4); expect(resumed).toBeLessThan(3.9);

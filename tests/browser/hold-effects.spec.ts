@@ -58,7 +58,7 @@ test('both touch holds keep emitting after the initial burst; lifting one stops 
   expect(before.sparks.some(point => point.x > center)).toBe(true);
   await page.waitForTimeout(90);
   expect((await effects(page)).sparks).not.toEqual(before.sparks);
-  await expect(page.locator('#score')).toHaveText('000000');
+  await expect(page.locator('#score')).toHaveText('0');
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [touches[0]] });
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS');
   await expect.poll(async () => (await effects(page)).glows.length).toBe(1);
@@ -79,13 +79,13 @@ test('pause and buffering stop particles; resume restores them and seek or resta
   await page.locator('#restart').click(); await quiet(page); await page.keyboard.up('s');
 });
 
-test('successful completion ends continuous sparks even while the key stays down; empty holds emit none', async ({ page }) => {
+test('missing the endpoint ends continuous sparks even while the key stays down; empty holds emit none', async ({ page }) => {
   await page.evaluate(chart => localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify({
     ...chart, notes: [{ ...chart.notes[0], endTime: 13.2 }],
   })), chart);
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
   await seekPlay(page, 12); await page.keyboard.down('s'); await page.waitForTimeout(550); await sparks(page, true);
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT/);
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS');
   await page.waitForTimeout(450); await quiet(page);
   await expect(page.locator('.lane-button.pressed')).toHaveCount(1);
   await page.keyboard.up('s'); await page.keyboard.down('d'); await quiet(page); await page.keyboard.up('d');

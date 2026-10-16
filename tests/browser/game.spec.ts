@@ -14,7 +14,7 @@ test('keyboard timing, repeat protection, paused/buffering input, seek and resta
   await seekPlay(page, 12);
   await page.keyboard.down('s');
   const initialScore = await page.locator('#score').textContent();
-  expect(Number(initialScore)).toBeGreaterThanOrEqual(700);
+  expect(Number(initialScore!.replaceAll(',', ''))).toBeGreaterThanOrEqual(700);
   await page.keyboard.down('s');
   await expect(page.locator('#score')).toHaveText(initialScore!);
   await page.keyboard.up('s');
@@ -31,7 +31,7 @@ test('keyboard timing, repeat protection, paused/buffering input, seek and resta
   await expect(page.locator('#game-notice')).toContainText('前方シーク');
   await expect(page.locator('#score')).toHaveText(score!);
   await seekPlay(page, 10);
-  await expect(page.locator('#score')).toHaveText('000000');
+  await expect(page.locator('#score')).toHaveText('0');
   await page.locator('#restart').click();
   await expect(page.locator('#combo')).toHaveText('0');
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(10);
@@ -56,7 +56,7 @@ test('independent simultaneous pointer inputs, settings persistence and high DPI
   await expect.poll(() => page.evaluate(() => (window as any).touchSounds)).toBe(2);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(page.locator('.lane-button.pressed')).toHaveCount(0);
-  expect(Number(await page.locator('#score').textContent())).toBeGreaterThanOrEqual(1400);
+  expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThanOrEqual(1400);
   await expect(page.locator('#combo')).toHaveText('2');
   await page.locator('#settings-toggle').click();
   await page.locator('#bpm').fill('100');
@@ -85,7 +85,7 @@ test('independent simultaneous pointer inputs, settings persistence and high DPI
 test('result preserves normal video playback and skipped notes never inflate score', async ({ page }) => {
   await seekPlay(page, 45);
   await expect(page.locator('#result')).toBeVisible();
-  await expect(page.locator('#score')).toHaveText('000000');
+  await expect(page.locator('#score')).toHaveText('0');
   await expect(page.locator('#result-accuracy')).toContainText('スキップ');
   expect(await page.evaluate(() => (window as any).testVideo.getPlayerState())).toBe(1);
 });
@@ -99,7 +99,7 @@ test('IFrame errors stop the game and retain the official video link', async ({ 
   await expect(page.locator('#player-error')).toContainText('Referer');
   await expect(page.locator('#restart')).toBeDisabled();
   await page.keyboard.press('s');
-  await expect(page.locator('#score')).toHaveText('000000');
+  await expect(page.locator('#score')).toHaveText('0');
   await expect(page.locator('.playback-info a')).toHaveAttribute('href', 'https://www.youtube.com/watch?v=pJDfWpZ7CI4');
 });
 
@@ -225,7 +225,7 @@ test('repeated touch inputs leave the playfield and scroll position stable witho
   for (let i = 0; i < 12; i++) await page.locator(`.lane-button[data-lane="${i % 6}"]`).tap();
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe(activeBefore);
   expect(await geometry()).toEqual(before);
-  expect(Number(await page.locator('#score').textContent())).toBeGreaterThan(0);
+  expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThan(0);
   // Feedback expiry must not resize the runway either.
   await page.waitForTimeout(850);
   expect(await geometry()).toEqual(before);

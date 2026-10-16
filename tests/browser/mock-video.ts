@@ -38,3 +38,8 @@ export async function seekPlay(page: Page, time: number) {
   await page.waitForTimeout(50);
   await page.evaluate(() => (window as any).testVideo.playVideo());
 }
+
+/** Wait on animation frames so an endpoint release stays inside its timing window. */
+export async function waitForVideoTime(page: Page, time: number) {
+  await page.waitForFunction(time => (window as any).testVideo.getCurrentTime() >= time, time, {polling:"raf"});
+}

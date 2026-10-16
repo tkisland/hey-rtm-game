@@ -63,11 +63,11 @@ test('pause, buffering, seek, restart and focus loss stop sustained voices', asy
   await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await count(page, 0); await page.keyboard.up('s');
 });
 
-test('the endpoint stops the loop even while the key stays down; empty presses do not loop', async ({ page }) => {
+test('holding past the endpoint deadline misses and stops the loop; empty presses do not loop', async ({ page }) => {
   await page.evaluate(chart => localStorage.setItem('hey-rhythm-custom-chart-v1', JSON.stringify({ ...chart, notes: [{ ...chart.notes[0], endTime: 13 }] })), chart);
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
   await seekPlay(page, 12); await page.keyboard.down('s'); await count(page, 1);
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT/); await count(page, 0);
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS'); await count(page, 0);
   await expect(page.locator('.lane-button.pressed')).toHaveCount(1);
   await page.keyboard.up('s'); await page.keyboard.down('d'); await count(page, 0); await page.keyboard.up('d');
 });

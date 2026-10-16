@@ -57,11 +57,11 @@ test('scores both simultaneous note heads and rejects holding a button down befo
   await open(page); await page.locator('#tutorial-next').click(); const advance = await play(page);
   await advance(2000); await page.keyboard.down('s');
   await advance(2667); await page.keyboard.press('l');
-  await expect(page.locator('#tutorial-score')).toHaveText('1,000 点 · COMBO 1');
+  await expect(page.locator('#tutorial-score')).toHaveText('0 点 · COMBO 1');
   await page.keyboard.up('s'); await advance(2900);
   await expect(page.locator('#tutorial-feedback')).toContainText('MISS');
   await advance(4667); await page.keyboard.down('d'); await page.keyboard.down('k');
-  await expect(page.locator('#tutorial-score')).toHaveText('3,000 点 · COMBO 2');
+  await expect(page.locator('#tutorial-score')).toHaveText('2,000 点 · COMBO 2');
   await page.keyboard.up('d'); await page.keyboard.up('k');
 });
 
@@ -70,8 +70,8 @@ test('requires holding from the moving head to its tail and cancels an interrupt
   const advance = await play(page); await advance(2667); await page.keyboard.down('f');
   await expect(page.locator('.tutorial-judgement').nth(2)).toHaveText('HOLD');
   await advance(3100); await page.keyboard.up('f'); await expect(page.locator('#tutorial-feedback')).toContainText('MISS');
-  await advance(6000); await page.keyboard.down('s'); await advance(7400);
-  await expect(page.locator('#tutorial-score')).toHaveText('1,000 点 · COMBO 1'); await page.keyboard.up('s');
+  await advance(6000); await page.keyboard.down('s'); await advance(7334); await page.keyboard.up('s');
+  await expect(page.locator('#tutorial-score')).toHaveText('1,000 点 · COMBO 1');
   await advance(8100); await expect(page.locator('#tutorial-feedback')).toContainText('1 / 2 ノーツ成功');
   const retry = await play(page); await retry(2667); await page.keyboard.down('f');
   await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await page.keyboard.up('f');

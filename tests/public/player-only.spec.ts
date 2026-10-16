@@ -43,8 +43,8 @@ test('public play ignores old drafts and chart settings while retaining device p
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(.5);
   await seekPlay(page, 7.65); await page.keyboard.press('l');
   await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
-  expect(Number(await page.locator('#score').textContent())).toBeGreaterThan(0);
-  await page.locator('#restart').click(); await expect(page.locator('#score')).toHaveText('000000');
+  expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThan(0);
+  await page.locator('#restart').click(); await expect(page.locator('#score')).toHaveText('0');
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
   await page.locator('#settings-toggle').click(); await expect(page.locator('#travel')).toHaveValue('2.5');
   const stored = await page.evaluate(() => ['hey-rhythm-editor-v1','hey-rhythm-custom-chart-v1'].map(key => JSON.parse(localStorage.getItem(key)!)));

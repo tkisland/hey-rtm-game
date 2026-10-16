@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { api, seekPlay } from './mock-video';
+import { api, seekPlay, waitForVideoTime } from './mock-video';
 const chart = {
   videoId: 'pJDfWpZ7CI4', title: 'SUPER MOMMY GIRLS', bpm: 120, startTime: 12, beatOrigin: 12,
   notes: [{ id: 1, time: 12, endTime: 12.9, sourceTime: 12, sourceEndTime: 12.9, lane: 0, type: 'hold' }],
@@ -68,19 +68,20 @@ test('edits a hold tail, adds a chord, converts note types, undoes and round-tri
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('two touch holds are judged independently when one finger lifts early', async ({ page }) => {
+test('a missed touch hold cancels the entire chord score', async ({ page }) => {
   await loadGame(page, { ...chart, notes: [chart.notes[0], { ...chart.notes[0], id: 2, lane: 3 }] });
   const touches = await touchesFor(page, [0, 3]), session = await page.context().newCDPSession(page);
   await seekPlay(page, 12); await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: touches });
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD'); await expect(page.locator('#judgement-3 .judgement-label')).toHaveText('HOLD');
-  await expect(page.locator('#score')).toHaveText('000000');
+  await expect(page.locator('#score')).toHaveText('0');
   await expect(page.locator('.lane-button.holding')).toHaveCount(2);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [touches[0]] });
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS'); await expect(page.locator('.lane-button.pressed')).toHaveCount(1);
   await expect(page.locator('.lane-button.holding')).toHaveCount(1);
-  await expect(page.locator('#judgement-3 .judgement-label')).toHaveText(/PERFECT|GREAT/); await expect(page.locator('#combo')).toHaveText('1');
-  const score = Number(await page.locator('#score').textContent()); expect(score).toBeGreaterThanOrEqual(700); expect(score).toBeLessThanOrEqual(1000);
-  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await expect(page.locator('#score')).toHaveText(String(score).padStart(6, '0'));
+  await waitForVideoTime(page, chart.notes[0].endTime);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.locator('#judgement-3 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/); await expect(page.locator('#combo')).toHaveText('1');
+  await expect(page.locator('#score')).toHaveText('0');
   await expect(page.locator('#result')).toBeVisible();
 });
 
@@ -89,32 +90,33 @@ test('releasing the keyboard keeps a hold active while another input source hold
   await seekPlay(page, 12); await page.keyboard.down('s');
   await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: touches });
   await page.keyboard.up('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT/);
-  await expect(page.locator('#combo')).toHaveText('1');
+  await waitForVideoTime(page, chart.notes[0].endTime);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
+  await expect(page.locator('#combo')).toHaveText('1');
 });
 
 test('holds suspend judgement while paused, allow regripping, and fail on focus loss during play', async ({ page }) => {
   await loadGame(page); await seekPlay(page, 12); await page.keyboard.down('s');
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
   await page.evaluate(() => (window as any).testVideo.setState(2)); await page.keyboard.up('s'); await page.waitForTimeout(120);
-  await expect(page.locator('#score')).toHaveText('000000'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
+  await expect(page.locator('#score')).toHaveText('0'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
   await page.keyboard.down('s'); await page.evaluate(() => (window as any).testVideo.playVideo());
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT/); await page.keyboard.up('s');
+  await waitForVideoTime(page, chart.notes[0].endTime); await page.keyboard.up('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
   await page.locator('#restart').click(); await expect(page.locator('#control-status')).toContainText('開始まで'); await seekPlay(page, 12); await page.keyboard.down('s');
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS'); await expect(page.locator('#score')).toHaveText('000000'); await page.keyboard.up('s');
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('MISS'); await expect(page.locator('#score')).toHaveText('0'); await page.keyboard.up('s');
 });
 
 test('focused lane buttons support holding Space and seeking skips active holds', async ({ page }) => {
   await loadGame(page); await page.locator('.lane-button[data-lane="0"]').focus(); await seekPlay(page, 12); await page.keyboard.down('Space');
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT/); await page.keyboard.up('Space');
+  await waitForVideoTime(page, chart.notes[0].endTime); await page.keyboard.up('Space'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
   await page.locator('#restart').click(); await expect(page.locator('#control-status')).toContainText('開始まで'); await seekPlay(page, 12); await page.keyboard.down('s');
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
   await page.evaluate(() => (window as any).testVideo.seekTo(20));
-  await expect(page.locator('#game-notice')).toContainText('前方シーク'); await expect(page.locator('#score')).toHaveText('000000');
+  await expect(page.locator('#game-notice')).toContainText('前方シーク'); await expect(page.locator('#score')).toHaveText('0');
   await page.keyboard.up('s');
 });
 

@@ -22,14 +22,17 @@ describe('input compensation', () => {
     const engine = new GameEngine({ ...emptyChart(), notes: [{ id: 1, time: 12, lane: 0, type: 'tap' }] });
     expect(engine.input(0, compensateInput(11.9, -100))?.judgement).toBe('PERFECT');
   });
-  it('uses the same correction at hold start, release and automatic completion', () => {
+  it('uses the same correction at hold start, release and the overdue endpoint deadline', () => {
     const chart = { ...emptyChart(), notes: [{ id: 1, time: 12, endTime: 13, lane: 0, type: 'hold' as const }] };
     const engine = new GameEngine(chart);
     engine.input(0, compensateInput(12.2, 200));
     expect(engine.advance(compensateInput(13.19, 200), new Set([0]))).toEqual([]);
-    expect(engine.advance(compensateInput(13.2, 200), new Set([0]))[0].judgement).toBe('PERFECT');
+    expect(engine.advance(compensateInput(13.2, 200), new Set([0]))).toEqual([]);
+    expect(engine.release(0, compensateInput(13.2, 200))[0].judgement).toBe('PERFECT');
     const released = new GameEngine(chart); released.input(0, compensateInput(12.2, 200));
-    expect(released.release(0, compensateInput(13.1, 200))[0].judgement).toBe('MISS');
+    expect(released.release(0, compensateInput(13.1, 200))[0].judgement).toBe('GREAT');
+    const overdue = new GameEngine(chart); overdue.input(0, compensateInput(12.2, 200));
+    expect(overdue.advance(compensateInput(13.361,200), new Set([0]))[0].judgement).toBe('MISS');
   });
   it('leaves zero-compensation behavior unchanged', () => {
     expect(compensateInput(12.123, 0)).toBe(12.123);
