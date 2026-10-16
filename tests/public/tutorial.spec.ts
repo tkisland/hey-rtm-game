@@ -145,9 +145,9 @@ test('plays box chains, DD on any lane and a complete keyboard slide', async ({p
   for (let i=0;i<3;i++) await page.locator('#tutorial-next').click();
   await expect(page.locator('#tutorial-title')).toHaveText('箱推し');
   const box=await play(page);
-  for (let lane=0;lane<6;lane++) {await box(Math.round((4 + lane/4)*2000/3));await page.keyboard.press('sdfjkl'[lane]);}
+  for (let lane=0;lane<6;lane++) {await box(2667 + lane*20);await page.keyboard.press('sdfjkl'[lane]);}
   await expect(page.locator('#tutorial-feedback')).toHaveText('箱推し成功！');
-  await expect(page.locator('#tutorial-score')).toHaveText('6,000 点 · COMBO 6');
+  await expect(page.locator('#tutorial-score')).toHaveText('1,000 点 · COMBO 1');
   await page.locator('#tutorial-next').click();await expect(page.locator('#tutorial-title')).toHaveText('DD');
   const dd=await play(page);
   for (const [time,key] of [[2667,'l'],[4667,'s'],[6667,'j']] as const) {await dd(time);await page.keyboard.press(key);}
@@ -163,44 +163,31 @@ test('plays box chains, DD on any lane and a complete keyboard slide', async ({p
   await slide(7400);await expect(page.locator('#tutorial-feedback')).toContainText('1 / 1 ノーツ成功');
 });
 
-test('a single captured finger sweeps a rapid box chain with six bell accents, and mute suppresses them', async ({page}, info) => {
-  test.skip(!info.project.use.hasTouch, 'Requires touch input.');
+test('one fast touch crossing scores one box and plays one short arpeggio; mute suppresses it', async ({page}, info) => {
+  test.skip(!info.project.use.hasTouch,'Requires touch input.');
   await page.addInitScript(() => {
-    (window as any).boxTones = [];
-    const Native = window.AudioContext;
-    window.AudioContext = class extends Native {
-      createBufferSource() {
-        const source = super.createBufferSource(), start = source.start.bind(source);
-        source.start = (...args: Parameters<typeof start>) => {
-          if (source.buffer && Math.abs(source.buffer.duration - .38) < .001) {
-            const samples = source.buffer.getChannelData(0);
-            (window as any).boxTones.push(Array.from(samples.slice(0, 200)));
-          }
-          start(...args);
-        };
-        return source;
-      }
+    (window as any).boxTones=0;
+    const start=AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start=function(...args) {
+      if(this.buffer && Math.abs(this.buffer.duration-.45)<.001)(window as any).boxTones++;
+      return start.apply(this,args);
     };
   });
-  await open(page, true); for (let i=0;i<3;i++) await page.locator('#tutorial-next').click();
-  const touch = await page.context().newCDPSession(page);
-  const points = await Promise.all(Array.from({length:6}, async (_,lane) => {
-    const r = (await page.locator('.tutorial-pad').nth(lane).boundingBox())!;
-    return {id:1,x:r.x+r.width/2,y:r.y+r.height/2};
-  }));
-  for (const muted of [false,true]) {
-    if (muted) await page.locator('#tutorial-sound').uncheck();
-    const advance = await play(page);
-    for (let lane=0;lane<6;lane++) {
-      await advance(Math.round((4 + lane / 4) * 2000 / 3));
-      await touch.send('Input.dispatchTouchEvent',{type:lane ? 'touchMove' : 'touchStart',touchPoints:[points[lane]]});
-      await expect(page.locator('#tutorial-score')).toHaveText(`${((lane + 1) * 1000).toLocaleString('en-US')} 点 · COMBO ${lane+1}`);
-    }
-    await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await open(page,true);for(let i=0;i<3;i++)await page.locator('#tutorial-next').click();
+  const touch=await page.context().newCDPSession(page);
+  for(const reverse of [false,true]) {
+    if(reverse)await page.locator('#tutorial-sound').uncheck();
+    const advance=await play(page);
+    const points=await Promise.all([0,5].map(async lane=>{const r=(await page.locator('.tutorial-pad').nth(lane).boundingBox())!;return {id:1,x:r.x+r.width/2,y:r.y+r.height/2};}));
+    if(reverse)points.reverse();
+    await advance(2500);await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[0]]});
+    await expect(page.locator('#tutorial-score')).toHaveText('0 点 · COMBO 0');
+    await advance(2580);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[1]]});
+    await expect(page.locator('#tutorial-score')).toHaveText('700 点 · COMBO 1');
     await expect(page.locator('#tutorial-feedback')).toHaveText('箱推し成功！');
-    const tones: number[][] = await page.evaluate(() => (window as any).boxTones);
-    expect(tones).toHaveLength(6); expect(new Set(tones.map(tone => JSON.stringify(tone))).size).toBe(6);
-    await advance(4300); await expect(page.locator('#tutorial-status')).toHaveText('練習終了');
+    await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    expect(await page.evaluate(()=>(window as any).boxTones)).toBe(1);
+    await advance(3900);await expect(page.locator('#tutorial-feedback')).toContainText('1 / 1 ノーツ成功');
   }
   await touch.detach();
 });

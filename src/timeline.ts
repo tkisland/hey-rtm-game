@@ -2,7 +2,7 @@ import type { Chart, ChartNote } from './chart';
 import { copyNote, laneAt } from './chart';
 import { slideRoute } from './slide-route';
 import { LANE_COLORS } from './colors';
-import { chordGroups, noteThickness } from './note-display';
+import { chordGroups, noteThickness, playableNotes } from './note-display';
 import { inRange, MAX_TIME, MIN_HOLD } from './editor-model';
 import type { Division, TimeRange } from './editor-model';
 import { beatToTime, bpmAt, snapTime, timeToBeat } from './tempo';
@@ -18,6 +18,7 @@ export class Timeline {
   private state!: TimelineState;
   private cachedChart: Chart | null = null;
   private chords: ChartNote[][] = [];
+  private playable: ChartNote[] = [];
   private gaps = new Map<number, number>();
   private listeners = new AbortController();
   private observer: ResizeObserver;
@@ -42,7 +43,7 @@ export class Timeline {
       }
       const lane = this.laneAt(y);
       const distance = (note: ChartNote) => Math.min(Math.abs(this.xAt(note.time) - x), note.type === 'hold' ? Math.abs(this.xAt(note.endTime) - x) : Infinity);
-      const matches = this.state.chart.notes.filter(note => (note.lane === lane || note.gimmick === 'dd' || note.gimmick === 'slide' && laneAt(note, this.timeAt(x)) === lane) && (distance(note) <= 10 || (note.type === 'hold' && x >= this.xAt(note.time) && x <= this.xAt(note.endTime))));
+      const matches = this.playable.filter(note => (note.lane === lane || note.gimmick === 'box' || note.gimmick === 'dd' || note.gimmick === 'slide' && laneAt(note, this.timeAt(x)) === lane) && (distance(note) <= 10 || (note.type === 'hold' && x >= this.xAt(note.time) && x <= this.xAt(note.endTime))));
       const note = matches.sort((a, b) => distance(a) - distance(b))[0];
       callbacks.select(note?.id ?? null);
       if (note) {
@@ -106,6 +107,7 @@ export class Timeline {
     this.state = state;
     if (this.cachedChart !== state.chart) {
       this.cachedChart = state.chart; this.chords = chordGroups(state.chart.notes); this.gaps.clear();
+      this.playable = playableNotes(state.chart.notes);
       for (let lane = 0; lane < 6; lane++) {
         const notes = state.chart.notes.filter(note => note.lane === lane);
         notes.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (notes[i - 1]?.time ?? -Infinity), (notes[i + 1]?.time ?? Infinity) - note.time)));
@@ -162,16 +164,16 @@ export class Timeline {
         ctx.strokeRect(left, y - 7, right - left, 14); ctx.fillStyle = color;
         if (!ghost) ctx.fillRect(endX - width / 2, y - 11, width, 22);
       }
-      if (!ghost && note.gimmick === 'dd') {
+      if (!ghost && (note.gimmick === 'dd' || note.gimmick === 'box')) {
         const gradient = ctx.createLinearGradient(0, TOP, 0, this.height); LANE_COLORS.forEach((color,i) => gradient.addColorStop(i / 5,color));
         ctx.fillStyle = gradient; ctx.fillRect(x - width / 2, TOP, width, this.height - TOP);
       }
-      if (!ghost && note.gimmick) { ctx.fillStyle = '#fff'; ctx.fillText(note.gimmick === 'box' ? '箱' : note.gimmick === 'dd' ? 'DD' : '→', x + 5, y - 14); ctx.fillStyle = color; }
+      if (!ghost && note.gimmick) { ctx.fillStyle = '#fff'; ctx.fillText(note.gimmick === 'box' ? '箱 ↔' : note.gimmick === 'dd' ? 'DD' : '→', x + 5, y - 14); ctx.fillStyle = color; }
       if (!ghost) ctx.fillRect(x - width / 2, y - 11, width, 22);
       ctx.strokeRect(x - width / 2, y - 11, width, 22); ctx.lineWidth = 1;
     };
-    state.chart.notes.forEach(note => { if (note.sourceTime !== undefined && (Math.abs(note.sourceTime - note.time) > 0.001 || (note.type === 'hold' && note.sourceEndTime !== undefined && Math.abs(note.sourceEndTime - note.endTime) > 0.001))) drawNote(note, true); });
-    state.chart.notes.forEach(note => { if (note.id !== this.drag?.id) drawNote(note); });
+    this.playable.forEach(note => { if (note.sourceTime !== undefined && (Math.abs(note.sourceTime - note.time) > 0.001 || (note.type === 'hold' && note.sourceEndTime !== undefined && Math.abs(note.sourceEndTime - note.endTime) > 0.001))) drawNote(note, true); });
+    this.playable.forEach(note => { if (note.id !== this.drag?.id) drawNote(note); });
     if (this.drag) drawNote(this.drag.preview);
     const playhead = this.xAt(state.time);
     ctx.strokeStyle = '#ff96b5'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(playhead, 0); ctx.lineTo(playhead, this.height); ctx.stroke(); ctx.lineWidth = 1;

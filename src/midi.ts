@@ -115,13 +115,13 @@ export function convertMidi(buffer: Uint8Array, config: MidiConfig): Chart {
     if (note.pitch === DD_PITCH) notes.push({...base, type:'tap', gimmick:'dd'});
     else notes.push(note.endTick - note.tick >= 1.5 * midi.ppq ? {...base, type:'hold', endTime:videoTime(note.endTick)} : {...base, type:'tap'});
   }
-  // Every six explicitly tagged notes form one box: exactly one of each colour, no chords.
+  // Six tagged colours describe one box gesture, anchored at the first marker.
   const box = midi.notes.filter(note => BOX_PITCHES.includes(note.pitch));
   if (box.length % 6) throw new Error('箱推しは6音ずつ指定してください。');
   for (let i = 0; i < box.length; i += 6) {
     const group = box.slice(i, i + 6);
-    if (new Set(group.map(note => note.pitch)).size !== 6 || group.some((note, j) => j > 0 && videoTime(note.tick) - videoTime(group[j - 1].tick) <= .001 + 1e-8)) throw new Error('箱推しは6色を1回ずつ、別の時刻に指定してください。');
-    group.forEach(note => notes.push({id:0, time:videoTime(note.tick), lane:BOX_PITCHES.indexOf(note.pitch), type:'tap', gimmick:'box', boxId:i / 6 + 1}));
+    if (new Set(group.map(note => note.pitch)).size !== 6) throw new Error('箱推しは6色を1回ずつ指定してください。');
+    group.forEach(note => notes.push({id:0, time:videoTime(group[0].tick), lane:BOX_PITCHES.indexOf(note.pitch), type:'tap', gimmick:'box', boxId:i / 6 + 1}));
   }
   // Consecutive touching slide-bank notes describe one continuous gesture. A gap starts another.
   const slides = midi.notes.filter(note => SLIDE_PITCHES.includes(note.pitch));

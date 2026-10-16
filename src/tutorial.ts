@@ -3,7 +3,7 @@ import './tutorial.css';
 import './penlight.css';
 import { LANE_COLORS } from './colors';
 import { bindInput, KEYS } from './input';
-import { GameEngine, WINDOWS, playLane } from './engine';
+import { BOX_SWEEP_SECONDS, BOX_WINDOWS, GameEngine, WINDOWS, playLane } from './engine';
 import type { Hit } from './engine';
 import { Renderer } from './renderer';
 import { bindTargets } from './field-geometry';
@@ -16,7 +16,7 @@ const steps = [
   {title:'単推し', description:'届くハートのバーが上の横線に重なったら、下の同じ色のペンライトを1回押そう。'},
   {title:'同時推し', description:'線でつながった2つを一緒に押そう。片方でもMISSなら、その組は0点です。'},
   {title:'長推し', description:'ハートの先頭で押し、二重線の終点がラインに来たら離そう。早すぎても遅すぎてもMISSです。'},
-  {title:'箱推し', description:'光の順に6色をジャラランッ！ ボタンを横になぞるか、順に押そう。6個すべてGOOD以上で箱推し成功。'},
+  {title:'箱推し', description:'6色のバーが来たら、端から端へ一瞬でスワイプ！ 左右どちらからでもOK。約0.25秒以内になぞり切ると1ノーツ分の得点・コンボ。PCは6キーを素早く順に押そう。'},
   {title:'DD', description:'虹色のノーツは、どのボタンで押してもOK！ どれか1つをタイミングよく押そう。'},
   {title:'推し変', description:'縦の帯では同じ色を保持。横矢印が上の横線に来たら、指をつけたまま隣へ移ろう。PCは次キーを押すか、先に次を押して矢印で前を離す。二重線で離そう。'},
 ];
@@ -91,13 +91,13 @@ export function mountTutorial(): () => void {
     sound?.syncHolds(lanes, now);
   }
   function showHit(hit: Hit, now: number): void {
-    const label = labels[hit.lane]; label.hidden = false; label.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
+    const label = labels[hit.lane]; label.hidden = false; label.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'sweep' ? 'SWIPE!' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
     label.dataset.kind = hit.judgement; hitTimes[hit.lane] = now;
     if (hit.judgement !== 'MISS') {
       renderer?.flash(hit.lane, now, hit.judgement);
-      if (hit.boxStep !== undefined && hit.boxId !== undefined) { sound?.playBox(hit.boxStep); renderer?.flashBox(hit.lane, now, hit.boxStep, hit.boxId, hit.boxComplete); }
+      if (hit.boxComplete && hit.boxId !== undefined) { sound?.playBoxSweep(); renderer?.completeBox(now, hit.boxId, hit.boxDirection); }
     }
-    feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、隣へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
+    feedback.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'sweep' ? 'そのまま端までスワイプ！' : hit.phase === 'move' ? '推し変成功！ 終点まで続けよう。' : hit.phase === 'start' ? (engine.notes.find(note => note.id === hit.noteId)?.gimmick === 'slide' ? '矢印が横線に来たら、隣へ持ち替えよう！' : '二重線の終点がラインに重なったら離そう！') : hit.judgement === 'MISS' ? 'MISS · 次のノーツに合わせてみよう。' : `${hit.judgement}！`;
     feedback.classList.toggle('success', hit.judgement !== 'MISS'); updateScore();
   }
   function draw(now: number, time: number): void {
@@ -130,7 +130,7 @@ export function mountTutorial(): () => void {
   }
   function showStep(): void {
     stopRun(); engine = new GameEngine(tutorialChart(step));
-    duration = Math.max(...engine.notes.map(note => note.type === 'hold' ? note.endTime : note.time)) + WINDOWS.GOOD + .5;
+    duration = Math.max(...engine.notes.map(note => (note.type === 'hold' ? note.endTime : note.time) + (note.gimmick === 'box' ? BOX_WINDOWS.GOOD + BOX_SWEEP_SECONDS : WINDOWS.GOOD))) + .5;
     el('tutorial-step').textContent = `${step + 1} / ${steps.length}`;
     title.textContent = steps[step].title; description.textContent = steps[step].description;
     feedback.textContent = '「練習をはじめる」で、4拍のカウントからスタート。'; feedback.classList.remove('success');
@@ -150,12 +150,12 @@ export function mountTutorial(): () => void {
     feedback.textContent = 'ノーツがラインに重なるタイミングを狙おう。';
     canvas.scrollIntoView({block:'nearest'});
     audio.setPlaybackActive(true);
-    unbind = bindInput(buttons, lane => {
+    unbind = bindInput(buttons, (lane, gesture) => {
       if (phase !== 'playing' || !renderer) return;
       const now = performance.now(), time = compensateInput(elapsed(now), settings.inputOffset);
-      sound?.play(lane);
+      if (!gesture?.sweepOnly) sound?.play(lane);
       engine.advance(time, renderer.pressed).forEach(hit => showHit(hit, now));
-      const hit = engine.input(lane, time); if (hit) showHit(hit, now); syncHolds(now);
+      const hit = engine.input(lane, time, gesture); if (hit) showHit(hit, now); syncHolds(now);
     }, lanes => {
       if (phase !== 'playing' || !renderer) return;
       const previous = renderer.pressed; renderer.pressed = lanes;
@@ -163,7 +163,7 @@ export function mountTutorial(): () => void {
       engine.advance(time, lanes).forEach(hit => showHit(hit, now));
       for (const lane of previous) if (!lanes.has(lane)) engine.release(lane, time).forEach(hit => showHit(hit, now));
       syncHolds(now);
-    }, () => phase !== 'playing' || !dialog.open);
+    }, () => phase !== 'playing' || !dialog.open, {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id)});
     frame = requestAnimationFrame(tick);
   }
   function interrupted(): void {

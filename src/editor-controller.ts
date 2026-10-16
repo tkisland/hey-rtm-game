@@ -1,6 +1,7 @@
 import { decoratePenlight } from './penlight';
 import { convertMidi, MIDI_LANES } from './midi';
 import { noteName } from './chart';
+import { playableNotes } from './note-display';
 import { playLane } from './engine';
 import './style.css';
 import './editor.css';
@@ -215,7 +216,7 @@ function refreshList(): void {
 function refresh(): void {
   input('editor-bpm').value = String(model.chart.bpm); input('beat-origin').value = String(model.chart.beatOrigin ?? model.chart.startTime);
   el('tempo-info').textContent = model.chart.tempoChanges?.length ? `${tempoLabel(model.chart)} BPM · ${model.chart.tempoChanges.length}箇所のテンポ変更を拍グリッド・スナップ・クオンタイズに反映します。BPM欄は開始時点の値です。` : '開始時点のBPMと拍の基準を合わせてください。BPM140はテスト用の仮の値です。';
-  el('note-count').textContent = `${model.chart.notes.length} NOTES`;
+  el('note-count').textContent = `${playableNotes(model.chart.notes).length} NOTES`;
   el<HTMLButtonElement>('undo').disabled = !model.canUndo; el<HTMLButtonElement>('redo').disabled = !model.canRedo;
   el<HTMLButtonElement>('quantize').disabled = !model.chart.notes.length;
   el<HTMLButtonElement>('try-game').disabled = !model.chart.notes.length;
@@ -523,16 +524,16 @@ function frame(now: number): void {
   sound.setPlaybackActive(playing && !previewing && input('editor-sound').checked);
   previewSound.setPlaybackActive(playing && previewing && seekTarget === null);
   if (!previewing && playing && !armed && input('audition').checked) {
-    if (lastAudition !== null && time > lastAudition && time - lastAudition < 0.5) model.chart.notes.filter(note => note.time > lastAudition! && note.time <= time).slice(0, 12).forEach(note => sound.play(note.lane));
+    if (lastAudition !== null && time > lastAudition && time - lastAudition < 0.5) playableNotes(model.chart.notes).filter(note => note.time > lastAudition! && note.time <= time).slice(0, 12).forEach(note => note.gimmick === 'box' ? sound.playBoxSweep() : sound.play(note.lane));
     lastAudition = time;
   } else lastAudition = null;
   preview.sync(model.chart);
   const previewEvents = seekTarget === null ? preview.update(time, playing && previewing) : [];
   previewEvents.forEach(event => {
     previewSound.play(event.lane); previewRenderer.flash(event.lane, now);
-    if (event.boxStep !== undefined && event.boxId !== undefined) { previewSound.playBox(event.boxStep); previewRenderer.flashBox(event.lane, now, event.boxStep, event.boxId, event.boxComplete); }
+    if (event.boxComplete && event.boxId !== undefined) { previewSound.playBoxSweep(); previewRenderer.completeBox(now, event.boxId); }
     previewFeedback[event.lane] = now;
-    previewLabels[event.lane] = event.phase === 'end' ? '離す' : event.phase === 'move' ? '推し変' : event.phase === 'start' ? 'HOLD' : '単推し';
+    previewLabels[event.lane] = event.boxComplete ? '箱推し' : event.phase === 'end' ? '離す' : event.phase === 'move' ? '推し変' : event.phase === 'start' ? 'HOLD' : '単推し';
   });
   const holds = new Set(preview.notes.filter(note => note.state === 'holding').map(playLane));
   previewSound.syncHolds(previewing && playing && seekTarget === null ? holds : new Set(), now);

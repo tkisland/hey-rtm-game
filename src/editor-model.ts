@@ -5,6 +5,7 @@ import type { Song } from './songs';
 import type { Chart, ChartNote, SlidePoint } from './chart';
 import { copyNote } from './chart';
 import { beatToTime, snapTime, timeToBeat } from './tempo';
+import { boxGroups } from './note-display';
 
 export const EDITOR_KEY = 'hey-rhythm-editor-v1';
 export const CUSTOM_CHART_KEY = 'hey-rhythm-custom-chart-v1';
@@ -71,6 +72,14 @@ export class EditorModel {
     if (!finite(time, 0, MAX_TIME) || !Number.isInteger(lane) || lane < 0 || lane > 5) throw new Error('ノーツの秒数・レーンを確認してください。');
     const chart = copyChart(this.chart), note = chart.notes.find(note => note.id === id);
     if (!note) return false;
+    if (note.gimmick === 'box') {
+      const delta = time - note.time;
+      for (const member of chart.notes) if (member.boxId === note.boxId) {
+        if (!finite(member.time + delta, 0, MAX_TIME)) throw new Error('箱推し全体が0〜7200秒に収まる位置にしてください。');
+        member.time += delta;
+      }
+      return this.commit(chart);
+    }
     if (note.type === 'hold') {
       const end = note.endTime + time - note.time;
       if (end > MAX_TIME) throw new Error('長推しの終点は7200秒以内にしてください。');
@@ -133,10 +142,11 @@ export class EditorModel {
     const chart = copyChart(this.chart), notes = chart.notes.filter(note => inRange(note, range));
     if (notes.length !== 6 || notes.some(note => note.type !== 'tap' || note.gimmick)) throw new Error('通常の単推し6個を、6色1個ずつ含む範囲を選んでください。');
     const boxId = Math.max(0, ...chart.notes.map(note => note.boxId ?? 0)) + 1;
-    for (const note of notes) { note.gimmick = 'box'; note.boxId = boxId; }
+    const first = Math.min(...notes.map(note => note.time));
+    for (const note of notes) { note.gimmick = 'box'; note.boxId = boxId; note.sourceTime ??= note.time; note.time = first; }
     return this.commit(chart);
   }
-  remove(): boolean { const chart = copyChart(this.chart); chart.notes = this.completeBoxes(chart.notes.filter(note => note.id !== this.selected)); return this.commit(chart); }
+  remove(): boolean { const chart = copyChart(this.chart); const boxId = this.selectedNote?.gimmick === 'box' ? this.selectedNote.boxId : undefined; chart.notes = this.completeBoxes(chart.notes.filter(note => boxId ? note.boxId !== boxId : note.id !== this.selected)); return this.commit(chart); }
   copyRange(range: TimeRange): NoteClipboard {
     validateRange(range);
     const notes = this.completeBoxes(this.chart.notes.filter(note => inRange(note, range)).map(copyNote));
@@ -182,6 +192,7 @@ export class EditorModel {
   quantize(division: Division, selectedOnly: boolean, fromSource: boolean): boolean {
     const chart = copyChart(this.chart);
     chart.notes.forEach(note => {
+      if (note.gimmick === 'box') return;
       if (selectedOnly && note.id !== this.selected) return;
       const start = snapTime(chart, fromSource ? note.sourceTime ?? note.time : note.time, division);
       if (note.type === 'hold') {
@@ -194,6 +205,12 @@ export class EditorModel {
       if (note.path) note.path = note.path.map(point => ({...point, time:snapTime(chart, point.time, division)}));
       note.time = start;
     });
+    for (const group of boxGroups(chart.notes)) {
+      if (selectedOnly && !group.some(note => note.id === this.selected)) continue;
+      const anchor = Math.min(...group.map(note => fromSource ? note.sourceTime ?? note.time : note.time));
+      const snapped = snapTime(chart, anchor, division);
+      group.forEach(note => { note.time = snapped; });
+    }
     return this.commit(chart);
   }
   undo(): boolean {

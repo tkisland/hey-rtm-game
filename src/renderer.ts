@@ -1,11 +1,11 @@
 import type { PlayNote } from './engine';
-import { WINDOWS, playLane } from './engine';
+import { BOX_SWEEP_SECONDS, BOX_WINDOWS, WINDOWS, playLane } from './engine';
 import { laneAt } from './chart';
 import { slideRoute } from './slide-route';
 import { responseMark } from './response-art';
 import { drawStage } from './stage-art';
 import { LANE_COLORS } from './colors';
-import { boxGroups, chordCurve, chordGroups, noteThickness } from './note-display';
+import { chordCurve, chordGroups, noteThickness } from './note-display';
 import type { Chart, ChartNote } from './chart';
 import { beatsBetween } from './tempo';
 import { fieldGeometry, project, timingBands } from './field-geometry';
@@ -22,7 +22,6 @@ export class Renderer {
   private cachedNotes: PlayNote[] | null = null;
   private renderNotes: PlayNote[] = [];
   private chords: ChartNote[][] = [];
-  private boxes: ChartNote[][] = [];
   private gaps = new Map<number, number>();
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
@@ -43,6 +42,12 @@ export class Renderer {
     if (!previous || previous.id !== id || previous.step + 1 !== step) this.boxTrail = [];
     this.boxTrail.push({lane, time:now, step, id, complete});
     if (this.boxTrail.length > 6) this.boxTrail.shift();
+  }
+  completeBox(now: number, id: number, direction = 1): void {
+    for (let step = 0; step < 6; step++) {
+      const lane = direction === -1 ? 5 - step : step;
+      this.flash(lane, now); this.flashBox(lane, now - (5 - step) * 14, step + 1, id, step === 5);
+    }
   }
   clearEffects(): void { this.flashes.clear(); this.boxTrail = []; }
   private polygon(points: { x: number; y: number }[], fill = true): void {
@@ -102,10 +107,9 @@ export class Renderer {
     if (this.cachedNotes !== notes) {
       this.cachedNotes = notes; this.chords = chordGroups(notes); this.gaps.clear();
       // A wide DD must never hide the color of a simultaneous ordinary note.
-      this.renderNotes = [...notes].sort((a, b) => Number(b.gimmick === 'dd') - Number(a.gimmick === 'dd'));
-      this.boxes = boxGroups(notes);
+      this.renderNotes = [...notes].sort((a, b) => Number(b.gimmick === 'dd' || b.gimmick === 'box') - Number(a.gimmick === 'dd' || a.gimmick === 'box'));
       for (let lane = 0; lane < 6; lane++) {
-        const ordered = notes.filter(note => note.lane === lane).sort((a, b) => a.time - b.time);
+        const ordered = notes.filter(note => note.lane === lane && note.gimmick !== 'box').sort((a, b) => a.time - b.time);
         ordered.forEach((note, i) => this.gaps.set(note.id, Math.min(note.time - (ordered[i - 1]?.time ?? -Infinity), (ordered[i + 1]?.time ?? Infinity) - note.time)));
       }
     }
@@ -141,7 +145,7 @@ export class Renderer {
       const p = progressAt(note.time);
       if (p >= 0 && p < .16) {
         const pulse = this.reducedMotion.matches ? .5 : 1 - p / .16;
-        if (note.gimmick === 'dd') responses.forEach((level, lane) => { responses[lane] = Math.max(level, pulse); });
+        if (note.gimmick === 'dd' || note.gimmick === 'box') responses.forEach((level, lane) => { responses[lane] = Math.max(level, pulse); });
         else responses[note.lane] = Math.max(responses[note.lane], pulse);
       }
     }
@@ -174,21 +178,33 @@ export class Renderer {
       }
       ctx.stroke(); ctx.setLineDash([]);
     }
-    for (const group of this.boxes) {
-      const visible = group.filter(note => active(note) && progressAt(note.time) >= 0 && progressAt(note.time) <= 1);
-      ctx.strokeStyle = '#ffffff66'; ctx.lineWidth = 2; ctx.setLineDash([4,4]); ctx.beginPath();
-      visible.forEach((note, i) => { const point = project(field, note.lane, progressAt(note.time)); if (i) ctx.lineTo(point.x, point.y); else ctx.moveTo(point.x, point.y); });
-      ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
-    }
     for (const note of this.renderNotes) {
       if (!active(note)) continue;
-      const p = note.state === 'holding' ? 1 : progressAt(note.time);
+      const raw = progressAt(note.time), box = note.gimmick === 'box';
+      if (box && raw > 1 + (BOX_WINDOWS.GOOD + BOX_SWEEP_SECONDS) / travel) continue;
+      const p = note.state === 'holding' || box && (note.boxProgress || raw >= 1) ? 1 : raw;
       if (p < 0 || p > 1 + WINDOWS.GOOD / travel + 1e-8) continue;
       const lane = note.state === 'holding' ? playLane(note) : note.lane;
       const head = project(field, lane, p), color = LANE_COLORS[lane];
       const gap = Math.min(60 / bpm / 2, this.gaps.get(note.id) ?? Infinity);
       const next = project(field, note.lane, p - gap / travel);
       const thickness = noteThickness(size, Math.abs(head.y - next.y), 10 * head.scale);
+      if (box) {
+        const left = project(field, -.49, p).x, right = project(field, 5.49, p).x, height = Math.max(14, 12 * size / 100);
+        const gradient = ctx.createLinearGradient(left, 0, right, 0);
+        LANE_COLORS.forEach((color, i) => gradient.addColorStop(i / 5, color));
+        ctx.fillStyle = gradient; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.roundRect(left, head.y - height / 2, right - left, height, height / 2); ctx.fill(); ctx.stroke();
+        for (let lane = 0; lane < 6; lane++) {
+          const point = project(field, lane, p), progress = note.boxProgress ?? 0;
+          const visited = note.boxDirection === -1 ? lane >= 6 - progress : lane < progress;
+          ctx.fillStyle = visited ? '#fff' : '#21182d'; ctx.strokeStyle = '#21182d'; ctx.lineWidth = .7;
+          responseMark(ctx, point.x, head.y, height * .3, true); ctx.stroke();
+        }
+        ctx.font = 'bold 10px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+        ctx.fillText(`← 箱推し SWIPE →${note.boxProgress ? ` ${note.boxProgress}/6` : ''}`, field.width / 2, head.y - height / 2 - 5);
+        ctx.textAlign = 'start'; ctx.lineWidth = 1; continue;
+      }
       if (note.gimmick === 'slide' && note.type === 'hold') {
         this.drawSlide(note, progressAt, p, thickness, travel);
       } else if (note.type === 'hold') {
@@ -212,10 +228,9 @@ export class Renderer {
         ctx.fillText('DD', center.x, center.y); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
         continue;
       }
-      if (note.gimmick === 'box' || note.gimmick === 'slide' && note.state !== 'holding') {
-        const group = this.boxes.find(group => group[0].boxId === note.boxId);
-        const nextLane = note.path?.[note.state === 'holding' ? note.pathIndex ?? 0 : 0]?.lane;
-        const label = note.gimmick === 'box' ? `箱 ${group ? group.findIndex(member => member.id === note.id) + 1 : ''}/6` : nextLane === undefined ? '終点で離す' : nextLane < lane ? '推し変 ←' : '推し変 →';
+      if (note.gimmick === 'slide' && note.state !== 'holding') {
+        const nextLane = note.path?.[0]?.lane;
+        const label = nextLane === undefined ? '終点で離す' : nextLane < lane ? '推し変 ←' : '推し変 →';
         ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(label, head.x, head.y - Math.max(8, thickness)); ctx.textAlign = 'start';
       }
       ctx.shadowBlur = 3; ctx.shadowColor = color; ctx.fillStyle = color;

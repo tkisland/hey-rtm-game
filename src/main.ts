@@ -11,7 +11,7 @@ import { compensateInput } from './timing';
 import { generateChart } from './chart';
 import { CUSTOM_CHART_KEY, loadChart } from './editor-model';
 import { GameEngine } from './engine';
-import type { Hit } from './engine';
+import type { Hit, InputGesture } from './engine';
 import { bindInput } from './input';
 import { Renderer } from './renderer';
 import { loadSettings, normalizeSettings, saveSettings } from './settings';
@@ -137,14 +137,14 @@ function showHit(hit: Hit, now: number): void {
   judgementTimes[hit.lane] = now;
   feedback.hidden = false;
   feedback.dataset.kind = hit.judgement;
-  feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
+  feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱推し成功！' : hit.phase === 'sweep' ? 'SWIPE!' : hit.phase === 'move' ? '推し変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
   feedback.querySelector('.judgement-error')!.textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
   feedback.classList.remove('pop');
   void feedback.offsetWidth;
   feedback.classList.add('pop');
   if (hit.judgement !== 'MISS') {
     renderer.flash(hit.lane, now, hit.judgement);
-    if (hit.boxStep !== undefined && hit.boxId !== undefined) { sound.playBox(hit.boxStep); renderer.flashBox(hit.lane, now, hit.boxStep, hit.boxId, hit.boxComplete); }
+    if (hit.boxComplete && hit.boxId !== undefined) { sound.playBoxSweep(); renderer.completeBox(now, hit.boxId, hit.boxDirection); }
   }
   updateScore();
 }
@@ -209,6 +209,7 @@ function readTime(now: number): { time: number; playing: boolean } {
   }
 }
 function setState(next: number): void {
+  if (next !== PLAYER_STATE.PLAYING || clockStale) engine.cancelBoxGesture();
   sound.setPlaybackActive(next === PLAYER_STATE.PLAYING && !clockStale);
   if (next !== state && next === PLAYER_STATE.PLAYING) void sound.unlock();
   if (next !== state && next !== PLAYER_STATE.PLAYING) sound.cancelPending();
@@ -259,16 +260,16 @@ const disposePlayer = createYouTubePlayer({
   error: showError,
 }, song);
 
-function hit(lane: number): void {
+function hit(lane: number, gesture?: InputGesture): void {
   if (calibration.active) return;
   // Sample timing before audio initialization so a cold AudioContext cannot delay judgement.
   const now = performance.now();
   const sample = readTime(now);
-  sound.play(lane);
+  if (!gesture?.sweepOnly) sound.play(lane);
   if (!sample.playing) return;
   const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
   updates.forEach(update => showHit(update, now));
-  const hit = engine.input(lane, compensateInput(sample.time, settings.inputOffset));
+  const hit = engine.input(lane, compensateInput(sample.time, settings.inputOffset), gesture);
   if (hit) { lastInputError = hit.errorMs; showHit(hit, now); }
   syncHoldSound(true, now);
   showResults();
@@ -283,7 +284,7 @@ const unbindInput = bindInput(buttons, hit, lanes => {
   released.forEach(lane => engine.release(lane, compensateInput(sample.time, settings.inputOffset)).forEach(result => showHit(result, now)));
   syncHoldSound(true, now);
   showResults();
-}, () => calibration.active);
+}, () => calibration.active, {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id)});
 
 restart.addEventListener('click', () => {
   if (!player || failed) return;
@@ -399,6 +400,7 @@ let debugUpdated = 0;
 function frame(now: number): void {
   if (disposed) return;
   const sample = readTime(performance.now());
+  if (!sample.playing) engine.cancelBoxGesture();
   sound.setPlaybackActive(sample.playing);
   if (sample.playing) {
     const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);

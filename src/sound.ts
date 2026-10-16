@@ -1,7 +1,9 @@
 export const TAP_DURATION = 0.24;
 export const MAX_LATE_TAP_MS = 80;
 export const BEAT_DURATION = .09;
-type VoiceKind = 'tap' | 'box' | 'beat';
+type VoiceKind = 'tap' | 'box' | 'beat' | 'sweep';
+export const BOX_SWEEP_GAP = .014;
+let sweepSamples: Float32Array<ArrayBuffer> | null = null;
 const SAMPLE_RATE = 48000;
 const PITCHES = [0.98, 0.988, 0.996, 1.004, 1.012, 1.02];
 export const BOX_PITCHES = [1046.502, 1174.659, 1318.51, 1567.982, 1760, 2093.005];
@@ -19,6 +21,7 @@ function warmSamples(): void {
   let lane = 0;
   const next = () => {
     beatSamples ??= createBeatSamples(SAMPLE_RATE);
+    if (lane === 5) sweepSamples ??= createBoxSweepSamples(SAMPLE_RATE);
     tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane);
     holdSamples[lane] ??= createHoldSamples(SAMPLE_RATE, lane);
     boxSamples[lane] ??= createBoxSamples(SAMPLE_RATE, lane);
@@ -93,6 +96,20 @@ export function createBoxSamples(sampleRate: number, index: number) {
   return samples;
 }
 
+/** Six attacks in 70ms, synthesized together so sparse touch events still produce a run. */
+export function createBoxSweepSamples(sampleRate: number) {
+  const samples = new Float32Array(Math.ceil(sampleRate * (BOX_DURATION + BOX_SWEEP_GAP * 5)));
+  for (let step = 0; step < 6; step++) {
+    const tone = boxSamples[step] ??= createBoxSamples(SAMPLE_RATE, step);
+    const data = sampleRate === SAMPLE_RATE ? tone : createBoxSamples(sampleRate, step);
+    const start = Math.round(sampleRate * BOX_SWEEP_GAP * step);
+    for (let i = 0; i < data.length && start + i < samples.length; i++) samples[start + i] += data[i];
+  }
+  let peak = 0; for (const value of samples) peak = Math.max(peak, Math.abs(value));
+  if (peak) for (let i = 0; i < samples.length; i++) samples[i] *= .7 / peak;
+  return samples;
+}
+
 /** A distinct, audible reference beat, also suitable for checking sound before practice. */
 export function createBeatSamples(sampleRate: number) {
   const samples = new Float32Array(Math.ceil(sampleRate * BEAT_DURATION));
@@ -119,6 +136,7 @@ export class TapSound {
   private buffers: AudioBuffer[] = [];
   private boxBuffers: AudioBuffer[] = [];
   private beatBuffers: AudioBuffer[] = [];
+  private sweepBuffers: AudioBuffer[] = [];
   private voices = new Map<AudioBufferSourceNode, number>();
   private holdBuffers: AudioBuffer[] = [];
   private holds = new Map<number, HoldVoice>();
@@ -263,6 +281,7 @@ export class TapSound {
 
   play(lane: number): void { this.playVoice(lane); }
   playBeat(): void { this.playVoice(0, 'beat'); }
+  playBoxSweep(): void { this.playVoice(0, 'sweep'); }
   playBox(step: number): void {
     if (Number.isInteger(step) && step >= 1 && step <= 6) this.playVoice(step - 1, 'box');
   }
@@ -314,9 +333,9 @@ export class TapSound {
 
   private click(context: AudioContext, lane: number, delay: number, kind: VoiceKind): void {
     lane = Number.isInteger(lane) && lane >= 0 && lane < 6 ? lane : 0;
-    const buffers = kind === 'box' ? this.boxBuffers : kind === 'beat' ? this.beatBuffers : this.buffers;
+    const buffers = kind === 'box' ? this.boxBuffers : kind === 'beat' ? this.beatBuffers : kind === 'sweep' ? this.sweepBuffers : this.buffers;
     if (!buffers[lane]) {
-      const samples = kind === 'beat' ? (beatSamples ??= createBeatSamples(SAMPLE_RATE))
+      const samples = kind === 'sweep' ? (sweepSamples ??= createBoxSweepSamples(SAMPLE_RATE)) : kind === 'beat' ? (beatSamples ??= createBeatSamples(SAMPLE_RATE))
         : kind === 'box' ? (boxSamples[lane] ??= createBoxSamples(SAMPLE_RATE, lane)) : (tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane));
       const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
       buffer.copyToChannel(samples, 0); buffers[lane] = buffer;
