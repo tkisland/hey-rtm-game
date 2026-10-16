@@ -220,12 +220,29 @@ export class Renderer {
       }
       if (note.gimmick === 'dd') {
         const center = project(field, 2.5, p), width = project(field, 5.49, p).x - project(field, -.49, p).x, height = Math.max(12, thickness);
-        const gradient = ctx.createLinearGradient(center.x - width / 2, 0, center.x + width / 2, 0);
+        const left = center.x - width / 2, top = center.y - height / 2;
+        const gradient = ctx.createLinearGradient(left, 0, left + width, 0);
         LANE_COLORS.forEach((color, i) => gradient.addColorStop(i / 5, color));
-        ctx.fillStyle = gradient; ctx.beginPath(); ctx.roundRect(center.x - width / 2, center.y - height / 2, width, height, height / 2); ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
-        ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#161324';
-        ctx.fillText('DD', center.x, center.y); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+        ctx.save();
+        // A steady halo keeps DD luminous without flashing or changing its hit area.
+        ctx.shadowColor = '#d8baff'; ctx.shadowBlur = 14;
+        ctx.fillStyle = gradient; ctx.beginPath(); ctx.roundRect(left, top, width, height, height / 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        const sheen = ctx.createLinearGradient(0, top, 0, top + height);
+        sheen.addColorStop(0, '#ffffffb3'); sheen.addColorStop(.35, '#ffffff33');
+        sheen.addColorStop(.55, '#38245f55'); sheen.addColorStop(1, '#ffffff66');
+        ctx.fillStyle = sheen; ctx.fill();
+        ctx.strokeStyle = '#fffffff0'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#fff';
+        for (const x of [left + width * .16, left + width * .84]) {
+          const r = Math.min(4, height * .3);
+          this.polygon([{x, y:top - r}, {x:x + r * .4, y:top}, {x, y:top + r}, {x:x - r * .4, y:top}]);
+        }
+        ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        // A violet keyline preserves white lettering over the white/yellow lanes.
+        ctx.strokeStyle = '#593b83'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+        ctx.strokeText('DD', center.x, center.y); ctx.fillText('DD', center.x, center.y);
+        ctx.restore();
         continue;
       }
       if (note.gimmick === 'slide' && note.state !== 'holding') {
