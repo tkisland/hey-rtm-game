@@ -1,10 +1,13 @@
 export const TAP_DURATION = 0.24;
 export const MAX_LATE_TAP_MS = 80;
+export const BEAT_DURATION = .09;
+type VoiceKind = 'tap' | 'box' | 'beat';
 const SAMPLE_RATE = 48000;
 const PITCHES = [0.98, 0.988, 0.996, 1.004, 1.012, 1.02];
 export const BOX_PITCHES = [1046.502, 1174.659, 1318.51, 1567.982, 1760, 2093.005];
 export const BOX_DURATION = 0.38;
 const boxSamples: Float32Array<ArrayBuffer>[] = [];
+let beatSamples: Float32Array<ArrayBuffer> | null = null;
 const PARTIALS = [3420, 4781, 6127, 7919, 9343, 10867];
 const tapSamples: Float32Array<ArrayBuffer>[] = [], holdSamples: Float32Array<ArrayBuffer>[] = [];
 let warming = false;
@@ -15,6 +18,7 @@ function warmSamples(): void {
   warming = true;
   let lane = 0;
   const next = () => {
+    beatSamples ??= createBeatSamples(SAMPLE_RATE);
     tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane);
     holdSamples[lane] ??= createHoldSamples(SAMPLE_RATE, lane);
     boxSamples[lane] ??= createBoxSamples(SAMPLE_RATE, lane);
@@ -89,6 +93,18 @@ export function createBoxSamples(sampleRate: number, index: number) {
   return samples;
 }
 
+/** A distinct, audible reference beat, also suitable for checking sound before practice. */
+export function createBeatSamples(sampleRate: number) {
+  const samples = new Float32Array(Math.ceil(sampleRate * BEAT_DURATION));
+  for (let i = 0; i < samples.length; i++) {
+    const t = i / sampleRate;
+    const envelope = Math.min(1, t / .001) * Math.exp(-t / .022)
+      * Math.min(1, (samples.length - 1 - i) / (sampleRate * .008));
+    samples[i] = (.58 * Math.sin(2 * Math.PI * 880 * t) + .12 * Math.sin(2 * Math.PI * 1760 * t)) * envelope;
+  }
+  return samples;
+}
+
 interface HoldVoice {
   requestedAt: number;
   source?: AudioBufferSourceNode;
@@ -102,6 +118,7 @@ export class TapSound {
   private master: GainNode | null = null;
   private buffers: AudioBuffer[] = [];
   private boxBuffers: AudioBuffer[] = [];
+  private beatBuffers: AudioBuffer[] = [];
   private voices = new Map<AudioBufferSourceNode, number>();
   private holdBuffers: AudioBuffer[] = [];
   private holds = new Map<number, HoldVoice>();
@@ -245,13 +262,14 @@ export class TapSound {
   }
 
   play(lane: number): void { this.playVoice(lane); }
+  playBeat(): void { this.playVoice(0, 'beat'); }
   playBox(step: number): void {
-    if (Number.isInteger(step) && step >= 1 && step <= 6) this.playVoice(step - 1, true);
+    if (Number.isInteger(step) && step >= 1 && step <= 6) this.playVoice(step - 1, 'box');
   }
-  private playVoice(lane: number, box = false): void {
+  private playVoice(lane: number, kind: VoiceKind = 'tap'): void {
     if (!this.enabled || this.volume === 0 || this.disposed) return;
     try {
-      const requestedAt = performance.now(), delay = this.delayMs, generation = this.generation;
+      const requestedAt = performance.now(), delay = kind === 'beat' ? 0 : this.delayMs, generation = this.generation;
       // Construct/resume in the input gesture for Safari's audio activation rules.
       const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioContextClass) { this.onUnavailable(); return; }
@@ -263,7 +281,7 @@ export class TapSound {
       const playCurrent = () => {
         // Do not replay a backlog when an output device / suspended context starts late.
         if (generation === this.generation && this.enabled && this.volume > 0 && !this.disposed && !document.hidden &&
-            context.state === 'running' && performance.now() - requestedAt <= delay + MAX_LATE_TAP_MS) this.click(context, lane, remaining(), box);
+            context.state === 'running' && performance.now() - requestedAt <= delay + MAX_LATE_TAP_MS) this.click(context, lane, remaining(), kind);
       };
       if (context.state === 'running') playCurrent();
       else void context.resume().then(() => {
@@ -294,11 +312,12 @@ export class TapSound {
     this.master.connect(compressor); compressor.connect(limiter); limiter.connect(context.destination);
   }
 
-  private click(context: AudioContext, lane: number, delay: number, box: boolean): void {
+  private click(context: AudioContext, lane: number, delay: number, kind: VoiceKind): void {
     lane = Number.isInteger(lane) && lane >= 0 && lane < 6 ? lane : 0;
-    const buffers = box ? this.boxBuffers : this.buffers;
+    const buffers = kind === 'box' ? this.boxBuffers : kind === 'beat' ? this.beatBuffers : this.buffers;
     if (!buffers[lane]) {
-      const samples = box ? (boxSamples[lane] ??= createBoxSamples(SAMPLE_RATE, lane)) : (tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane));
+      const samples = kind === 'beat' ? (beatSamples ??= createBeatSamples(SAMPLE_RATE))
+        : kind === 'box' ? (boxSamples[lane] ??= createBoxSamples(SAMPLE_RATE, lane)) : (tapSamples[lane] ??= createTapSamples(SAMPLE_RATE, lane));
       const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
       buffer.copyToChannel(samples, 0); buffers[lane] = buffer;
     }

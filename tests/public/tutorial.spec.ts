@@ -122,7 +122,7 @@ test('plays reference, tap and hold sounds and closes its audio resources on exi
   await advance(2667); await page.keyboard.down('f');
   expect(await page.evaluate(() => (window as any).tutorialAudioEvents.includes('hold'))).toBe(true);
   await page.locator('#tutorial-close').click(); await page.keyboard.up('f');
-  expect(await page.evaluate(() => (window as any).tutorialAudioEvents.filter((event: string) => event === 'close').length)).toBe(2);
+  expect(await page.evaluate(() => (window as any).tutorialAudioEvents.filter((event: string) => event === 'close').length)).toBe(1);
 });
 
 test('keeps practice pads and controls usable on small portrait and landscape screens', async ({page}) => {

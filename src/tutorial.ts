@@ -29,6 +29,7 @@ export function mountTutorial(): () => void {
   const previous = el<HTMLButtonElement>('tutorial-previous'), next = el<HTMLButtonElement>('tutorial-next');
   const start = el<HTMLButtonElement>('tutorial-start'), audioToggle = el<HTMLInputElement>('tutorial-sound');
   const canvas = el<HTMLCanvasElement>('tutorial-canvas'), pads = el('tutorial-pads');
+  const volume = el<HTMLInputElement>('tutorial-volume'), audioStatus = el('tutorial-audio-status');
   const colors = ['ピンク','黄緑','白','赤','紫','黄色'];
   const labels: HTMLOutputElement[] = [], targets: HTMLDivElement[] = [];
   const buttons = LANE_COLORS.map((color, lane) => {
@@ -44,16 +45,44 @@ export function mountTutorial(): () => void {
   let settings = loadSettings();
   audioToggle.checked = settings.sound && settings.soundVolume > 0;
   let step = 0, engine = new GameEngine(tutorialChart(0)), phase: 'ready'|'starting'|'playing'|'finished' = 'ready';
-  let renderer: Renderer | null = null, sound: TapSound | null = null, beatSound: TapSound | null = null;
+  let renderer: Renderer | null = null, sound: TapSound | null = null;
   let frame = 0, epoch = 0, began = 0, lastBeat = -1, duration = 0;
   let unbind = () => {}, unbindTargets = () => {}, resize: ResizeObserver | null = null;
   const hitTimes = Array<number>(6).fill(-Infinity);
   const elapsed = (now: number) => (now - began) / 1000;
   function updateScore(): void { el('tutorial-score').textContent = `${engine.score.toLocaleString('ja-JP')} 点 · COMBO ${engine.combo}`; }
-  function destroyAudio(): void { sound?.destroy(); beatSound?.destroy(); sound = beatSound = null; }
+  // Safari supports a playback session for media sound, including when the ringer is muted.
+  // Request it only for an explicit sound action, and restore the previous session on exit.
+  const audioSession = (navigator as Navigator & {audioSession?: {type:string}}).audioSession;
+  let previousSessionType: string | null = null;
+  function playbackSession(): void {
+    if (!audioSession || previousSessionType !== null) return;
+    try { const previous = audioSession.type; audioSession.type = 'playback'; previousSessionType = previous; } catch { /* Optional browser API. */ }
+  }
+  function releaseSession(): void {
+    if (!audioSession || previousSessionType === null) return;
+    try { if (audioSession.type === 'playback') audioSession.type = previousSessionType; } catch { /* Optional browser API. */ }
+    previousSessionType = null;
+  }
+  function audioState(message?: string): void {
+    el('tutorial-volume-value').textContent = `${volume.value}%`;
+    audioStatus.textContent = message ?? (!audioToggle.checked ? '音：OFF' : Number(volume.value) === 0 ? '音：OFF（音量0%）' : `音：ON · ${volume.value}%`);
+  }
+  function unavailable(): void {
+    if (dialog.open && audioToggle.checked && Number(volume.value) > 0) audioState('音を再生できません。「音を確認」で再試行できます。');
+  }
+  function prepareSound(): TapSound {
+    // Keep one output across reference beats, taps and retries, until the dialog closes.
+    sound ??= new TapSound(unavailable);
+    sound.volume = Number(volume.value); sound.delay = settings.soundDelay; sound.enabled = audioToggle.checked;
+    if (sound.enabled && sound.volume > 0) playbackSession(); else releaseSession();
+    return sound;
+  }
+  function stopAudio(): void { sound?.setPlaybackActive(false); sound?.cancelPending(); releaseSession(); }
+  function destroyAudio(): void { stopAudio(); sound?.destroy(); sound = null; }
   function stopRun(): void {
     epoch++; cancelAnimationFrame(frame); frame = 0; phase = 'ready';
-    unbind(); unbind = () => {}; destroyAudio();
+    unbind(); unbind = () => {}; stopAudio();
     if (renderer) renderer.pressed = new Set();
     start.disabled = false;
   }
@@ -84,13 +113,13 @@ export function mountTutorial(): () => void {
     if (phase !== 'playing' || !renderer) return;
     const time = elapsed(now), beat = Math.floor(time / TUTORIAL_BEAT);
     // Skip a late reference sound instead of replaying a backlog after a stalled frame.
-    if (beat !== lastBeat) { lastBeat = beat; if (time - beat * TUTORIAL_BEAT < .08) beatSound?.play(0); }
+    if (beat !== lastBeat) { lastBeat = beat; if (time - beat * TUTORIAL_BEAT < .08) sound?.playBeat(); }
     const hint = time < engine.chart.startTime ? `スタートまで ${Math.ceil((engine.chart.startTime - time) / TUTORIAL_BEAT)} 拍` : 'ラインに合わせてプレイ！';
     if (status.textContent !== hint) status.textContent = hint;
     engine.advance(compensateInput(time, settings.inputOffset), renderer.pressed).forEach(hit => showHit(hit, now));
     syncHolds(now); progress.value = Math.min(1, time / duration); draw(now, time);
     if (time >= duration && engine.finished) {
-      phase = 'finished'; frame = 0; unbind(); unbind = () => {}; destroyAudio(); start.disabled = false;
+      phase = 'finished'; frame = 0; unbind(); unbind = () => {}; stopAudio(); start.disabled = false;
       renderer.pressed = new Set(); draw(now, time);
       status.textContent = '練習終了'; progress.value = 1;
       const hits = engine.notes.length - engine.counts.MISS;
@@ -108,22 +137,19 @@ export function mountTutorial(): () => void {
     status.textContent = `${TUTORIAL_BPM} BPM · 約${Math.round(duration)}秒`; start.textContent = '練習をはじめる';
     previous.disabled = step === 0; next.textContent = step === steps.length - 1 ? '選曲に戻る' : '次へ';
     progress.value = 0; labels.forEach(label => { label.hidden = true; }); hitTimes.fill(-Infinity);
-    el('tutorial-audio-status').textContent = '';
+    audioState();
     renderer?.clearEffects(); updateScore(); draw(performance.now(), 0);
     dialog.scrollTop = 0;
   }
   async function play(): Promise<void> {
     showStep(); const current = epoch; phase = 'starting'; start.disabled = true; status.textContent = '準備中…';
-    const unavailable = () => { if (current === epoch) el('tutorial-audio-status').textContent = '音を再生できません。音なしでも練習できます。'; };
-    sound = new TapSound(unavailable); beatSound = new TapSound(unavailable);
-    sound.volume = settings.soundVolume || 70; beatSound.volume = Math.min(18, (settings.soundVolume || 70) * .25);
-    sound.delay = settings.soundDelay; sound.enabled = beatSound.enabled = audioToggle.checked;
-    await Promise.all([sound.unlock(), beatSound.unlock()]);
+    const audio = prepareSound(), ready = await audio.unlock();
     if (current !== epoch || !dialog.open) return;
+    if (!ready) unavailable(); else audioState();
     phase = 'playing'; began = performance.now(); lastBeat = -1; start.textContent = 'もう一度';
     feedback.textContent = 'ノーツがラインに重なるタイミングを狙おう。';
     canvas.scrollIntoView({block:'nearest'});
-    sound.setPlaybackActive(true); beatSound.setPlaybackActive(true);
+    audio.setPlaybackActive(true);
     unbind = bindInput(buttons, lane => {
       if (phase !== 'playing' || !renderer) return;
       const now = performance.now(), time = compensateInput(elapsed(now), settings.inputOffset);
@@ -147,17 +173,34 @@ export function mountTutorial(): () => void {
   opener.addEventListener('click', () => {
     if (dialog.open) return;
     settings = loadSettings(); audioToggle.checked = settings.sound && settings.soundVolume > 0;
+    volume.value = String(settings.soundVolume || 70);
     step = 0; dialog.showModal(); document.body.classList.add('tutorial-visible');
     renderer = new Renderer(canvas); unbindTargets = bindTargets(canvas, targets); showStep();
     resize = new ResizeObserver(() => { if (phase !== 'playing') draw(performance.now(), phase === 'finished' ? duration : 0); }); resize.observe(canvas);
   }, {signal});
   start.addEventListener('click', () => void play(), {signal});
   audioToggle.addEventListener('change', () => {
-    if (!sound || !beatSound) return;
-    sound.enabled = beatSound.enabled = audioToggle.checked;
-    if (audioToggle.checked) { void sound.unlock(); void beatSound.unlock(); }
+    if (audioToggle.checked && Number(volume.value) === 0) volume.value = '70';
+    audioState();
+    if (!sound) return;
+    const audio = prepareSound(), current = epoch;
+    if (audioToggle.checked) void audio.unlock().then(ready => { if (current === epoch && dialog.open && !ready) unavailable(); });
   }, {signal});
-  function cleanup(): void { stopRun(); resize?.disconnect(); resize = null; unbindTargets(); unbindTargets = () => {}; renderer?.destroy(); renderer = null; document.body.classList.remove('tutorial-visible'); }
+  volume.addEventListener('input', () => {
+    audioState(); if (!sound) return;
+    const audio = prepareSound(), current = epoch;
+    if (audio.enabled && audio.volume) void audio.unlock().then(ready => { if (current === epoch && dialog.open && !ready) unavailable(); });
+  }, {signal});
+  el('tutorial-sound-test').addEventListener('click', () => {
+    audioToggle.checked = true; if (Number(volume.value) === 0) volume.value = '70';
+    audioState('音を準備中…'); const audio = prepareSound(), current = epoch;
+    void audio.unlock().then(ready => {
+      if (current !== epoch || !dialog.open) return;
+      if (!audio.enabled || !audio.volume) { audioState(); return; }
+      if (ready) { audio.playBeat(); audioState('確認音を再生しました。'); } else unavailable();
+    });
+  }, {signal});
+  function cleanup(): void { stopRun(); destroyAudio(); resize?.disconnect(); resize = null; unbindTargets(); unbindTargets = () => {}; renderer?.destroy(); renderer = null; document.body.classList.remove('tutorial-visible'); }
   function closeTutorial(): void { cleanup(); dialog.close(); }
   el('tutorial-close').addEventListener('click', closeTutorial, {signal});
   dialog.addEventListener('cancel', cleanup, {signal});
