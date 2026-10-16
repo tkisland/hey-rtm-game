@@ -34,7 +34,7 @@ export class Renderer {
     this.field = fieldGeometry(rect.width, rect.height);
     this.frameClip = new Path2D();
     this.frameClip.roundRect(0, 0, rect.width, this.field.pads[0].y + this.field.padHeight / 2 + 14, 20);
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     this.canvas.width = Math.round(rect.width * dpr); this.canvas.height = Math.round(rect.height * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
@@ -106,7 +106,7 @@ export class Renderer {
   }
   draw(notes: PlayNote[], time: number, travel: number, now: number, options: { inputOffsetMs?: number; playing?: boolean; chart?: Chart } = {}): void {
     const { inputOffsetMs = 0, playing = true, chart } = options;
-    if (this.canvas.width !== Math.round(this.field.width * (window.devicePixelRatio || 1))) this.resize();
+    if (this.canvas.width !== Math.round(this.field.width * Math.min(2, window.devicePixelRatio || 1))) this.resize();
     const ctx = this.ctx, field = this.field, w = field.width, h = field.height;
     // Match the input clock so every compensated PERFECT arrives at a fixed button.
     const judgeTime = time - inputOffsetMs / 1000;
@@ -116,24 +116,15 @@ export class Renderer {
       // A wide DD must never hide the color of a simultaneous ordinary note.
       this.renderNotes = [...notes].sort((a, b) => Number(b.gimmick === 'dd' || b.gimmick === 'box') - Number(a.gimmick === 'dd' || a.gimmick === 'box'));
     }
-    const backdrop = ctx.createLinearGradient(0, 0, 0, h); backdrop.addColorStop(0, '#151028'); backdrop.addColorStop(1, '#080817');
     ctx.clearRect(0, 0, w, h);
     ctx.save();ctx.clip(this.frameClip);
-    ctx.fillStyle = backdrop; ctx.fillRect(0, 0, w, h);
+    // The venue, console shade and fixed lane surfaces share one cached image.
     drawVenue(ctx,field);
-    const padTop = field.pads[0].y - field.padHeight / 2 - 8;
-    const consoleShade=ctx.createLinearGradient(0,padTop-14,0,padTop+28);
-    consoleShade.addColorStop(0,'#08081700');consoleShade.addColorStop(1,'#080817');
-    ctx.fillStyle=consoleShade;ctx.fillRect(0,padTop-14,w,h-padTop+14);
     for (let lane = 0; lane < 6; lane++) {
       const color = LANE_COLORS[lane];
       // The stage floor meets the receiving line. Late judgement bands remain below it.
       const edges = [project(field, lane - 0.49, 0), project(field, lane + 0.49, 0),
         project(field, lane + 0.49, 1), project(field, lane - 0.49, 1)];
-      const runway = ctx.createLinearGradient(0,field.origin,0,field.near);
-      runway.addColorStop(0,'#141121f5'); runway.addColorStop(.4,'#151122ee');runway.addColorStop(1,color+'48');
-      ctx.fillStyle = runway; this.polygon(edges);
-      ctx.strokeStyle = color+'75'; ctx.lineWidth = 1; this.polygon(edges, false);
       const age = now - (this.flashes.get(lane)?.time ?? -1000);
       const alpha = this.pressed.has(lane) ? 0.10 : Math.max(0, 1 - age / 220) * 0.20;
       if (alpha > 0) { ctx.globalAlpha = alpha; ctx.fillStyle = color; this.polygon(edges); ctx.globalAlpha = 1; }

@@ -79,7 +79,7 @@ test('independent simultaneous pointer inputs, settings persistence and high DPI
   await page.locator('#settings-toggle').click();
   await expect(page.locator('#bpm')).toHaveValue('100');
   await expect(page.locator('#offset')).toHaveValue('200');
-  const dimensions = await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => ({ width: canvas.width, rect: canvas.getBoundingClientRect().width, dpr: devicePixelRatio }));
+  const dimensions = await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => ({ width: canvas.width, rect: canvas.getBoundingClientRect().width, dpr: Math.min(2,devicePixelRatio) }));
   expect(dimensions.width).toBe(Math.round(dimensions.rect * dimensions.dpr));
   expect(await page.locator('.video-frame').evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(200);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
