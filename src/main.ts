@@ -15,7 +15,7 @@ import { GameEngine } from './engine';
 import type { Hit, InputGesture } from './engine';
 import { bindInput } from './input';
 import { Renderer } from './renderer';
-import { loadSettings, normalizeSettings, saveSettings } from './settings';
+import { loadSettings, normalizePlayerSettings, normalizeSettings, saveSettings } from './settings';
 import { PLAYER_STATE, VideoClock, stateName } from './sync';
 import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
@@ -62,7 +62,8 @@ element('stage-song-title').textContent = song.title;
 element('song-artist').textContent = `${song.artist} / OFFICIAL MV`;
 if (__ADMIN__) element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'editor');
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
-let settings = loadSettings(song);
+const normalizeGameSettings = __ADMIN__ ? normalizeSettings : normalizePlayerSettings;
+let settings = normalizeGameSettings(loadSettings(song));
 const customChart = __ADMIN__ ? loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song) : null;
 const requested = new URLSearchParams(location.search).get('chart');
 type Source = 'bundled' | 'custom' | 'test';
@@ -336,59 +337,68 @@ function showSettings(open: boolean): void {
 }
 settingsToggle.addEventListener('click', () => showSettings(settingsPanel.hidden), { signal });
 element('settings-close').addEventListener('click', () => showSettings(false), { signal });
-const offset = element<HTMLInputElement>('offset');
-const soundToggle = element<HTMLInputElement>('sound-toggle');
+const offset = __ADMIN__ ? element<HTMLInputElement>('offset') : null;
+const soundToggle = __ADMIN__ ? element<HTMLInputElement>('sound-toggle') : null;
 const soundVolume = element<HTMLInputElement>('sound-volume');
-const inputOffset = element<HTMLInputElement>('input-offset'), soundDelay = element<HTMLInputElement>('sound-delay');
+const inputOffset = __ADMIN__ ? element<HTMLInputElement>('input-offset') : null;
+const soundDelay = __ADMIN__ ? element<HTMLInputElement>('sound-delay') : null;
 const bpm = __ADMIN__ ? element<HTMLInputElement>('bpm') : null;
 const startTime = __ADMIN__ ? element<HTMLInputElement>('start-time') : null;
 const debug = __ADMIN__ ? element<HTMLInputElement>('debug-toggle') : null;
 function reflectSettings(): void {
-  inputOffset.value = String(settings.inputOffset); soundDelay.value = String(settings.soundDelay);
-  element('input-offset-value').textContent = `${settings.inputOffset > 0 ? '+' : ''}${settings.inputOffset} ms`;
-  element('sound-delay-value').textContent = `${settings.soundDelay} ms`;
-  offset.value = String(settings.offset);
+  if (__ADMIN__) {
+    inputOffset!.value = String(settings.inputOffset); soundDelay!.value = String(settings.soundDelay);
+    element('input-offset-value').textContent = `${settings.inputOffset > 0 ? '+' : ''}${settings.inputOffset} ms`;
+    element('sound-delay-value').textContent = `${settings.soundDelay} ms`;
+    offset!.value = String(settings.offset);
+    element('offset-value').textContent = `${settings.offset > 0 ? '+' : ''}${settings.offset} ms`;
+    soundToggle!.checked = settings.sound;
+    element<HTMLButtonElement>('sound-test').disabled = !settings.sound || settings.soundVolume === 0;
+  }
   if (bpm) bpm.value = String(settings.bpm);
   if (startTime) startTime.value = String(settings.startTime);
   if (debug) debug.checked = settings.debug;
-  soundToggle.checked = settings.sound;
   sound.enabled = settings.sound;
   sound.volume = settings.soundVolume;
   sound.delay = settings.soundDelay;
-  element<HTMLButtonElement>('sound-test').disabled = !settings.sound || settings.soundVolume === 0;
   soundVolume.value = String(settings.soundVolume);
   element('sound-volume-value').textContent = `${settings.soundVolume}%`;
-  element('offset-value').textContent = `${settings.offset > 0 ? '+' : ''}${settings.offset} ms`;
   if (__ADMIN__) element('debug-panel').hidden = !settings.debug;
 }
 function changeSettings(): void {
-  settings = normalizeSettings({ ...settings, offset: offset.valueAsNumber, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
+  settings = normalizeGameSettings({ ...settings, offset: offset?.valueAsNumber ?? settings.offset, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle?.checked ?? true, soundVolume: soundVolume.valueAsNumber, inputOffset: inputOffset?.valueAsNumber ?? settings.inputOffset, soundDelay: soundDelay?.valueAsNumber ?? settings.soundDelay });
   reflectSettings();
   if (settings.sound && settings.soundVolume > 0 && state === PLAYER_STATE.PLAYING) void sound.unlock();
   const saved = saveSettings(settings, song);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
   if (__ADMIN__ && source === 'test' && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
 }
-offset.addEventListener('input', changeSettings, { signal });
+offset?.addEventListener('input', changeSettings, { signal });
 bpm?.addEventListener('change', changeSettings, { signal });
 startTime?.addEventListener('change', changeSettings, { signal });
 debug?.addEventListener('change', changeSettings, { signal });
-soundToggle.addEventListener('change', changeSettings, { signal });
+soundToggle?.addEventListener('change', changeSettings, { signal });
 soundVolume.addEventListener('input', changeSettings, { signal });
-inputOffset.addEventListener('input', changeSettings, { signal });
-soundDelay.addEventListener('input', changeSettings, { signal });
+inputOffset?.addEventListener('input', changeSettings, { signal });
+soundDelay?.addEventListener('input', changeSettings, { signal });
 const calibration = createCalibrationDialog({
   settings: () => settings,
   pause() {
     sound.cancelPending();
     player?.pauseVideo();
   },
-  apply(value) { inputOffset.value = String(value); changeSettings(); },
+  apply(value) {
+    settings = { ...settings, inputOffset: value };
+    if (inputOffset) inputOffset.value = String(value);
+    changeSettings();
+  },
 });
-element('auto-calibrate').addEventListener('click', () => calibration.open(), { signal });
 element('flow-calibrate').addEventListener('click', () => calibration.openPreview(), { signal });
-element('timing-reset').addEventListener('click', () => { inputOffset.value = '0'; soundDelay.value = '0'; changeSettings(); }, { signal });
-element('sound-test').addEventListener('click', () => sound.play(0), { signal });
+if (__ADMIN__) {
+  element('auto-calibrate').addEventListener('click', () => calibration.open(), { signal });
+  element('timing-reset').addEventListener('click', () => { inputOffset!.value = '0'; soundDelay!.value = '0'; changeSettings(); }, { signal });
+  element('sound-test').addEventListener('click', () => sound.play(0), { signal });
+}
 reflectSettings(); updateChartInfo();
 if (__ADMIN__) {
   const chartSource = element<HTMLSelectElement>('chart-source');

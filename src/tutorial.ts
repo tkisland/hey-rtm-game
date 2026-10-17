@@ -8,7 +8,7 @@ import type { Hit } from './engine';
 import { Renderer } from './renderer';
 import { bindTargets } from './field-geometry';
 import { TapSound } from './sound';
-import { loadSettings } from './settings';
+import { loadSettings, normalizePlayerSettings } from './settings';
 import { compensateInput } from './timing';
 import { tutorialChart, TUTORIAL_BEAT, TUTORIAL_BPM, TUTORIAL_TRAVEL } from './tutorial-chart';
 
@@ -42,7 +42,8 @@ export function mountTutorial(): () => void {
     target.append(receptor, button, label); pads.append(target); targets.push(target); labels.push(label); return button;
   });
   const listeners = new AbortController(), signal = listeners.signal;
-  let settings = loadSettings();
+  const tutorialSettings = () => __ADMIN__ ? loadSettings() : normalizePlayerSettings(loadSettings());
+  let settings = tutorialSettings();
   audioToggle.checked = settings.sound && settings.soundVolume > 0;
   let step = 0, engine = new GameEngine(tutorialChart(0)), phase: 'ready'|'starting'|'playing'|'finished' = 'ready';
   let renderer: Renderer | null = null, sound: TapSound | null = null;
@@ -176,7 +177,7 @@ export function mountTutorial(): () => void {
   }
   opener.addEventListener('click', () => {
     if (dialog.open) return;
-    settings = loadSettings(); audioToggle.checked = settings.sound && settings.soundVolume > 0;
+    settings = tutorialSettings(); audioToggle.checked = settings.sound && settings.soundVolume > 0;
     volume.value = String(settings.soundVolume || 70);
     step = 0; dialog.showModal(); document.body.classList.add('tutorial-visible');
     renderer = new Renderer(canvas); unbindTargets = bindTargets(canvas, targets); showStep();

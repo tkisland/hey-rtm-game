@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { DEFAULT_SONG, findSong, SONGS, songStorageKey, songUrl } from '../src/songs';
 import { generateChart } from '../src/chart';
 import { CUSTOM_CHART_KEY, EDITOR_KEY, emptyChart, loadChart, parseChart, storeChart } from '../src/editor-model';
-import { loadSettings, saveSettings } from '../src/settings';
+import { loadSettings, normalizePlayerSettings, saveSettings } from '../src/settings';
 
 const second = { id: 'second-song', title: 'Second test song', artist: 'Test artist', videoId: 'abcdefghijk', bpm: 120, startTime: 8 };
 function storage() {
@@ -11,6 +11,15 @@ function storage() {
   return data;
 }
 afterEach(() => vi.unstubAllGlobals());
+it('public play retires hidden timing/audio switches while preserving calibration and volume', () => {
+  const legacy={offset:300,soundDelay:300,debug:true,inputOffset:80,sound:true,soundVolume:45};
+  expect(normalizePlayerSettings(legacy)).toMatchObject({offset:0,soundDelay:0,debug:false,inputOffset:80,sound:true,soundVolume:45,travel:2.5});
+  expect(normalizePlayerSettings({...legacy,sound:false})).toMatchObject({sound:true,soundVolume:0,inputOffset:80});
+  expect(normalizePlayerSettings({soundVolume:0})).toMatchObject({sound:true,soundVolume:0});
+  expect(normalizePlayerSettings({})).toMatchObject({sound:true,soundVolume:70});
+  storage();saveSettings({...loadSettings(),...legacy});
+  expect(loadSettings()).toMatchObject(legacy); // Administrator tools retain their own controls.
+});
 it('fixes every song to a 2.5 second lead-in and migrates legacy fall times without losing correction', () => {
   const data = storage();
   expect(loadSettings().travel).toBe(2.5);

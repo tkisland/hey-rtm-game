@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { api } from '../browser/mock-video';
+import type { Page } from '@playwright/test';
+const savedCorrection = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1') ?? '{}').inputOffset ?? 0);
 
 test('public settings rehearse with sound and save only an applied input correction', async ({page}) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({body:api}));
@@ -17,14 +19,13 @@ test('public settings rehearse with sound and save only an applied input correct
   await expect.poll(() => page.evaluate(() => (window as any).referenceStarts.length)).toBe(28);
   await expect(page.locator('.timing-pad')).toHaveCount(6);
   await page.locator('#timing-preview-offset').fill('100'); await page.locator('#timing-preview-offset').dispatchEvent('input');
-  await expect(page.locator('#input-offset')).toHaveValue('0');
-  await page.locator('#timing-preview-apply').click(); await expect(page.locator('#input-offset')).toHaveValue('100');
+  expect(await savedCorrection(page)).toBe(0);
+  await page.locator('#timing-preview-apply').click(); expect(await savedCorrection(page)).toBe(100);
   await expect(page.locator('#score')).toHaveText('0');
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled(); await page.locator('#settings-toggle').click();
-  await expect(page.locator('#input-offset')).toHaveValue('100');
-  await page.locator('#flow-calibrate').click(); await page.locator('#timing-preview-plus').click();
+  await page.locator('#flow-calibrate').click(); await expect(page.locator('#timing-preview-value')).toHaveText('+100 ms'); await page.locator('#timing-preview-plus').click();
   await expect(page.locator('#timing-preview-value')).toHaveText('+105 ms');
-  await page.locator('#timing-preview-close').click(); await expect(page.locator('#input-offset')).toHaveValue('100');
+  await page.locator('#timing-preview-close').click(); expect(await savedCorrection(page)).toBe(100);
   await expect(page.locator('#chart-source')).toHaveCount(0);
 });
 
@@ -54,8 +55,8 @@ test('public flow calibration automatically applies stable taps to notes and jud
   await expect(page.locator('#timing-preview-value')).toHaveText('+180 ms');
   await expect(page.locator('#timing-preview-auto')).toContainText('自動反映');
   await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · ずれ 0 ms');
-  await expect(page.locator('#input-offset')).toHaveValue('200');
-  await page.locator('#timing-preview-apply').click(); await expect(page.locator('#input-offset')).toHaveValue('180');
+  expect(await savedCorrection(page)).toBe(200);
+  await page.locator('#timing-preview-apply').click(); expect(await savedCorrection(page)).toBe(180);
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!).travel)).toBe(2.5);
   await expect(page.locator('#score')).toHaveText('0');
 });
