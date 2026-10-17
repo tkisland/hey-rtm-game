@@ -20,6 +20,7 @@ function graph(entry, dynamic = false, result = new Set()) {
   return result;
 }
 const privateMarkers = ['record-toggle','hey-rhythm-editor-v1','hey-rhythm-custom-chart-v1','id="open-editor"','id="chart-source"','id="bpm"','id="start-time"','id="debug-toggle"','<!-- admin:start -->','譜面エディター','保存譜面で遊ぶ','テスト譜面で遊ぶ'];
+privateMarkers.push('id="offset"','id="input-offset"','id="sound-toggle"','id="sound-delay"','id="auto-calibrate"','id="timing-reset"','id="sound-test"');
 for (const page of pages) {
   const chunks = [...graph(page)].map(key => manifest[key].file);
   for (const file of [page,...chunks]) {

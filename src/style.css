@@ -219,6 +219,8 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
 .game-page .game .stage-hint { top:30%; padding:0 20px; }
 .game-page .game .stage-hint strong { font-size:14px; }
 .game-page .settings-panel,.game-page .result { position:fixed; z-index:50; inset:12px; width:min(600px,calc(100% - 24px)); max-height:calc(100svh - 24px); margin:0 auto; overflow:auto; overscroll-behavior:contain; border-color:#c49ff56b; box-shadow:0 0 0 100vmax #080611b8; }
+.game-page .settings-panel { bottom:auto; }
+.settings-panel #flow-calibrate,.settings-panel #settings-close { min-height:44px; }
 .game-page .result { inset:auto; top:calc(var(--surface-top) + 12px); left:calc(var(--surface-left) + var(--surface-width) / 2); transform:translateX(-50%); width:min(600px,calc(var(--surface-width) - 24px)); max-height:calc(var(--surface-height) - 24px); margin:0; z-index:40; box-shadow:0 12px 36px #000b; }
 .game-page .result .panel-heading { margin:0; gap:12px; }
 .game-page .result .text-button { min-height:44px; }

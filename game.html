@@ -82,6 +82,7 @@
         <section id="settings-panel" class="panel settings-panel" aria-label="ゲーム設定" hidden>
           <div class="panel-heading"><h2>プレイ設定</h2><button id="settings-close" class="text-button">閉じる ×</button></div>
           <!-- admin:start --><label class="chart-choice">管理者用の試遊譜面<select id="chart-source"><option value="bundled">収録譜面</option><option value="test">動作確認用の仮譜面</option><option value="custom">管理者の下書き譜面</option></select></label><!-- admin:end -->
+          <!-- admin:start -->
           <p class="field-help">ノーツが現れてから判定ラインに届くまでは2.5秒で固定です。</p>
           <p class="field-help">通常のタップ・長オシの始点はノーツの中心で判定します。薄い帯がGOOD（±160ms）、中間がGREAT（±100ms）、濃い帯がPERFECT（±50ms）。</p>
           <p class="field-help">長オシ・オシ変の終点と、オシ変の持ち替えはゆったり判定：PERFECT ±100ms／GREAT ±180ms／GOOD ±250ms。</p>
@@ -91,22 +92,27 @@
           <p class="field-help">＋でノーツの到達・判定を遅らせます。</p>
           <button id="auto-calibrate" class="restart-button">基準音で自動調整</button>
           <p class="field-help">一定間隔の音に合わせてタップし、入力補正の目安を測定します。測定後に結果を確認して適用できます。</p>
-          <button id="flow-calibrate" class="restart-button">ノーツを見て調整</button>
+          <!-- admin:end -->
+          <button id="flow-calibrate" class="restart-button">ノーツをみて調整</button>
           <p class="field-help">基準音と練習ノーツに合わせて押すと、ずれを自動で補正します。ノーツの到達と判定にその場で反映し、「適用」で保存します。</p>
+          <!-- admin:start -->
           <label for="input-offset">入力の遅れ補正 <output id="input-offset-value">0 ms</output></label>
           <input id="input-offset" type="range" min="-300" max="300" step="5" value="0" />
           <p class="field-help">＋は遅い入力を早い時刻として判定、−は早い入力を遅い時刻として判定します。例：いつも＋80ms遅いなら＋80msに。ボタンの位置を固定したまま、ノーツの到達時刻を補正します。</p>
-          <!-- admin:start --><div class="settings-grid"><label for="bpm">仮BPM<input id="bpm" type="number" min="80" max="200" step="1" value="140" /></label><label for="start-time">譜面開始（秒）<input id="start-time" type="number" min="0" max="3600" step="0.1" value="12" /></label></div>
-          <p id="chart-settings-help" class="field-help">BPM・開始時刻は次のリスタートから反映されます。</p><!-- admin:end -->
+          <div class="settings-grid"><label for="bpm">仮BPM<input id="bpm" type="number" min="80" max="200" step="1" value="140" /></label><label for="start-time">譜面開始（秒）<input id="start-time" type="number" min="0" max="3600" step="0.1" value="12" /></label></div>
+          <p id="chart-settings-help" class="field-help">BPM・開始時刻は次のリスタートから反映されます。</p>
           <label class="check-label"><input id="sound-toggle" type="checkbox" checked /> タップ音</label>
-          <p id="sound-status" class="field-help">入力時はシンバル風の「シャン」、長オシ成立中は「ジリリ」という持続音を鳴らします。</p>
-          <label for="sound-volume">タップ音量 <output id="sound-volume-value">70%</output></label>
+          <!-- admin:end -->
+          <label for="sound-volume">シンバル音の音量 <output id="sound-volume-value">70%</output></label>
           <input id="sound-volume" type="range" min="0" max="100" step="5" value="70" />
+          <p id="sound-status" class="field-help">シンバル音と長オシ中の音量です。0%で消音になります。</p>
+          <!-- admin:start -->
           <label for="sound-delay">タップ音の追加遅延 <output id="sound-delay-value">0 ms</output></label>
           <input id="sound-delay" type="range" min="0" max="300" step="5" value="0" />
           <p class="field-help">入力からタップ音を鳴らすまでの追加待ち時間です。0msが最短です。端末やBluetoothの遅れは短縮できません。曲との位置ずれは「ノーツ全体の位置」、判定のずれは「入力の遅れ補正」で調整します。</p>
           <div class="game-toolbar"><button id="sound-test" class="restart-button">タップ音を試す</button><button id="timing-reset" class="text-button">入力補正・音の遅延を0に戻す</button></div>
-          <!-- admin:start --><label class="check-label"><input id="debug-toggle" type="checkbox" /> デバッグ表示</label><!-- admin:end -->
+          <label class="check-label"><input id="debug-toggle" type="checkbox" /> デバッグ表示</label>
+          <!-- admin:end -->
           <p id="storage-status" class="field-help">設定はこのブラウザに保存されます。</p>
         </section>
         <section id="result" class="panel result" aria-label="プレイ結果" tabindex="-1" hidden>

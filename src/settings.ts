@@ -26,6 +26,12 @@ export function normalizeSettings(value: Partial<Settings>): Settings {
     soundDelay: numeric(value.soundDelay, 0, 0, 300, 5),
   };
 }
+/** Public play exposes calibration and volume; retired controls cannot add hidden shifts. */
+export function normalizePlayerSettings(value: Partial<Settings>): Settings {
+  const settings = normalizeSettings(value);
+  return { ...settings, offset: 0, soundDelay: 0, debug: false, sound: true,
+    soundVolume: settings.sound ? settings.soundVolume : 0 };
+}
 function readSettings(key: string): Partial<Settings> {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? '{}');
