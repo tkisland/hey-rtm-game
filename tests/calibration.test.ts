@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CALIBRATION, CalibrationMeasurement } from '../src/calibration';
+import { CALIBRATION, CalibrationMeasurement, NoteTimingCalibration } from '../src/calibration';
 function measure(offsets: number[]) {
   const session = new CalibrationMeasurement(20);
   offsets.forEach((offset, beat) => session.tap(session.firstMeasured + beat * CALIBRATION.interval + offset / 1000));
@@ -43,5 +43,37 @@ describe('audio reference calibration', () => {
   it('allows either edge of the correction range', () => {
     expect(measure(Array(10).fill(300)).result()).toMatchObject({ ok: true, offset: 300 });
     expect(measure(Array(10).fill(-300)).result()).toMatchObject({ ok: true, offset: -300 });
+  });
+});
+
+describe('calibration from moving notes', () => {
+  it('needs eight stable original timestamps and replaces rather than accumulates correction', () => {
+    const measurement = new NoteTimingCalibration();
+    for (let i=0;i<7;i++) expect(measurement.tap(i,20+i*.9+.08,20+i*.9)).toEqual({ok:false,reason:'insufficient'});
+    expect(measurement.tap(7,26.38,26.3)).toMatchObject({ok:true,offset:80,samples:8});
+    // Continued taps are on the same heard beat after the visual/judgement correction changes.
+    for (let i=8;i<20;i++) expect(measurement.tap(i,20+i*.9+.08,20+i*.9)).toMatchObject({ok:true,offset:80});
+    expect(measurement.count).toBe(10);
+    measurement.clear(); expect(measurement.count).toBe(0);
+    expect(measurement.tap(0,20.08,20)).toEqual({ok:false,reason:'insufficient'});
+  });
+  it('rejects duplicates and off-beat taps while recovering from isolated mistakes', () => {
+    const measurement = new NoteTimingCalibration();
+    expect(measurement.tap(1,19,20)).toBeNull();
+    expect(measurement.tap(1,NaN,20)).toBeNull();
+    expect(measurement.tap(1,20.08,20)).not.toBeNull();
+    expect(measurement.tap(1,20.1,20)).toBeNull(); expect(measurement.count).toBe(1);
+    [80,80,80,80,80,80,350].forEach((ms,i)=>measurement.tap(i+2,21+i+ms/1000,21+i));
+    expect(measurement.tap(9,29.08,29)).toMatchObject({ok:true,offset:80,samples:8});
+  });
+  it('supports negative correction and both limits without clamping excessive or unstable results', () => {
+    for(const ms of [-300,-100,300,340]) {
+      const measurement = new NoteTimingCalibration(); let result;
+      for(let i=0;i<10;i++) result=measurement.tap(i,20+i+ms/1000,20+i);
+      expect(result).toMatchObject(ms===340 ? {ok:false,reason:'range'} : {ok:true,offset:ms});
+    }
+    const measurement = new NoteTimingCalibration(); let result;
+    [0,170,-170,20,160,-180,15,-150,180,5].forEach((ms,i)=>{result=measurement.tap(i,20+i+ms/1000,20+i);});
+    expect(result).toEqual({ok:false,reason:'unstable'});
   });
 });

@@ -34,7 +34,7 @@ test('video status, external link and settings can be opened without pushing the
   await expect(page.locator('.playback-info a')).toBeVisible();
   expect(await page.locator('#game-canvas').boundingBox()).toEqual(before);
   await page.locator('.playback-details summary').click();
-  await page.locator('#settings-toggle').click();await expect(page.locator('#travel')).toBeVisible();
+  await page.locator('#settings-toggle').click();await expect(page.locator('#flow-calibrate')).toBeVisible();
   expect(await page.locator('#game-canvas').boundingBox()).toEqual(before);
   await page.locator('#settings-close').click();
   expect(await page.locator('#game-canvas').boundingBox()).toEqual(before);

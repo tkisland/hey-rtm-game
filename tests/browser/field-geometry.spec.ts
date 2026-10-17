@@ -94,7 +94,7 @@ test('actual rendered centers at each perspective-band edge match the engine jud
     expect(r.visible).toBe(true);
   }
 });
-test('targets and timing bands stay fixed when changing correction, and speed changes the band', async ({ page }) => {
+test('targets and timing bands stay fixed when changing correction or loading a legacy speed', async ({ page }) => {
   await page.locator('#settings-toggle').click();
   await range(page, 'input-offset', '0');
   const normal = await bands(page, '#game-canvas');
@@ -104,11 +104,13 @@ test('targets and timing bands stay fixed when changing correction, and speed ch
   await range(page, 'input-offset', '300');
   expect(await bands(page, '#game-canvas')).toEqual(normal);
   expect(await targets()).toEqual(before);
-  await range(page, 'travel', '1');
-  const fast = await bands(page, '#game-canvas');
-  await range(page, 'travel', '4');
-  const slow = await bands(page, '#game-canvas');
-  expect(fast[0][2].y - fast[0][0].y).toBeGreaterThan(slow[0][2].y - slow[0][0].y);
+  await expect(page.locator('#travel')).toHaveCount(0);
+  await page.evaluate(() => {
+    const key = 'hey-rhythm-settings-v1';
+    localStorage.setItem(key,JSON.stringify({...JSON.parse(localStorage.getItem(key)!),travel:4}));
+  });
+  await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
+  expect(await bands(page, '#game-canvas')).toEqual(normal);
   expect(await targets()).toEqual(before);
 });
 test('editor preview uses the same horizontal targets and zero-correction bands', async ({ page }) => {
