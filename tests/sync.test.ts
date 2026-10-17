@@ -4,6 +4,53 @@ import { GameEngine } from '../src/engine';
 import { generateChart } from '../src/chart';
 
 describe('video-anchored interpolation', () => {
+  it.each([0.7,0.5,0.1])('does not retain a large lead when reported playing time advances at %sx', actualRate => {
+    const clock = new VideoClock(); let previous = 12, maximumLead = 0;
+    for(let frame=0;frame<60*30;frame++) {
+      const elapsed=frame/60, raw=12+elapsed*actualRate;
+      const sample=clock.sample(raw,S.PLAYING,elapsed*1000,1);
+      expect(sample.seek).toBe(false); expect(sample.time).toBeGreaterThanOrEqual(previous);
+      maximumLead=Math.max(maximumLead,sample.time-raw); previous=sample.time;
+    }
+    expect(maximumLead).toBeLessThanOrEqual(.05+1e-8);
+  });
+  it('keeps a slow-clock note hittable instead of expiring it half a second early', () => {
+    const clock=new VideoClock(), chart=generateChart();chart.notes=[{id:1,lane:0,time:14,type:'tap'}];
+    const engine=new GameEngine(chart);let time=12;
+    for(let frame=0;frame<=240;frame++) {
+      const wall=frame/60, sample=clock.sample(12+wall*.5,S.PLAYING,wall*1000,1);
+      time=sample.time;engine.advance(time);
+    }
+    expect(engine.counts.MISS).toBe(0);expect(engine.input(0,time)?.judgement).toBe('PERFECT');
+    expect(engine.score).toBe(1000);
+  });
+  it.each([.1,.25,.4].flatMap(interval=>[.1,.5].map(actualRate=>[interval,actualRate])))('tracks sparse %ss updates at actual rate %sx', (interval,actualRate) => {
+    const clock=new VideoClock();let previous=12;
+    for(let frame=0;frame<60*30;frame++) {
+      const elapsed=frame/60,actual=12+elapsed*actualRate,raw=12+Math.floor(elapsed/interval)*interval*actualRate;
+      const sample=clock.sample(raw,S.PLAYING,elapsed*1000,1);
+      expect(sample.seek).toBe(false);expect(sample.time).toBeGreaterThanOrEqual(previous-1e-8);
+      if(elapsed>5) {expect(Math.abs(sample.time-actual)).toBeLessThan(.035);expect(sample.predictionRate).toBeCloseTo(actualRate,1);}
+      previous=sample.time;
+    }
+  });
+  it('recovers its requested prediction speed after a temporary slowdown', () => {
+    const clock=new VideoClock();
+    for(let frame=0;frame<60*20;frame++) {
+      const elapsed=frame/60,actual=12+Math.min(elapsed,10)*.5+Math.max(0,elapsed-10);
+      const sample=clock.sample(actual,S.PLAYING,elapsed*1000,1);
+      expect(sample.seek).toBe(false);
+      if(elapsed>15) {expect(sample.time).toBeCloseTo(actual,2);expect(sample.predictionRate).toBe(1);}
+    }
+  });
+  it('can observe slow progression after an invalid timestamp recovers at the same cached value', () => {
+    const clock=new VideoClock();clock.sample(12,S.PLAYING,0);clock.sample(NaN,S.PLAYING,16);clock.sample(12,S.PLAYING,32);
+    for(let frame=1;frame<60*10;frame++) {
+      const elapsed=frame/60,actual=12+elapsed*.5;
+      const sample=clock.sample(actual,S.PLAYING,32+elapsed*1000,1);
+      if(elapsed>5) {expect(sample.predictionRate).toBeCloseTo(.5,4);expect(sample.time).toBeCloseTo(actual,2);}
+    }
+  });
   it.each([0.1, 0.25, 0.4])('moves every frame with API updates every %ss without cumulative drift or false seeks', interval => {
     const clock = new VideoClock();
     let previous = 12;

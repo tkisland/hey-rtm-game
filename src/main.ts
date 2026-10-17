@@ -79,6 +79,8 @@ if (previewUid) {
   document.querySelector('.header-actions')!.prepend(back);
 }
 const clock = new VideoClock();
+const diagnostics = new URLSearchParams(location.search).get('sync') === '1'
+  ? (await import('./sync-diagnostics')).createSyncDiagnostics(song) : null;
 const renderer = new Renderer(element<HTMLCanvasElement>('game-canvas'));
 const score = element('score'), combo = element('combo'), maxCombo = element('max-combo');
 const judgements = Array.from({ length: 6 }, (_, lane) => element(`judgement-${lane}`));
@@ -107,6 +109,7 @@ let player: YouTubePlayer | null = null;
 let state = -2;
 let failed = false;
 let videoTime = 0;
+let apiVideoTime = 0, videoRate = 1, predictionRate = 1, diagnosticsSeek = false;
 let smoothedVideoTime = 0;
 let clockStale = false;
 let restartTarget: number | null = null;
@@ -194,7 +197,10 @@ function readTime(now: number): { time: number; playing: boolean } {
     // Also poll state: input cannot score during a state-event delivery delay.
     const observed = player.getPlayerState();
     if (observed !== state) setState(observed);
-    const sample = clock.sample(player.getCurrentTime(), state, now, player.getPlaybackRate());
+    apiVideoTime = player.getCurrentTime(); videoRate = player.getPlaybackRate();
+    const sample = clock.sample(apiVideoTime, state, now, videoRate);
+    predictionRate = sample.predictionRate;
+    if (diagnostics && sample.seek) diagnosticsSeek = true;
     videoTime = sample.rawTime;
     smoothedVideoTime = sample.time;
     const wasStale = clockStale;
@@ -467,6 +473,11 @@ function frame(now: number): void {
   if (controlStatus.textContent !== guidance) controlStatus.textContent = guidance;
   frames++;
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }
+  diagnostics?.record({ atMs:performance.now(), apiTime:apiVideoTime, clockTime:smoothedVideoTime,
+    judgementTime:compensateInput(sample.time,settings.inputOffset), playerState:state, reportedRate:videoRate, predictionRate,
+    playing:sample.playing, stale:clockStale, seek:diagnosticsSeek, inputOffsetMs:settings.inputOffset,
+    chartOffsetMs:settings.offset, inputErrorMs:lastInputError, frameGapMs:Math.max(0,now-previousFrame), fps });
+  diagnosticsSeek = false;
   if (__ADMIN__ && settings.debug && now - debugUpdated >= 100) {
     debugUpdated = now;
     element('debug-time').textContent = `${videoTime.toFixed(3)} s`;
@@ -490,7 +501,7 @@ function dispose(): void {
   if (disposed) return;
   disposed = true;
   cancelAnimationFrame(frameId);
-  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); unbindTargets(); unbindLayout();
+  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); diagnostics?.destroy(); unbindTargets(); unbindLayout();
 }
 let stopAccess = () => {};
 if (previewUid) {

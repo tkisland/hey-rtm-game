@@ -1,0 +1,8 @@
+.sync-diagnostics { position:fixed; z-index:90; top:8px; right:8px; width:min(380px,calc(100% - 16px)); max-height:calc(100svh - 16px); overflow:auto; padding:10px 12px; border:1px solid #ffe3a177; border-radius:10px; background:#141221f5; color:#f6f5ff; box-shadow:0 6px 24px #0008; font-size:11px; }
+.sync-diagnostics summary { cursor:pointer; min-height:32px; padding:7px 0; color:#ffe3a1; }
+.sync-diagnostics summary span { margin-left:10px; color:#aaa6bd; font-size:10px; }
+.sync-diagnostics p { margin:7px 0; color:#bcb8ce; font-size:10px; line-height:1.7; }
+.sync-diagnostics dl { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px 10px; margin:10px 0; }
+.sync-diagnostics dt,.sync-diagnostics dd { margin:0; min-width:0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.sync-diagnostics dd { text-align:right; color:#c2f098; }
+.sync-diagnostics button { min-height:44px; padding:9px 12px; border:1px solid #c49ff566; border-radius:8px; background:#30283f; color:inherit; font:inherit; }
