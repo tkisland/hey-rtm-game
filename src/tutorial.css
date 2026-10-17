@@ -5,7 +5,7 @@ body.tutorial-visible { overflow:hidden; }
 .tutorial-dialog { width:min(620px,calc(100% - 12px)); max-height:calc(100svh - 16px); overflow:auto; padding:18px; border:1px solid #bda7f766; border-radius:16px; background:#191827; color:#f6f5ff; }
 .tutorial-dialog::backdrop { background:#080911d9; }
 .tutorial-heading,.tutorial-toolbar,.tutorial-status-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
-.tutorial-heading .eyebrow { margin:0; }
+.tutorial-heading .eyebrow { margin:0; font-size:clamp(16px,2.6vw,18px); line-height:1.5; letter-spacing:1px; }
 .tutorial-heading { position:sticky; top:0; z-index:3; background:#191827; }
 .tutorial-heading button { min-height:44px; padding:8px 12px; border:1px solid #ffffff30; border-radius:8px; background:transparent; font-size:12px; }
 .tutorial-dialog h2 { margin:8px 0; font-size:20px; }
