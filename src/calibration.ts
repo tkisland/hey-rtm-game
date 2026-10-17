@@ -28,11 +28,12 @@ export class NoteTimingCalibration {
   get count(): number { return Math.min(this.taps.size, 10); }
   has(noteId: number): boolean { return this.taps.has(noteId); }
   clear(): void { this.taps.clear(); }
+  result(): CalibrationResult { return estimateCalibrationOffset([...this.taps.values()].slice(-10)); }
   tap(noteId: number, inputTime: number, scheduledTime: number): CalibrationResult | null {
     const error = inputTime - scheduledTime;
     if (!Number.isFinite(error) || Math.abs(error) > CALIBRATION.window + 1e-9 || this.taps.has(noteId)) return null;
     this.taps.set(noteId, error * 1000);
-    return estimateCalibrationOffset([...this.taps.values()].slice(-10));
+    return this.result();
   }
 }
 export class CalibrationMeasurement {

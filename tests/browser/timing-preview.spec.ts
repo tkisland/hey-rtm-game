@@ -48,8 +48,8 @@ async function advance(page: Page, time: number) {
 async function begin(page: Page) {
   const count = await page.evaluate(() => (window as any).previewStarts.length);
   await page.locator('#timing-preview-start').click();
-  await expect.poll(() => page.evaluate(() => (window as any).previewStarts.length)).toBe(count + 28);
-  return page.evaluate(() => (window as any).previewStarts.slice(-28) as number[]);
+  await expect.poll(() => page.evaluate(() => (window as any).previewStarts.length)).toBe(count + 14);
+  return page.evaluate(() => (window as any).previewStarts.slice(-14) as number[]);
 }
 async function range(page: Page, value: number) {
   await page.locator('#timing-preview-offset').fill(String(value));
@@ -153,7 +153,7 @@ test('automatically aligns moving heads and judgement from original taps without
     return (window as any).autoHeads.some((head:any)=>Math.abs(head.y-fieldGeometry(rect.width,rect.height).near)<.01);
   });
   expect(aligned).toBe(true);
-  for(let i=8;i<20;i++) {
+  for(let i=8;i<10;i++) {
     await advance(page,times[i+4]-.1); await tap(page,lanes[i%6],info.project.name==='mobile-touch');
     await expect(page.locator('#timing-preview-value')).toHaveText('-100 ms');
     await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · ずれ 0 ms');

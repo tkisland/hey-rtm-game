@@ -16,7 +16,7 @@ test('public settings rehearse with sound and save only an applied input correct
   await expect(page.locator('.timing-preview')).toBeVisible();
   expect(await page.evaluate(() => (window as any).testVideo.state)).toBe(2);
   await page.locator('#timing-preview-start').click();
-  await expect.poll(() => page.evaluate(() => (window as any).referenceStarts.length)).toBe(28);
+  await expect.poll(() => page.evaluate(() => (window as any).referenceStarts.length)).toBe(14);
   await expect(page.locator('.timing-pad')).toHaveCount(6);
   await page.locator('#timing-preview-offset').fill('100'); await page.locator('#timing-preview-offset').dispatchEvent('input');
   expect(await savedCorrection(page)).toBe(0);
@@ -41,9 +41,9 @@ test('public flow calibration automatically applies stable taps to notes and jud
   await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
   await page.locator('#settings-toggle').click(); await expect(page.locator('#travel')).toHaveCount(0);
   await page.locator('#flow-calibrate').click(); await page.locator('#timing-preview-start').click();
-  await expect.poll(()=>page.evaluate(()=>(window as any).flowStarts.length)).toBe(28);
+  await expect.poll(()=>page.evaluate(()=>(window as any).flowStarts.length)).toBe(14);
   const times=await page.evaluate(()=>(window as any).flowStarts as number[]);
-  for(let i=0;i<9;i++) {
+  for(let i=0;i<10;i++) {
     const target=times[i+4]+.18;
     for(let time=await page.evaluate(()=>(window as any).flowTime as number)+.9;time<target;time+=.9)
       await page.evaluate(async time=>{(window as any).flowTime=time;await new Promise(requestAnimationFrame);},time);
@@ -56,6 +56,26 @@ test('public flow calibration automatically applies stable taps to notes and jud
   await expect(page.locator('#timing-preview-auto')).toContainText('自動反映');
   await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · ずれ 0 ms');
   expect(await savedCorrection(page)).toBe(200);
+  await page.evaluate(async time=>{(window as any).flowTime=time;await new Promise(requestAnimationFrame);},times.at(-1)!+.81);
+  await expect(page.locator('#timing-preview-auto')).toContainText('自動算出：+180 ms · 有効10 / 10回');
+  await expect(page.locator('#timing-preview-progress')).toHaveJSProperty('value',10);
+  await expect(page.locator('#timing-preview-start')).toHaveText('補正してもう一度');
+  await page.locator('#timing-preview-start').click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).flowStarts.length)).toBe(28);
+  await expect(page.locator('#timing-preview-value')).toHaveText('+180 ms');
+  await expect(page.locator('#timing-preview-apply')).toBeDisabled();
+  const replay=await page.evaluate(()=>(window as any).flowStarts.slice(-14) as number[]);
+  // A retry with no taps must keep the previous candidate without saving it.
+  const end=replay.at(-1)!+.81;
+  for(let time=await page.evaluate(()=>(window as any).flowTime as number)+.9;time<end;time+=.9)
+    await page.evaluate(async time=>{(window as any).flowTime=time;await new Promise(requestAnimationFrame);},time);
+  await page.evaluate(async time=>{(window as any).flowTime=time;await new Promise(requestAnimationFrame);},end);
+  await expect(page.locator('#timing-preview-auto')).toContainText('有効なタップが足りません');
+  await expect(page.locator('#timing-preview-value')).toHaveText('+180 ms');
+  await expect(page.locator('#timing-preview-apply')).toBeDisabled();
+  expect(await savedCorrection(page)).toBe(200);
+  // Explicit manual confirmation remains available after an unsuccessful retry.
+  await page.locator('#timing-preview-offset').dispatchEvent('input');
   await page.locator('#timing-preview-apply').click(); expect(await savedCorrection(page)).toBe(180);
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!).travel)).toBe(2.5);
   await expect(page.locator('#score')).toHaveText('0');
