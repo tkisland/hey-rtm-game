@@ -35,7 +35,6 @@ const ERRORS: Record<number, string> = {
   153: '再生元の識別情報（Referer）が不足しています。HTTP(S)で開き、サーバーのReferrer-Policyを確認してください。',
 };
 export function createYouTubePlayer(callbacks: {
-  elementId?: string;
   keyboardTarget?: HTMLElement;
   ready(player: YouTubePlayer): void;
   state(state: number): void;
@@ -46,7 +45,6 @@ export function createYouTubePlayer(callbacks: {
   let player: YouTubePlayer | null = null;
   let timer = 0;
   let focusFrame = 0;
-  let frameContainer: Element | null = null;
   const clearTimer = () => window.clearTimeout(timer);
   const returnKeyboardFocus = () => {
     cancelAnimationFrame(focusFrame);
@@ -54,7 +52,7 @@ export function createYouTubePlayer(callbacks: {
     // Return focus after playback starts on PC, without scrolling or interrupting touch controls.
     if (!callbacks.keyboardTarget || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
     focusFrame = requestAnimationFrame(() => {
-      const iframe = frameContainer?.querySelector<HTMLIFrameElement>('iframe');
+      const iframe = document.querySelector<HTMLIFrameElement>('.video-frame iframe');
       if (!disposed && document.hasFocus() && iframe && document.activeElement === iframe && callbacks.keyboardTarget?.isConnected) callbacks.keyboardTarget.focus({ preventScroll: true });
     });
   };
@@ -62,16 +60,14 @@ export function createYouTubePlayer(callbacks: {
     if (disposed || player || !window.YT?.Player) return;
     clearTimer();
     timer = window.setTimeout(() => callbacks.error('YouTubeプレーヤーの応答がありません。通信・コンテンツブロッカーを確認して再読み込みしてください。'), 20000);
-    const elementId = callbacks.elementId ?? 'youtube-player';
-    frameContainer = document.getElementById(elementId)?.closest('.video-frame') ?? null;
-    player = new window.YT.Player(elementId, {
+    player = new window.YT.Player('youtube-player', {
       videoId: song.videoId, width: '100%', height: '100%',
       playerVars: { playsinline: 1, controls: 1, autoplay: 0, disablekb: 1, origin: location.origin },
       events: {
         onReady: event => {
           if (disposed) return;
           clearTimer();
-          const iframe = frameContainer?.querySelector<HTMLIFrameElement>('iframe');
+          const iframe = document.querySelector<HTMLIFrameElement>('.video-frame iframe');
           if (iframe) {
             iframe.title = `${song.artist} ${song.title} 公式MV`;
             iframe.referrerPolicy = 'strict-origin-when-cross-origin';

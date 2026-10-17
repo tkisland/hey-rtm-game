@@ -12,12 +12,11 @@ import { compensateInput } from './timing';
 import { NoteTimingCalibration } from './calibration';
 import { TapSound } from './sound';
 
-const INTERVAL = .9, WARMUP = 4, NOTES = 24;
+const INTERVAL = .9, WARMUP = 4, NOTES = 10;
 type Callbacks = {
   pause(): void;
   settings(): { inputOffset: number };
   apply(offset: number): void;
-  songPreview?(): void;
 };
 
 /** An isolated rehearsal: the candidate offset affects the same renderer and engine as play. */
@@ -26,36 +25,30 @@ export function createTimingPreview(callbacks: Callbacks) {
   dialog.className = 'timing-preview';
   dialog.setAttribute('aria-labelledby', 'timing-preview-title');
   dialog.innerHTML = `
-    <h2 id="timing-preview-title">ノーツを見て入力補正</h2>
-    <p class="timing-instructions">音に合わせて同じ色を押すと、ずれを自動補正します。PCは S D F / J K L。</p>
+    <h2 id="timing-preview-title">10ノーツで自動調整</h2>
+    <p class="timing-instructions">4拍の準備のあと、基準音に合わせて10ノーツをプレイしてください。タップのずれから補正値を自動で計算します。PCは S D F / J K L。</p>
     <div class="timing-field"><canvas aria-label="入力補正を試す6レーンの練習ノーツ"></canvas><div class="timing-pads"></div></div>
     <div class="timing-adjustment">
-      <label for="timing-preview-offset">入力補正（試し中）<output id="timing-preview-value">0 ms</output></label>
+      <progress id="timing-preview-progress" max="10" value="0" aria-label="練習ノーツの進行"></progress>
+      <label for="timing-preview-offset">補正値（自動算出・手動微調整）<output id="timing-preview-value">0 ms</output></label>
       <div class="timing-range"><button id="timing-preview-minus" type="button" aria-label="入力補正を5ミリ秒減らす">−5</button><input id="timing-preview-offset" type="range" min="-${INPUT_OFFSET_LIMIT_MS}" max="${INPUT_OFFSET_LIMIT_MS}" step="5" value="0" /><button id="timing-preview-plus" type="button" aria-label="入力補正を5ミリ秒増やす">＋5</button></div>
       <p class="timing-direction">ノーツが音より早い → ＋ ／ 遅い → −</p>
-      <p id="timing-preview-auto" role="status" aria-live="polite">8回以上タップすると自動補正します。</p>
-      <output id="timing-preview-feedback" role="status" aria-live="polite">「試す」で4拍の準備からスタート。</output>
+      <p id="timing-preview-auto" role="status" aria-live="polite">10ノーツのうち8回以上の安定したタップから算出します。</p>
+      <output id="timing-preview-feedback" role="status" aria-live="polite">「練習をはじめる」で4拍の準備からスタート。</output>
     </div>
-    <div class="timing-preview-actions"><button id="timing-preview-start" type="button">試す</button><button id="timing-preview-apply" type="button">適用</button><button id="timing-preview-close" type="button">キャンセル</button></div>
+    <div class="timing-preview-actions"><button id="timing-preview-start" type="button">練習をはじめる</button><button id="timing-preview-apply" type="button">補正を保存</button><button id="timing-preview-close" type="button">キャンセル</button></div>
     <details class="timing-preview-help"><summary>調整のヒント・音量</summary>
-      <p>上の横線が判定位置です。直近10回のうち8回以上の安定したタップから補正し、ノーツの到達と判定にすぐ反映します。ばらつきが大きい場合は値を変えません。手動で微調整すると測定をやり直します。「適用」するまで保存しません。</p>
+      <p>上の横線が判定位置です。10ノーツの練習が終わると補正結果を表示します。「補正してもう一度」で補正後のノーツと判定を試せます。タップが足りない場合やばらつきが大きい場合は再挑戦してください。「補正を保存」するまで設定は変更しません。</p>
       <label>基準音・ノーツ音の音量<input id="timing-preview-volume" type="range" min="10" max="100" step="10" value="70" /></label>
       <label><input id="timing-preview-cymbal" type="checkbox" checked />ノーツ音を鳴らす</label>
-      <p>入力時は本番と同じノーツ音を鳴らします。この画面の音設定はゲームの設定を変更しません。基準音とMVでは音のずれが異なる場合があるので、適用後は実際の曲でも確認してください。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
+      <p>入力時は本番と同じノーツ音を鳴らします。この画面の音設定はゲームの設定を変更しません。基準音とMVでは音のずれが異なる場合があるので、保存後は実際の曲でも確認してください。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
     </details>`;
   document.body.append(dialog);
-  if (callbacks.songPreview) {
-    const button=document.createElement('button');button.type='button';button.id='timing-preview-song';
-    button.textContent='曲・動画に合わせて調整';
-    button.addEventListener('click',()=>{
-      stop();dialog.addEventListener('close',()=>callbacks.songPreview!(),{once:true});dialog.close();
-    });
-    dialog.querySelector('.timing-instructions')!.after(button);
-  }
   const find = <T extends HTMLElement>(id: string) => dialog.querySelector<T>(`#${id}`)!;
   const slider = find<HTMLInputElement>('timing-preview-offset');
   const value = find('timing-preview-value'), feedback = find('timing-preview-feedback');
   const autoStatus = find('timing-preview-auto');
+  const progress = find<HTMLProgressElement>('timing-preview-progress');
   const startButton = find<HTMLButtonElement>('timing-preview-start');
   const applyButton = find<HTMLButtonElement>('timing-preview-apply');
   const volume = find<HTMLInputElement>('timing-preview-volume');
@@ -78,6 +71,7 @@ export function createTimingPreview(callbacks: Callbacks) {
   let frame = 0, token = 0, preparing = false, prepareTimer = 0, previousTime = 0;
   let unbind = () => {}, unbindTargets = () => {}, resize: ResizeObserver | null = null;
   let returnFocus: HTMLElement | null = null;
+  let runBaseline = 0, manualDuringRun = false;
   const measured = new NoteTimingCalibration(), hitTimes = Array<number>(6).fill(-Infinity);
   // iOS playback sessions allow explicit reference sound even with the ringer muted.
   const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
@@ -102,7 +96,23 @@ export function createTimingPreview(callbacks: Callbacks) {
     labels.forEach((label, lane) => { if (now - hitTimes[lane] > 800) label.hidden = true; });
   }
   function report(message: string): void { feedback.textContent = message; }
-  function interrupted(message: string): void { stop(); report(message); }
+  function interrupted(message: string): void { stop(); applyButton.disabled = true; report(message); }
+  function finish(): void {
+    const result = measured.result();
+    stop(); progress.value = NOTES;
+    if (result.ok) {
+      setCandidate(result.offset, true); applyButton.disabled = false;
+      autoStatus.textContent = `自動算出：${candidate > 0 ? '+' : ''}${candidate} ms · 有効${result.samples} / 10回 · ばらつき${result.spread} ms`;
+      startButton.textContent = '補正してもう一度';
+      report('練習終了。補正値を算出しました。補正した状態でもう一度試すか、「補正を保存」を押してください。');
+    } else {
+      if (!manualDuringRun) setCandidate(runBaseline, true);
+      applyButton.disabled = !manualDuringRun; startButton.textContent = 'もう一度';
+      autoStatus.textContent = result.reason === 'insufficient' ? `有効なタップが足りません（${measured.count} / 10回）。8回以上必要です。`
+        : result.reason === 'range' ? 'ずれが補正範囲（±300ms）を超えています。' : 'タップにばらつきがあります。';
+      report(manualDuringRun ? '練習終了。手動の補正で再挑戦するか、「補正を保存」を押してください。' : '練習終了。自動補正を確定できませんでした。「もう一度」で再挑戦してください。');
+    }
+  }
   function tap(lane: number): void {
     if (!audio || audio.state !== 'running' || !engine || !renderer) return;
     const now = performance.now(), rawTime = audio.currentTime;
@@ -115,6 +125,7 @@ export function createTimingPreview(callbacks: Callbacks) {
     const result = measured.tap(nearest.id, rawTime, nearest.time);
     if (!result) { report('音とノーツに合わせて、同じ色のボタンを押してください。'); return; }
     if (result.ok) {
+      applyButton.disabled = false;
       const previous = candidate;
       setCandidate(result.offset, true);
       // Rebuild only the rehearsal when its clock changes, recovering heads that the old
@@ -122,7 +133,7 @@ export function createTimingPreview(callbacks: Callbacks) {
       if (candidate !== previous) engine.seek(compensateInput(rawTime, candidate), true);
       autoStatus.textContent = `自動反映：${candidate > 0 ? '+' : ''}${candidate} ms · 有効${result.samples}回`;
     } else {
-      autoStatus.textContent = result.reason === 'insufficient' ? `自動測定 ${measured.count} / 8回`
+      autoStatus.textContent = result.reason === 'insufficient' ? `自動測定 ${measured.count} / 10回`
         : result.reason === 'range' ? 'ずれが補正範囲（±300ms）を超えています。音声機器を確認してください。'
         : 'ばらつきがあります。音に合わせて続けてください。';
     }
@@ -140,29 +151,31 @@ export function createTimingPreview(callbacks: Callbacks) {
     if (!audio || !engine) return;
     const time = audio.currentTime;
     if (audio.state !== 'running' || time < previousTime || time - previousTime > 1.5) {
-      interrupted('再生を中断しました。「試す」で再開できます。'); return;
+      interrupted('再生を中断しました。開始ボタンで再開できます。'); return;
     }
     previousTime = time;
     engine.advance(compensateInput(time, candidate), renderer!.pressed);
     draw(now, time);
+    progress.value = Math.max(0, Math.min(NOTES, Math.floor((time - engine.chart.startTime) / INTERVAL) + 1));
     if (time > engine.chart.notes.at(-1)!.time + .8) {
-      stop(); startButton.textContent = 'もう一度'; report('練習終了。補正を変えて再度試すか、「適用」で保存してください。'); return;
+      finish(); return;
     }
     frame = requestAnimationFrame(tick);
   }
   async function start(): Promise<void> {
     stop(); engine = null; measured.clear(); labels.forEach(label => { label.hidden = true; });
-    autoStatus.textContent = '8回以上タップすると自動補正します。';
+    runBaseline = candidate; manualDuringRun = false; progress.value = 0; applyButton.disabled = true;
+    autoStatus.textContent = '自動測定 0 / 10回';
     renderer?.clearEffects(); draw(performance.now(), 0);
     preparing = true; startButton.disabled = true; report('基準音を準備しています…');
     const current = token;
     prepareTimer = window.setTimeout(() => {
-      if (current === token) interrupted('音声の準備が完了しません。「試す」で再試行してください。');
+      if (current === token) interrupted('音声の準備が完了しません。開始ボタンで再試行してください。');
     }, 5000);
     try {
       if (session) { try { previousSession = session.type; session.type = 'playback'; } catch { previousSession = null; } }
       const context = new AudioContext({ latencyHint: 'interactive' }); audio = context;
-      cymbal = new TapSound(() => report('ノーツ音を再生できません。音量を確認し、「試す」で再試行してください。'), context);
+      cymbal = new TapSound(() => report('ノーツ音を再生できません。音量を確認し、開始ボタンで再試行してください。'), context);
       cymbal.volume = Number(volume.value); cymbal.enabled = cymbalToggle.checked;
       cymbal.setPlaybackActive(true);
       // Activate both paths in the same user gesture, sharing one audio clock/output.
@@ -192,7 +205,7 @@ export function createTimingPreview(callbacks: Callbacks) {
       // Keep keyboard input out of the range while retaining a stable mobile viewport.
       buttons[2].focus({ preventScroll: true });
       tick(performance.now());
-    } catch { if (current === token) interrupted('基準音を再生できません。端末の音量を確認し、「試す」で再試行してください。'); }
+    } catch { if (current === token) interrupted('基準音を再生できません。端末の音量を確認し、開始ボタンで再試行してください。'); }
   }
   function setCandidate(next: number, automatic = false): void {
     candidate = Math.round(Math.max(-INPUT_OFFSET_LIMIT_MS, Math.min(INPUT_OFFSET_LIMIT_MS, next)) / 5) * 5 || 0;
@@ -200,6 +213,8 @@ export function createTimingPreview(callbacks: Callbacks) {
     find<HTMLButtonElement>('timing-preview-minus').disabled = candidate === -INPUT_OFFSET_LIMIT_MS;
     find<HTMLButtonElement>('timing-preview-plus').disabled = candidate === INPUT_OFFSET_LIMIT_MS;
     if (!automatic) {
+      applyButton.disabled = false;
+      if (audio) manualDuringRun = true;
       measured.clear(); labels.forEach(label => { label.hidden = true; }); renderer?.clearEffects();
       if (engine && audio) engine.seek(compensateInput(audio.currentTime, candidate), true);
       autoStatus.textContent = '8回以上タップすると自動補正します。';
@@ -231,7 +246,7 @@ export function createTimingPreview(callbacks: Callbacks) {
   }
   dialog.addEventListener('close', () => { cleanup(); returnFocus?.focus({ preventScroll: true }); }, { signal });
   dialog.addEventListener('cancel', cleanup, { signal });
-  const interrupt = () => { if (dialog.open && (audio || preparing)) interrupted('再生を中断しました。「試す」で再開できます。'); };
+  const interrupt = () => { if (dialog.open && (audio || preparing)) interrupted('再生を中断しました。開始ボタンで再開できます。'); };
   window.addEventListener('blur', interrupt, { signal });
   document.addEventListener('visibilitychange', () => { if (document.hidden) interrupt(); }, { signal });
   return {
@@ -247,8 +262,8 @@ export function createTimingPreview(callbacks: Callbacks) {
       }
       dialog.showModal(); renderer = new Renderer(canvas);
       unbindTargets = bindTargets(canvas, targets);
-      setCandidate(settings.inputOffset); report('「試す」で4拍の準備からスタート。');
-      startButton.textContent = '試す';
+      setCandidate(settings.inputOffset); progress.value = 0; report('「練習をはじめる」で4拍の準備からスタート。');
+      startButton.textContent = '練習をはじめる';
       resize = new ResizeObserver(() => draw(performance.now(), audio?.currentTime ?? 0)); resize.observe(canvas);
       dialog.scrollTop = 0;
     },

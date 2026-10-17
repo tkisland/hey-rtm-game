@@ -13,7 +13,7 @@ export function createSyncDiagnostics(song: { id: string; videoId: string }) {
   document.body.append(panel);
   panel.addEventListener('toggle',() => { panel.querySelector('summary span')!.textContent = panel.open ? 'タップで折りたたむ' : 'タップで開く'; });
   const list = panel.querySelector('dl')!;
-  const fields = ['状態','API時刻','補間時刻','判定時刻','補間 − API','判定 − API','入力補正','表示補正','API更新から','API時刻の進み／指定速度','補間の予測速度','FPS／最大フレーム間隔','長い処理の回数／最長'];
+  const fields = ['状態','API時刻','補間時刻','判定時刻','補間 − API','判定 − API','入力補正','API更新から','API時刻の進み／指定速度','補間の予測速度','FPS／最大フレーム間隔','長い処理の回数／最長'];
   const values = fields.map(name => {
     const term = document.createElement('dt'), value = document.createElement('dd'); term.textContent = name; value.textContent = '—';
     list.append(term,value); return value;
@@ -36,7 +36,7 @@ export function createSyncDiagnostics(song: { id: string; videoId: string }) {
   const ms = (n: number) => Number.isFinite(n) ? `${n > 0 ? '+' : ''}${n.toFixed(0)} ms` : '—';
   function show(row: SyncTraceRow): void {
     const text = [stateName(row.playerState) + (row.stale ? ' · 更新待ち' : ''),seconds(row.apiTime),seconds(row.clockTime),seconds(row.judgementTime),
-      ms(row.clockLeadMs),ms(row.noteLeadMs),ms(row.inputOffsetMs),ms(row.visualOffsetMs??row.inputOffsetMs),`${row.apiUpdateAgeMs.toFixed(0)} ms`,
+      ms(row.clockLeadMs),ms(row.noteLeadMs),ms(row.inputOffsetMs),`${row.apiUpdateAgeMs.toFixed(0)} ms`,
       `${row.observedRate === null ? '測定中' : row.observedRate.toFixed(2) + 'x'} / ${Number.isFinite(row.reportedRate) ? row.reportedRate.toFixed(2) + 'x' : '—'}`,
       `${row.predictionRate.toFixed(2)}x`,
       `${row.fps.toFixed(0)} / ${row.maxFrameGapMs.toFixed(0)} ms`,

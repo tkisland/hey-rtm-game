@@ -8,7 +8,6 @@ import { bindDockLayout } from './layout';
 import { bindTargets } from './field-geometry';
 import { TapSound } from './sound';
 import { createCalibrationDialog } from './calibration-dialog';
-import { createSongTimingPreview } from './song-timing-preview';
 import { compensateInput } from './timing';
 import { generateChart } from './chart';
 import { CUSTOM_CHART_KEY, loadChart } from './editor-model';
@@ -226,7 +225,7 @@ function readTime(now: number): { time: number; playing: boolean } {
       clearResults();
       notice.textContent = sample.backwards ? '後方シーク：スコアをリセットしました。' : '前方シーク・時刻の再同期：飛ばしたノーツはMISSに数えません。';
     }
-    return { time: gameTime, playing: sample.playing && !calibration.active && !songTiming.active };
+    return { time: gameTime, playing: sample.playing && !calibration.active };
   } catch {
     showError('プレーヤーの再生時刻を取得できません。ページを再読み込みしてください。');
     return { time: smoothedVideoTime - settings.offset / 1000, playing: false };
@@ -280,10 +279,6 @@ const disposePlayer = createYouTubePlayer({
     element<HTMLButtonElement>('play-start').disabled = false;
     clock.reset();
     setState(instance.getPlayerState());
-    if(new URLSearchParams(location.search).get('timing')==='1') {
-      const url=new URL(location.href);url.searchParams.delete('timing');history.replaceState(null,'',url);
-      queueMicrotask(()=>{showSettings(true);songTiming.open();});
-    }
   },
   state: next => { if (!failed) setState(next); },
   error: showError,
@@ -293,7 +288,7 @@ element('result-close').addEventListener('click', () => { result.hidden = true; 
 element('show-result').addEventListener('click', () => { result.hidden = false; }, {signal});
 
 function hit(lane: number, gesture?: InputGesture): void {
-  if (calibration.active || songTiming.active) return;
+  if (calibration.active) return;
   // Sample timing before audio initialization so a cold AudioContext cannot delay judgement.
   const now = performance.now();
   const sample = readTime(now);
@@ -308,7 +303,7 @@ function hit(lane: number, gesture?: InputGesture): void {
 }
 const unbindInput = bindInput(buttons, hit, lanes => {
   const previous = renderer.pressed; renderer.pressed = lanes;
-  if (calibration.active || songTiming.active) return;
+  if (calibration.active) return;
   const released = [...previous].filter(lane => !lanes.has(lane));
   const now = performance.now(), sample = readTime(now);
   if (!sample.playing) { syncHoldSound(false, now); return; }
@@ -316,7 +311,7 @@ const unbindInput = bindInput(buttons, hit, lanes => {
   released.forEach(lane => engine.release(lane, compensateInput(sample.time, settings.inputOffset)).forEach(result => showHit(result, now)));
   syncHoldSound(true, now);
   showResults();
-}, () => calibration.active || songTiming.active, {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id), slideDestination:lane => engine.nextSlideLane(lane)});
+}, () => calibration.active, {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id), slideDestination:lane => engine.nextSlideLane(lane)});
 
 restart.addEventListener('click', () => {
   if (!player || failed) return;
@@ -392,24 +387,14 @@ soundToggle?.addEventListener('change', changeSettings, { signal });
 soundVolume.addEventListener('input', changeSettings, { signal });
 inputOffset?.addEventListener('input', changeSettings, { signal });
 soundDelay?.addEventListener('input', changeSettings, { signal });
-const songTiming = createSongTimingPreview({
-  song, chart: activeChart, settings: () => settings,
-  pause() { sound.cancelPending();player?.pauseVideo(); },
-  apply(value,visualOffset) {
-    settings = {...settings,inputOffset:value,visualOffset};
-    if(inputOffset)inputOffset.value=String(value);
-    changeSettings();
-  },
-});
 const calibration = createCalibrationDialog({
-  songPreview: () => songTiming.open(),
   settings: () => settings,
   pause() {
     sound.cancelPending();
     player?.pauseVideo();
   },
   apply(value) {
-    settings = { ...settings, inputOffset: value, visualOffset: value };
+    settings = { ...settings, inputOffset: value };
     if (inputOffset) inputOffset.value = String(value);
     changeSettings();
   },
@@ -446,7 +431,6 @@ if (__ADMIN__) {
 let debugUpdated = 0;
 function frame(now: number): void {
   if (disposed) return;
-  if(songTiming.active) { previousFrame=now;frameId=requestAnimationFrame(frame);return; }
   const sample = readTime(performance.now());
   if (!sample.playing) engine.cancelBoxGesture();
   sound.setPlaybackActive(sample.playing);
@@ -460,7 +444,7 @@ function frame(now: number): void {
   }
   showResults();
   syncHoldSound(sample.playing, now);
-  renderer.draw(engine.notes, sample.time, settings.travel, now, { inputOffsetMs: settings.visualOffset, playing: sample.playing, chart: engine.chart });
+  renderer.draw(engine.notes, sample.time, settings.travel, now, { inputOffsetMs: settings.inputOffset, playing: sample.playing, chart: engine.chart });
   if (failed) {
     if (stageHint.hidden) stageHint.hidden = false;
     if (hintTitle.textContent !== '動画を再生できません') hintTitle.textContent = '動画を再生できません';
@@ -491,7 +475,7 @@ function frame(now: number): void {
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }
   diagnostics?.record({ atMs:performance.now(), apiTime:apiVideoTime, clockTime:smoothedVideoTime,
     judgementTime:compensateInput(sample.time,settings.inputOffset), playerState:state, reportedRate:videoRate, predictionRate,
-    playing:sample.playing, stale:clockStale, seek:diagnosticsSeek, inputOffsetMs:settings.inputOffset, visualOffsetMs:settings.visualOffset,
+    playing:sample.playing, stale:clockStale, seek:diagnosticsSeek, inputOffsetMs:settings.inputOffset,
     chartOffsetMs:settings.offset, inputErrorMs:lastInputError, frameGapMs:Math.max(0,now-previousFrame), fps });
   diagnosticsSeek = false;
   if (__ADMIN__ && settings.debug && now - debugUpdated >= 100) {
@@ -517,7 +501,7 @@ function dispose(): void {
   if (disposed) return;
   disposed = true;
   cancelAnimationFrame(frameId);
-  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); songTiming.destroy(); diagnostics?.destroy(); unbindTargets(); unbindLayout();
+  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); diagnostics?.destroy(); unbindTargets(); unbindLayout();
 }
 let stopAccess = () => {};
 if (previewUid) {

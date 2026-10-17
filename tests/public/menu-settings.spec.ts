@@ -35,7 +35,7 @@ test('menu rehearsal plays sound, saves only applied correction and needs no You
   });
   await page.goto('/');await page.locator('#settings-toggle').click();await page.locator('#flow-calibrate').click();
   await page.locator('#timing-preview-start').click();
-  await expect.poll(()=>page.evaluate(()=>(window as any).referenceStarts.length)).toBe(28);
+  await expect.poll(()=>page.evaluate(()=>(window as any).referenceStarts.length)).toBe(14);
   await expect(page.locator('.timing-pad')).toHaveCount(6);
   await page.locator('#timing-preview-offset').fill('80');await page.locator('#timing-preview-apply').click();
   await expect(page.locator('#settings-panel')).toBeVisible();
