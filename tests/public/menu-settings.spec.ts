@@ -10,7 +10,7 @@ test('menu volume is shared with the tutorial and game, including mute and reloa
   await page.goto('/');await page.locator('#settings-toggle').click();
   const settings=page.locator('#settings-panel');await expect(settings).toBeVisible();
   await expect(settings.locator('input')).toHaveCount(1);
-  await expect(settings.locator('button:not(#settings-close)')).toHaveCount(1);
+  await expect(settings.locator('button:not(#settings-close)')).toHaveCount(2);
   await settings.getByLabel('ノーツ音の音量').fill('35');
   await expect(page.locator('#sound-volume-value')).toHaveText('35%');
   await page.locator('#settings-close').click();await expect(page.locator('#settings-toggle')).toBeFocused();

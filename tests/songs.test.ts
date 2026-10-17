@@ -13,8 +13,8 @@ function storage() {
 afterEach(() => vi.unstubAllGlobals());
 it('public play retires hidden timing/audio switches while preserving calibration and volume', () => {
   const legacy={offset:300,soundDelay:300,debug:true,inputOffset:80,sound:true,soundVolume:45};
-  expect(normalizePlayerSettings(legacy)).toMatchObject({offset:0,soundDelay:0,debug:false,inputOffset:80,sound:true,soundVolume:45,travel:2.5});
-  expect(normalizePlayerSettings({...legacy,sound:false})).toMatchObject({sound:true,soundVolume:0,inputOffset:80});
+  expect(normalizePlayerSettings(legacy)).toMatchObject({offset:0,soundDelay:0,debug:false,noteOffset:80,inputOffset:0,sound:true,soundVolume:45,travel:2.5});
+  expect(normalizePlayerSettings({...legacy,sound:false})).toMatchObject({sound:true,soundVolume:0,noteOffset:80,inputOffset:0});
   expect(normalizePlayerSettings({soundVolume:0})).toMatchObject({sound:true,soundVolume:0});
   expect(normalizePlayerSettings({})).toMatchObject({sound:true,soundVolume:70});
   storage();saveSettings({...loadSettings(),...legacy});
@@ -24,9 +24,9 @@ it('fixes every song to a 2.5 second lead-in and migrates legacy fall times with
   const data = storage();
   expect(loadSettings().travel).toBe(2.5);
   for (const travel of [1, 2, 3.25, 4]) {
-    data.set('hey-rhythm-settings-v1', JSON.stringify({ travel, inputOffset: 80 }));
-    expect(loadSettings()).toMatchObject({ travel:2.5, inputOffset:80 });
-    expect(loadSettings(second)).toMatchObject({ travel:2.5, inputOffset:80 });
+    data.set('hey-rhythm-settings-v1', JSON.stringify({ travel, inputOffset:80 }));
+    expect(loadSettings()).toMatchObject({ travel:2.5, noteOffset:80,inputOffset:0 });
+    expect(loadSettings(second)).toMatchObject({ travel:2.5, noteOffset:80,inputOffset:0 });
     saveSettings({ ...loadSettings(), travel });
     expect(JSON.parse(data.get('hey-rhythm-settings-v1')!).travel).toBe(2.5);
     expect(loadSettings().travel).toBe(2.5);

@@ -58,7 +58,7 @@ test.beforeEach(async ({ page }) => { await page.route('https://www.youtube.com/
 test('reference taps replace the input correction, preserve other settings, and are shared with the editor', async ({ page }, info) => {
   await clockAdapter(page);
   await page.goto('/game.html?chart=test');
-  await page.evaluate(() => localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({ inputOffset: 140, soundDelay: 150, sound: false, soundVolume: 0, noteSize: 80 })));
+  await page.evaluate(() => localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({noteOffset:0,inputOffset: 140, soundDelay: 150, sound: false, soundVolume: 0, noteSize: 80 })));
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
   await page.evaluate(() => (window as any).testVideo.playVideo());
   await page.locator('#settings-toggle').click(); await page.locator('#auto-calibrate').click();

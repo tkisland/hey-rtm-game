@@ -42,10 +42,10 @@ describe('input compensation', () => {
 });
 it('defaults older preferences to zero and validates timing ranges and steps', () => {
   expect(normalizeSettings({ soundVolume: 50, noteSize: 80 })).toMatchObject({ inputOffset: 0, soundDelay: 0, soundVolume: 50, noteSize: 80 });
-  expect(normalizeSettings({ inputOffset: 1000, soundDelay: -100 })).toMatchObject({ inputOffset: 300, soundDelay: 0 });
-  expect(normalizeSettings({ inputOffset: -1000, soundDelay: 1000 })).toMatchObject({ inputOffset: -300, soundDelay: 300 });
-  expect(normalizeSettings({ inputOffset: 83, soundDelay: 102 })).toMatchObject({ inputOffset: 85, soundDelay: 100 });
-  expect(normalizeSettings({ inputOffset: NaN, soundDelay: Infinity })).toEqual(DEFAULT_SETTINGS);
+  expect(normalizeSettings({ noteOffset:0, inputOffset: 1000, soundDelay: -100 })).toMatchObject({ inputOffset: 300, soundDelay: 0 });
+  expect(normalizeSettings({ noteOffset:0, inputOffset: -1000, soundDelay: 1000 })).toMatchObject({ inputOffset: -300, soundDelay: 300 });
+  expect(normalizeSettings({ noteOffset:0, inputOffset: 83, soundDelay: 102 })).toMatchObject({ inputOffset: 85, soundDelay: 100 });
+  expect(normalizeSettings({ noteOffset:0, inputOffset: NaN, soundDelay: Infinity })).toEqual(DEFAULT_SETTINGS);
 });
 it('scales real input latency into video time when recording at slower playback rates', () => {
   expect(compensateInput(12, 100, 0.5)).toBeCloseTo(11.95);

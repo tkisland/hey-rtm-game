@@ -20,14 +20,14 @@ async function log(page: Page) {
   const file=await download; expect(file.suggestedFilename()).toMatch(/^hey-rhythm-sync-\d+\.json$/);
   return JSON.parse(await readFile((await file.path())!,'utf8'));
 }
-test('normal play loads no diagnostic overlay or diagnostic chunk and keeps two settings', async ({page}) => {
+test('normal play loads no diagnostic overlay or diagnostic chunk and keeps separate timing settings', async ({page}) => {
   const requests:string[]=[];page.on('request',request=>requests.push(request.url()));
   await page.goto('/game.html');await expect(page.locator('#restart')).toBeEnabled();
   await expect(page.locator('.sync-diagnostics')).toHaveCount(0);
   expect(requests.some(url=>url.includes('sync-diagnostics'))).toBe(false);
   await page.locator('#settings-toggle').click();
   await expect(page.locator('#settings-panel input')).toHaveCount(1);
-  await expect(page.locator('#settings-panel button:not(#settings-close)')).toHaveCount(1);
+  await expect(page.locator('#settings-panel button:not(#settings-close)')).toHaveCount(2);
 });
 for (const interval of [0, .25]) test(`logs slow API progression with ${interval}s updates and exports bounded local data`, async ({page}) => {
   await begin(page);
@@ -55,7 +55,7 @@ for (const interval of [0, .25]) test(`logs slow API progression with ${interval
   await page.clock.runFor(1000);expect(await page.evaluate(()=>(window as any).testVideo.state)).toBe(1);
 });
 test('separates a saved early-input correction from interpolation in the exported log', async ({page}) => {
-  await page.addInitScript(()=>localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({inputOffset:-120,sound:false})));
+  await page.addInitScript(()=>localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({noteOffset:0,inputOffset:-120,sound:false})));
   await begin(page);await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(12);video.playVideo();});
   await page.clock.runFor(3000);
   const data=await log(page), rows=data.samples.filter((row:any)=>row.playing);

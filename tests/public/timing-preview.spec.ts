@@ -32,7 +32,7 @@ test('public settings rehearse with sound and save only an applied input correct
 test('public flow calibration automatically applies stable taps to notes and judgement', async ({page},info) => {
   await page.route('https://www.youtube.com/iframe_api',route=>route.fulfill({body:api}));
   await page.addInitScript(()=>{
-    localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({inputOffset:200,travel:4,sound:false}));
+    localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({noteOffset:0,inputOffset:200,travel:4,sound:false}));
     const Native=AudioContext; (window as any).flowTime=0;(window as any).flowStarts=[];
     window.AudioContext=class extends Native {get currentTime(){return (window as any).flowTime;}};
     const start=OscillatorNode.prototype.start;

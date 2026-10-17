@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { api } from '../browser/mock-video';
 
-test('offers only calibration and cymbal volume, migrates old mute and removes hidden timing shifts', async ({page}) => {
+test('offers song alignment, input calibration and note volume, migrates old mute and removes hidden timing shifts', async ({page}) => {
   await page.route('https://www.youtube.com/iframe_api',route=>route.fulfill({body:api}));
   await page.addInitScript(()=>{
     if(!localStorage.getItem('hey-rhythm-settings-v1')) localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({inputOffset:80,offset:300,soundDelay:300,sound:false,soundVolume:85}));
@@ -11,13 +11,13 @@ test('offers only calibration and cymbal volume, migrates old mute and removes h
   });
   await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
   await page.locator('#settings-toggle').click(); const panel=page.locator('#settings-panel');
-  await expect(panel.locator('button:not(#settings-close)')).toHaveCount(1);
+  await expect(panel.locator('button:not(#settings-close)')).toHaveCount(2);
   await expect(panel.locator('input')).toHaveCount(1); await expect(panel.locator('select')).toHaveCount(0);
-  await expect(panel.getByRole('button',{name:'ノーツをみて調整',exact:true})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'② タップ判定を調整',exact:true})).toBeVisible();
   await expect(panel.getByLabel('ノーツ音の音量')).toHaveValue('0');
   await expect(panel.locator('#offset,#input-offset,#sound-delay,#sound-toggle,#auto-calibrate,#timing-reset,#sound-test')).toHaveCount(0);
   await page.locator('#sound-volume').fill('50'); await page.locator('#sound-volume').dispatchEvent('input');
-  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({sound:true,soundVolume:50,soundDelay:0,offset:0,inputOffset:80});
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({sound:true,soundVolume:50,soundDelay:0,offset:0,noteOffset:80,inputOffset:0});
   await page.locator('#settings-close').click(); await page.locator('#play-start').click();
   await page.evaluate(()=>{
     const video=(window as any).testVideo; video.liveClock=false; video.seekTo(7.73); video.playVideo();
@@ -33,5 +33,5 @@ test('offers only calibration and cymbal volume, migrates old mute and removes h
   expect(await page.evaluate(()=>(window as any).cymbalStarts.length)).toBe(1);
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled(); await page.locator('#settings-toggle').click();
   await expect(page.locator('#sound-volume')).toHaveValue('0');
-  await page.locator('#flow-calibrate').click(); await expect(page.locator('#timing-preview-value')).toHaveText('+80 ms');
+  await page.locator('#flow-calibrate').click(); await expect(page.locator('#timing-preview-value')).toHaveText('0 ms');
 });
