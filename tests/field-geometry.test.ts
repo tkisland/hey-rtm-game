@@ -21,6 +21,10 @@ describe('perspective timing windows and horizontal targets', () => {
   it('keeps full timing windows and accessible targets inside all supported screen sizes', () => {
     for (const width of [298, 370, 404, 678]) for (const height of [180, 224, 310, 480, 520, 588, 848]) for (const travel of [1, 2, 4]) {
       const field = fieldGeometry(width, height);
+      const centralGap = field.pads[3].x - field.pads[2].x - field.padWidth;
+      const sideGap = field.pads[1].x - field.pads[0].x - field.padWidth;
+      expect(centralGap - sideGap).toBeCloseTo(field.centerGap);
+      expect(centralGap).toBeGreaterThanOrEqual(18 - 1e-8);
       for (let lane = 0; lane < 6; lane++) {
         const target = field.targets[lane], pad = field.pads[lane];
         expect(pad.width).toBeGreaterThanOrEqual(44); expect(pad.height).toBeGreaterThanOrEqual(60);
