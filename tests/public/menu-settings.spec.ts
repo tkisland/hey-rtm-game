@@ -11,12 +11,12 @@ test('menu volume is shared with the tutorial and game, including mute and reloa
   const settings=page.locator('#settings-panel');await expect(settings).toBeVisible();
   await expect(settings.locator('input')).toHaveCount(1);
   await expect(settings.locator('button:not(#settings-close)')).toHaveCount(1);
-  await settings.getByLabel('シンバル音の音量').fill('35');
+  await settings.getByLabel('ノーツ音の音量').fill('35');
   await expect(page.locator('#sound-volume-value')).toHaveText('35%');
   await page.locator('#settings-close').click();await expect(page.locator('#settings-toggle')).toBeFocused();
   await page.locator('#open-tutorial').click();await expect(page.locator('#tutorial-volume')).toHaveValue('35');
   await page.locator('#tutorial-close').click();await page.locator('#settings-toggle').click();
-  await settings.getByLabel('シンバル音の音量').fill('0');
+  await settings.getByLabel('ノーツ音の音量').fill('0');
   await page.keyboard.press('Escape');await expect(settings).not.toBeVisible();
   await expect(page.locator('#settings-toggle')).toHaveAttribute('aria-expanded','false');
   await page.reload();await page.locator('#settings-toggle').click();await expect(page.locator('#sound-volume')).toHaveValue('0');
