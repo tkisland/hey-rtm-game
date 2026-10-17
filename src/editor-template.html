@@ -47,6 +47,7 @@
         <div class="editor-fields"><label>打ち込みの種類<select id="record-type"><option value="tap">単オシ</option><option value="hold">長オシ（離すまで記録）</option></select></label></div>
         <details class="timing-settings"><summary>入力・タップ音のタイミング調整</summary>
           <button id="editor-auto-calibrate" class="edit-button primary">基準音で自動調整</button>
+          <button id="editor-flow-calibrate" class="edit-button">ノーツを見て調整</button>
           <p class="field-help">一定間隔の音に合わせてタップし、入力補正の目安を測定します。ゲームと共通です。</p>
           <label for="editor-input-offset">入力の遅れ補正 <output id="editor-input-offset-value">0 ms</output></label><input id="editor-input-offset" type="range" min="-300" max="300" step="5" value="0" />
           <p class="field-help">＋は打ち込みを早い時刻へ、−は遅い時刻へ補正します。長オシの始点・終点も同じ量だけ補正します。判定時刻の補正はゲームと共通です。補正済みの時刻を譜面に保存し、設定を変えても保存済みノーツは動かしません。</p>
