@@ -25,23 +25,23 @@ export function createTimingPreview(callbacks: Callbacks) {
   dialog.className = 'timing-preview';
   dialog.setAttribute('aria-labelledby', 'timing-preview-title');
   dialog.innerHTML = `
-    <h2 id="timing-preview-title">10ノーツで自動調整</h2>
-    <p class="timing-instructions">4拍の準備のあと、基準音に合わせて10ノーツをプレイしてください。タップのずれから補正値を自動で計算します。PCは S D F / J K L。</p>
+    <h2 id="timing-preview-title">タップ判定を調整（10ノーツ）</h2>
+    <p class="timing-instructions">4拍の準備のあと、ノーツが横線に重なる瞬間を見て10ノーツをタップしてください。判定のずれを自動で計算します。PCは S D F / J K L。</p>
     <div class="timing-field"><canvas aria-label="入力補正を試す6レーンの練習ノーツ"></canvas><div class="timing-pads"></div></div>
     <div class="timing-adjustment">
       <progress id="timing-preview-progress" max="10" value="0" aria-label="練習ノーツの進行"></progress>
-      <label for="timing-preview-offset">補正値（自動算出・手動微調整）<output id="timing-preview-value">0 ms</output></label>
+      <label for="timing-preview-offset">入力補正（表示位置は変わりません）<output id="timing-preview-value">0 ms</output></label>
       <div class="timing-range"><button id="timing-preview-minus" type="button" aria-label="入力補正を5ミリ秒減らす">−5</button><input id="timing-preview-offset" type="range" min="-${INPUT_OFFSET_LIMIT_MS}" max="${INPUT_OFFSET_LIMIT_MS}" step="5" value="0" /><button id="timing-preview-plus" type="button" aria-label="入力補正を5ミリ秒増やす">＋5</button></div>
-      <p class="timing-direction">ノーツが音より早い → ＋ ／ 遅い → −</p>
+      <p class="timing-direction">判定が「遅い」→ ＋ ／「早い」→ −</p>
       <p id="timing-preview-auto" role="status" aria-live="polite">10ノーツのうち8回以上の安定したタップから算出します。</p>
       <output id="timing-preview-feedback" role="status" aria-live="polite">「練習をはじめる」で4拍の準備からスタート。</output>
     </div>
     <div class="timing-preview-actions"><button id="timing-preview-start" type="button">練習をはじめる</button><button id="timing-preview-apply" type="button">補正を保存</button><button id="timing-preview-close" type="button">キャンセル</button></div>
     <details class="timing-preview-help"><summary>調整のヒント・音量</summary>
-      <p>上の横線が判定位置です。10ノーツの練習が終わると補正結果を表示します。「補正してもう一度」で補正後のノーツと判定を試せます。タップが足りない場合やばらつきが大きい場合は再挑戦してください。「補正を保存」するまで設定は変更しません。</p>
+      <p>上の横線が判定位置です。基準音はリズムの目安です。入力測定では音より横線への到達を優先してください。10ノーツの練習が終わると補正結果を表示します。「補正してもう一度」で補正後の判定を試せます。タップが足りない場合やばらつきが大きい場合は再挑戦してください。「補正を保存」するまで設定は変更しません。</p>
       <label>基準音・ノーツ音の音量<input id="timing-preview-volume" type="range" min="10" max="100" step="10" value="70" /></label>
       <label><input id="timing-preview-cymbal" type="checkbox" checked />ノーツ音を鳴らす</label>
-      <p>入力時は本番と同じノーツ音を鳴らします。この画面の音設定はゲームの設定を変更しません。基準音とMVでは音のずれが異なる場合があるので、保存後は実際の曲でも確認してください。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
+      <p>入力時は本番と同じノーツ音を鳴らします。この画面の音設定はゲームの設定を変更しません。測定値は画面表示と操作を含む目安です。曲とノーツそのものがずれる場合は「曲にノーツを合わせる」を使ってください。この測定で曲の補正値は変わりません。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
     </details>`;
   document.body.append(dialog);
   const find = <T extends HTMLElement>(id: string) => dialog.querySelector<T>(`#${id}`)!;
@@ -92,7 +92,7 @@ export function createTimingPreview(callbacks: Callbacks) {
   }
   function draw(now: number, time: number): void {
     if (!renderer) return;
-    renderer.draw(engine?.notes ?? [], time, NOTE_TRAVEL_SECONDS, now, { inputOffsetMs: candidate, playing: audio?.state === 'running', chart: engine?.chart });
+    renderer.draw(engine?.notes ?? [], time, NOTE_TRAVEL_SECONDS, now, { inputOffsetMs: 0, playing: audio?.state === 'running', chart: engine?.chart });
     labels.forEach((label, lane) => { if (now - hitTimes[lane] > 800) label.hidden = true; });
   }
   function report(message: string): void { feedback.textContent = message; }
@@ -121,9 +121,9 @@ export function createTimingPreview(callbacks: Callbacks) {
     // Also explain taps outside GOOD, so a large initial offset can still be adjusted.
     const nearest = engine.notes.filter(note => note.lane === lane && !measured.has(note.id) && note.state !== 'hit')
       .sort((a, b) => Math.abs(a.time - rawTime) - Math.abs(b.time - rawTime))[0];
-    if (!nearest) { report('音とノーツに合わせて、同じ色のボタンを押してください。'); return; }
+    if (!nearest) { report('ノーツが横線に重なる瞬間に、同じ色のボタンを押してください。'); return; }
     const result = measured.tap(nearest.id, rawTime, nearest.time);
-    if (!result) { report('音とノーツに合わせて、同じ色のボタンを押してください。'); return; }
+    if (!result) { report('ノーツが横線に重なる瞬間に、同じ色のボタンを押してください。'); return; }
     if (result.ok) {
       applyButton.disabled = false;
       const previous = candidate;
@@ -135,7 +135,7 @@ export function createTimingPreview(callbacks: Callbacks) {
     } else {
       autoStatus.textContent = result.reason === 'insufficient' ? `自動測定 ${measured.count} / 10回`
         : result.reason === 'range' ? 'ずれが補正範囲（±300ms）を超えています。音声機器を確認してください。'
-        : 'ばらつきがあります。音に合わせて続けてください。';
+        : 'ばらつきがあります。横線への到達に合わせて続けてください。';
     }
     const time = compensateInput(rawTime, candidate);
     const error = (time - nearest.time) * 1000, judgement = judge(error / 1000);
@@ -201,7 +201,7 @@ export function createTimingPreview(callbacks: Callbacks) {
       }
       unbind = bindInput(buttons, lane => tap(lane), lanes => { if (renderer) renderer.pressed = lanes; }, () => !audio || audio.state !== 'running');
       startButton.textContent = '最初から試す'; startButton.disabled = false;
-      report('準備の4拍を聞いたら、音とノーツに合わせて押してください。');
+      report('準備の4拍のあと、ノーツが横線に重なる瞬間に押してください。');
       // Keep keyboard input out of the range while retaining a stable mobile viewport.
       buttons[2].focus({ preventScroll: true });
       tick(performance.now());
@@ -218,7 +218,7 @@ export function createTimingPreview(callbacks: Callbacks) {
       measured.clear(); labels.forEach(label => { label.hidden = true; }); renderer?.clearEffects();
       if (engine && audio) engine.seek(compensateInput(audio.currentTime, candidate), true);
       autoStatus.textContent = '8回以上タップすると自動補正します。';
-      report('試し中の補正を変更しました。音とノーツの重なりを確認してください。');
+      report('試し中の補正を変更しました。タップ判定の早い・遅いを確認してください。');
     }
     if (!automatic) draw(performance.now(), audio?.currentTime ?? 0);
   }

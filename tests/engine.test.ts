@@ -113,6 +113,6 @@ describe('video-only clock', () => {
   });
 });
 it('validates corrupt settings, limits values and preserves step sizes', () => {
-  expect(normalizeSettings({ travel: 0, offset: 500, bpm: NaN, startTime: -1 })).toEqual({ travel: 2.5, offset: 300, bpm: 140, startTime: 0, debug: false, sound: true, soundVolume: 70, noteSize: 100, inputOffset: 0, soundDelay: 0 });
-  expect(normalizeSettings({ travel: 2.13, offset: -24, bpm: 139.7, startTime: 12.16, debug: true })).toEqual({ travel: 2.5, offset: -20, bpm: 140, startTime: 12.2, debug: true, sound: true, soundVolume: 70, noteSize: 100, inputOffset: 0, soundDelay: 0 });
+  expect(normalizeSettings({ travel: 0, offset: 500, bpm: NaN, startTime: -1 })).toEqual({ travel: 2.5, offset: 300, bpm: 140, startTime: 0, debug: false, sound: true, soundVolume: 70, noteSize: 100, noteOffset: 0, inputOffset: 0, soundDelay: 0 });
+  expect(normalizeSettings({ travel: 2.13, offset: -24, bpm: 139.7, startTime: 12.16, debug: true })).toEqual({ travel: 2.5, offset: -20, bpm: 140, startTime: 12.2, debug: true, sound: true, soundVolume: 70, noteSize: 100, noteOffset: 0, inputOffset: 0, soundDelay: 0 });
 });

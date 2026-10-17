@@ -106,7 +106,7 @@ export function mountTutorial(): () => void {
     feedback.classList.toggle('success', hit.judgement !== 'MISS'); updateScore();
   }
   function draw(now: number, time: number): void {
-    renderer?.draw(engine.notes, time, TUTORIAL_TRAVEL, now, { inputOffsetMs: settings.inputOffset, playing: phase === 'playing', chart: engine.chart });
+    renderer?.draw(engine.notes, time, TUTORIAL_TRAVEL, now, { inputOffsetMs: 0, playing: phase === 'playing', chart: engine.chart });
     labels.forEach((label, lane) => {
       const holding = engine.notes.some(note => playLane(note) === lane && note.state === 'holding');
       buttons[lane].classList.toggle('holding', holding);

@@ -93,7 +93,10 @@
           <button id="auto-calibrate" class="restart-button">基準音で自動調整</button>
           <p class="field-help">一定間隔の音に合わせてタップし、入力補正の目安を測定します。測定後に結果を確認して適用できます。</p>
           <!-- admin:end -->
-          <button id="flow-calibrate" class="restart-button">ノーツをみて調整</button>
+          <button id="song-calibrate" class="restart-button">① 曲にノーツを合わせる</button>
+          <p class="field-help">ノーツが曲より早い・遅い → MVを流して位置を調整。まずはこちら。</p>
+          <button id="flow-calibrate" class="restart-button">② タップ判定を調整</button>
+          <p class="field-help">曲とノーツは合うのに判定が早い・遅い → 10ノーツで入力補正を測定。ノーツ位置は変えません。</p>
           <p class="field-help">基準音と練習ノーツに合わせて押すと、ずれを自動で補正します。ノーツの到達と判定にその場で反映し、「適用」で保存します。</p>
           <!-- admin:start -->
           <label for="input-offset">入力の遅れ補正 <output id="input-offset-value">0 ms</output></label>

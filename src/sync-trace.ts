@@ -11,6 +11,7 @@ export interface SyncObservation {
   seek: boolean;
   inputOffsetMs: number;
   chartOffsetMs: number;
+  noteOffsetMs?: number;
   inputErrorMs: number | null;
   frameGapMs: number;
   fps: number;

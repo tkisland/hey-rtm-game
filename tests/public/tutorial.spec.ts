@@ -43,7 +43,7 @@ test('judges actual note timing and ends with a score instead of accepting arbit
 });
 
 test('applies the saved input correction without changing game preferences', async ({page}) => {
-  const preferences = {sound:false,soundVolume:30,inputOffset:100,soundDelay:20};
+  const preferences = {sound:false,soundVolume:30,noteOffset:200,inputOffset:100,soundDelay:20};
   await page.addInitScript(preferences => localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify(preferences)),preferences);
   await open(page); await expect(page.locator('#tutorial-sound')).not.toBeChecked();
   const advance = await play(page); await advance(2767); await page.keyboard.press('s');

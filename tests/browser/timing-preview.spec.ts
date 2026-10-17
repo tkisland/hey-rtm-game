@@ -62,7 +62,7 @@ async function tap(page: Page, lane: number, touch: boolean) {
 
 test('rehearses real moving notes, previews correction immediately and saves only on apply', async ({ page }, info) => {
   await setup(page);
-  await page.evaluate(() => localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({ inputOffset: 140, soundDelay: 150, sound: false, soundVolume: 0, travel: 3 })));
+  await page.evaluate(() => localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({noteOffset:0,inputOffset: 140, soundDelay: 150, sound: false, soundVolume: 0, travel: 3 })));
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
   // Start with an earned score, to prove the rehearsal never resets or adds to it.
   await page.evaluate(() => {
@@ -95,7 +95,7 @@ test('rehearses real moving notes, previews correction immediately and saves onl
   await expect(page.locator('#input-offset')).toHaveValue('140');
   await expect(page.locator('#score')).toHaveText('1,000');
   await range(page, 240);
-  await advance(page, times[5] + .24);
+  await advance(page, times[5]);
   const geometry = await page.evaluate(async () => {
     const { fieldGeometry } = await import('/src/field-geometry.ts');
     const rect = document.querySelector('.timing-field canvas')!.getBoundingClientRect();
@@ -104,6 +104,7 @@ test('rehearses real moving notes, previews correction immediately and saves onl
     return { center: head.y + head.h / 2, near: fieldGeometry(rect.width, rect.height).near };
   });
   expect(geometry.center).toBeCloseTo(geometry.near, 2);
+  await advance(page, times[5] + .24);
   if (info.project.name === 'mobile-touch') await tap(page, 3, true);
   else await page.keyboard.press('j'); // The range still has focus after adjustment.
   await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · ずれ 0 ms');
@@ -121,9 +122,9 @@ test('rehearses real moving notes, previews correction immediately and saves onl
   await page.locator('#editor-flow-calibrate').click(); await expect(page.locator('#timing-preview-value')).toHaveText('+240 ms');
 });
 
-test('automatically aligns moving heads and judgement from original taps without accumulating old correction', async ({page},info) => {
+test('automatically adjusts judgement without moving heads from original taps without accumulating old correction', async ({page},info) => {
   await setup(page);
-  await page.evaluate(() => localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({inputOffset:300,travel:1,sound:false,soundVolume:0,soundDelay:150})));
+  await page.evaluate(() => localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({noteOffset:0,inputOffset:300,travel:1,sound:false,soundVolume:0,soundDelay:150})));
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled(); await open(page);
   await page.evaluate(() => {
     (window as any).autoHeads=[];
@@ -133,9 +134,9 @@ test('automatically aligns moving heads and judgement from original taps without
   });
   const times=await begin(page), lanes=[2,3,1,4,0,5];
   // The saved 1s setting is ignored: a head appears exactly 2.5s before its corrected target.
-  await advance(page,times[4]+.3-2.5-.01);
+  await advance(page,times[4]-2.5-.01);
   expect(await page.evaluate(()=>(window as any).autoHeads.length)).toBe(0);
-  await advance(page,times[4]+.3-2.5+.01);
+  await advance(page,times[4]-2.5+.01);
   expect(await page.evaluate(()=>(window as any).autoHeads.length)).toBeGreaterThan(0);
   for(let i=0;i<8;i++) {
     await advance(page,times[i+4]-.1); await tap(page,lanes[i%6],info.project.name==='mobile-touch');
@@ -150,7 +151,7 @@ test('automatically aligns moving heads and judgement from original taps without
   const aligned=await page.evaluate(async()=>{
     const {fieldGeometry}=await import('/src/field-geometry.ts');
     const rect=document.querySelector('.timing-field canvas')!.getBoundingClientRect();
-    return (window as any).autoHeads.some((head:any)=>Math.abs(head.y-fieldGeometry(rect.width,rect.height).near)<.01);
+    return (window as any).autoHeads.some((head:any)=>Math.abs(head.y-(fieldGeometry(rect.width,rect.height).near-.1/2.5*fieldGeometry(rect.width,rect.height).approach))<.01);
   });
   expect(aligned).toBe(true);
   for(let i=8;i<10;i++) {
