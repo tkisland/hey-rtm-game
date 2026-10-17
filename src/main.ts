@@ -380,6 +380,7 @@ soundVolume.addEventListener('input', changeSettings, { signal });
 inputOffset.addEventListener('input', changeSettings, { signal });
 soundDelay.addEventListener('input', changeSettings, { signal });
 const calibration = createCalibrationDialog({
+  settings: () => settings,
   pause() {
     sound.cancelPending();
     player?.pauseVideo();
@@ -387,6 +388,7 @@ const calibration = createCalibrationDialog({
   apply(value) { inputOffset.value = String(value); changeSettings(); },
 });
 element('auto-calibrate').addEventListener('click', () => calibration.open(), { signal });
+element('flow-calibrate').addEventListener('click', () => calibration.openPreview(), { signal });
 element('timing-reset').addEventListener('click', () => { inputOffset.value = '0'; soundDelay.value = '0'; changeSettings(); }, { signal });
 element('sound-test').addEventListener('click', () => sound.play(0), { signal });
 reflectSettings(); updateChartInfo();

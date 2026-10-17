@@ -1,10 +1,12 @@
 import './calibration.css';
 import { CALIBRATION, CalibrationMeasurement } from './calibration';
 import type { CalibrationResult } from './calibration';
+import { createTimingPreview } from './timing-preview';
 
-export function createCalibrationDialog(callbacks: { pause(): void; apply(offset: number): void }): {
-  readonly active: boolean; open(): void; destroy(): void;
+export function createCalibrationDialog(callbacks: { pause(): void; settings(): { inputOffset: number; travel: number }; apply(offset: number): void }): {
+  readonly active: boolean; open(): void; openPreview(): void; destroy(): void;
 } {
+  const preview = createTimingPreview(callbacks);
   const dialog = document.createElement('dialog');
   dialog.className = 'calibration-dialog';
   dialog.setAttribute('aria-labelledby', 'calibration-title');
@@ -161,9 +163,10 @@ export function createCalibrationDialog(callbacks: { pause(): void; apply(offset
   window.addEventListener('blur', abortMeasurement, { signal });
   document.addEventListener('visibilitychange', () => { if (document.hidden) abortMeasurement(); }, { signal });
   return {
-    get active() { return dialog.open; },
+    get active() { return dialog.open || preview.active; },
+    openPreview() { if (!dialog.open) preview.open(); },
     open() {
-      if (dialog.open) return;
+      if (dialog.open || preview.active) return;
       returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       stop(); result = null; applyButton.disabled = true;
       tapButton.textContent = '音に合わせてタップ'; progress.value = 0;
@@ -174,6 +177,6 @@ export function createCalibrationDialog(callbacks: { pause(): void; apply(offset
       }
       dialog.showModal(); startButton.focus({ preventScroll: true });
     },
-    destroy() { stop(); events.abort(); dialog.remove(); },
+    destroy() { stop(); preview.destroy(); events.abort(); dialog.remove(); },
   };
 }

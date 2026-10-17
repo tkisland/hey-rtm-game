@@ -499,6 +499,7 @@ function changeTiming(): void {
 input('editor-input-offset').addEventListener('input', changeTiming, { signal });
 input('editor-sound-delay').addEventListener('input', changeTiming, { signal });
 const calibration = createCalibrationDialog({
+  settings: () => settings,
   pause() {
     stopPreview(); setArmed(false); sound.cancelPending(); lastAudition = null;
     player?.pauseVideo();
@@ -506,6 +507,7 @@ const calibration = createCalibrationDialog({
   apply(value) { input('editor-input-offset').value = String(value); changeTiming(); },
 });
 on('editor-auto-calibrate', () => calibration.open());
+on('editor-flow-calibrate', () => calibration.openPreview());
 on('editor-timing-reset', () => { input('editor-input-offset').value = '0'; input('editor-sound-delay').value = '0'; changeTiming(); });
 on('editor-sound-test', () => sound.play(0));
 reflectTiming();
