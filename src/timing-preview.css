@@ -18,6 +18,7 @@
 .timing-range button { min-width:48px; }
 .timing-direction { margin:2px 0 5px; color:#c8c6dd; font-size:10px; }
 #timing-preview-feedback { display:block; min-height:2.9em; font-size:11px; line-height:1.5; color:#ffe3a1; }
+#timing-preview-auto { margin:4px 0; min-height:1.5em; color:#b9f56c; font-size:11px; line-height:1.5; }
 .timing-preview-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 .timing-preview-actions button { flex:1; padding-inline:8px; font-size:12px; }
 #timing-preview-apply { background:#684055; border-color:#ff9cba; }

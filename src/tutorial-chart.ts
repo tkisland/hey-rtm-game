@@ -1,9 +1,10 @@
 import { VIDEO_ID } from './chart';
 import type { Chart, ChartNote } from './chart';
+import { NOTE_TRAVEL_SECONDS } from './settings';
 
 export const TUTORIAL_BPM = 90;
 export const TUTORIAL_BEAT = 60 / TUTORIAL_BPM;
-export const TUTORIAL_TRAVEL = 2.5;
+export const TUTORIAL_TRAVEL = NOTE_TRAVEL_SECONDS;
 
 /** Four count-in beats, followed by a few real notes for each gesture. */
 export function tutorialChart(step: number): Chart {

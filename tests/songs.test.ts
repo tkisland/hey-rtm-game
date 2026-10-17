@@ -11,13 +11,17 @@ function storage() {
   return data;
 }
 afterEach(() => vi.unstubAllGlobals());
-it('gives new players a longer note lead-in while preserving saved fall times', () => {
-  storage();
+it('fixes every song to a 2.5 second lead-in and migrates legacy fall times without losing correction', () => {
+  const data = storage();
   expect(loadSettings().travel).toBe(2.5);
   for (const travel of [1, 2, 3.25, 4]) {
+    data.set('hey-rhythm-settings-v1', JSON.stringify({ travel, inputOffset: 80 }));
+    expect(loadSettings()).toMatchObject({ travel:2.5, inputOffset:80 });
+    expect(loadSettings(second)).toMatchObject({ travel:2.5, inputOffset:80 });
     saveSettings({ ...loadSettings(), travel });
-    expect(loadSettings().travel).toBe(travel);
-    expect(loadSettings(second).travel).toBe(travel);
+    expect(JSON.parse(data.get('hey-rhythm-settings-v1')!).travel).toBe(2.5);
+    expect(loadSettings().travel).toBe(2.5);
+    expect(loadSettings(second).travel).toBe(2.5);
   }
 });
 it('registers only real available content and resolves stable song URLs', () => {

@@ -149,7 +149,9 @@ export class TapSound {
   private outputWarmup: ConstantSourceNode | null = null;
   private visibilityChanged = () => { if (document.hidden) this.cancelPending(); };
   private activate = (event: Event) => { if (event.isTrusted && !document.hidden) void this.unlock(); };
-  constructor(private onUnavailable: () => void) {
+  /** An optional context shares a reference clock; this instance closes it on destroy. */
+  constructor(private onUnavailable: () => void, context?: AudioContext) {
+    this.context = context ?? null;
     warmSamples();
     document.addEventListener('visibilitychange', this.visibilityChanged);
     document.addEventListener('pointerdown', this.activate, { capture: true, passive: true });

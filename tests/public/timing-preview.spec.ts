@@ -27,3 +27,35 @@ test('public settings rehearse with sound and save only an applied input correct
   await page.locator('#timing-preview-close').click(); await expect(page.locator('#input-offset')).toHaveValue('100');
   await expect(page.locator('#chart-source')).toHaveCount(0);
 });
+
+test('public flow calibration automatically applies stable taps to notes and judgement', async ({page},info) => {
+  await page.route('https://www.youtube.com/iframe_api',route=>route.fulfill({body:api}));
+  await page.addInitScript(()=>{
+    localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({inputOffset:200,travel:4,sound:false}));
+    const Native=AudioContext; (window as any).flowTime=0;(window as any).flowStarts=[];
+    window.AudioContext=class extends Native {get currentTime(){return (window as any).flowTime;}};
+    const start=OscillatorNode.prototype.start;
+    OscillatorNode.prototype.start=function(when){(window as any).flowStarts.push(when);start.call(this,when);};
+  });
+  await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
+  await page.locator('#settings-toggle').click(); await expect(page.locator('#travel')).toHaveCount(0);
+  await page.locator('#flow-calibrate').click(); await page.locator('#timing-preview-start').click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).flowStarts.length)).toBe(28);
+  const times=await page.evaluate(()=>(window as any).flowStarts as number[]);
+  for(let i=0;i<9;i++) {
+    const target=times[i+4]+.18;
+    for(let time=await page.evaluate(()=>(window as any).flowTime as number)+.9;time<target;time+=.9)
+      await page.evaluate(async time=>{(window as any).flowTime=time;await new Promise(requestAnimationFrame);},time);
+    await page.evaluate(async time=>{(window as any).flowTime=time;await new Promise(requestAnimationFrame);},target);
+    const lane=[2,3,1,4,0,5][i%6];
+    if(info.project.name==='mobile-touch') await page.locator('.timing-pad').nth(lane).tap();
+    else await page.keyboard.press(['s','d','f','j','k','l'][lane]);
+  }
+  await expect(page.locator('#timing-preview-value')).toHaveText('+180 ms');
+  await expect(page.locator('#timing-preview-auto')).toContainText('自動反映');
+  await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · ずれ 0 ms');
+  await expect(page.locator('#input-offset')).toHaveValue('200');
+  await page.locator('#timing-preview-apply').click(); await expect(page.locator('#input-offset')).toHaveValue('180');
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!).travel)).toBe(2.5);
+  await expect(page.locator('#score')).toHaveText('0');
+});

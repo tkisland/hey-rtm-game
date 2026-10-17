@@ -3,7 +3,8 @@ import type { Song } from './songs';
 
 /** noteSize is retained only for the administrator's editing timeline. */
 export interface Settings { travel: number; offset: number; bpm: number; startTime: number; debug: boolean; sound: boolean; soundVolume: number; noteSize: number; inputOffset: number; soundDelay: number }
-export const DEFAULT_SETTINGS: Settings = { travel: 2.5, offset: 0, bpm: 140, startTime: 12, debug: false, sound: true, soundVolume: 70, noteSize: 100, inputOffset: 0, soundDelay: 0 };
+export const NOTE_TRAVEL_SECONDS = 2.5;
+export const DEFAULT_SETTINGS: Settings = { travel: NOTE_TRAVEL_SECONDS, offset: 0, bpm: 140, startTime: 12, debug: false, sound: true, soundVolume: 70, noteSize: 100, inputOffset: 0, soundDelay: 0 };
 export const INPUT_OFFSET_LIMIT_MS = 300;
 const STORAGE_KEY = 'hey-rhythm-settings-v1';
 function numeric(value: unknown, fallback: number, min: number, max: number, step: number): number {
@@ -12,7 +13,8 @@ function numeric(value: unknown, fallback: number, min: number, max: number, ste
 }
 export function normalizeSettings(value: Partial<Settings>): Settings {
   return {
-    travel: numeric(value.travel, DEFAULT_SETTINGS.travel, 1, 4, 0.25),
+    // Ignore legacy fall-time preferences; every player now uses the same lead-in.
+    travel: NOTE_TRAVEL_SECONDS,
     offset: numeric(value.offset, 0, -300, 300, 10),
     bpm: numeric(value.bpm, 140, 80, 200, 1),
     startTime: numeric(value.startTime, 12, 0, 3600, 0.1),
@@ -37,6 +39,7 @@ export function loadSettings(song: Song = DEFAULT_SONG): Settings {
   return normalizeSettings({ ...shared, bpm: scoped.bpm ?? song.bpm, startTime: scoped.startTime ?? song.startTime, offset: scoped.offset ?? 0 });
 }
 export function saveSettings(settings: Settings, song: Song = DEFAULT_SONG): boolean {
+  settings = normalizeSettings(settings);
   try {
     if (song.id === DEFAULT_SONG.id) localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     else {

@@ -9,6 +9,7 @@ async function setup(page: Page) {
     (window as any).previewTime = 0;
     (window as any).previewStarts = [];
     (window as any).previewContexts = [];
+    (window as any).previewCymbals = [];
     window.AudioContext = class extends Native {
       constructor(options?: AudioContextOptions) { super(options); (window as any).previewContexts.push(this); }
       get currentTime() { return (window as any).previewTime; }
@@ -20,7 +21,12 @@ async function setup(page: Page) {
       }
     };
     const start = OscillatorNode.prototype.start;
-    OscillatorNode.prototype.start = function(when) { (window as any).previewStarts.push(when); start.call(this, when); };
+    OscillatorNode.prototype.start = function(when) { (window as any).previewReferenceContext = this.context; (window as any).previewStarts.push(when); start.call(this, when); };
+    const sourceStart = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function(...args) {
+      (window as any).previewCymbals.push({when:args[0],now:this.context.currentTime,sameClock:this.context===(window as any).previewReferenceContext,duration:this.buffer?.duration,peak:Math.max(...(this.buffer?.getChannelData(0)??[]).map(Math.abs))});
+      sourceStart.apply(this,args);
+    };
   });
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
   await page.goto('/game.html?chart=test');
@@ -108,11 +114,87 @@ test('rehearses real moving notes, previews correction immediately and saves onl
   await expect(page.locator('#sound-delay')).toHaveValue('150');
   await expect(page.locator('#score')).toHaveText('1,000');
   expect(await page.evaluate(() => (window as any).testVideo.state)).toBe(2);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({ inputOffset:240, soundDelay:150, sound:false, soundVolume:0, travel:3 });
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({ inputOffset:240, soundDelay:150, sound:false, soundVolume:0, travel:2.5 });
   await expect.poll(() => page.evaluate(() => (window as any).previewContexts.at(-1).state)).toBe('closed');
   await page.goto('/editor.html'); await page.locator('.timing-settings summary').click();
   await expect(page.locator('#editor-input-offset')).toHaveValue('240');
   await page.locator('#editor-flow-calibrate').click(); await expect(page.locator('#timing-preview-value')).toHaveText('+240 ms');
+});
+
+test('automatically aligns moving heads and judgement from original taps without accumulating old correction', async ({page},info) => {
+  await setup(page);
+  await page.evaluate(() => localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({inputOffset:300,travel:1,sound:false,soundVolume:0,soundDelay:150})));
+  await page.reload(); await expect(page.locator('#restart')).toBeEnabled(); await open(page);
+  await page.evaluate(() => {
+    (window as any).autoHeads=[];
+    const clear=CanvasRenderingContext2D.prototype.clearRect, round=CanvasRenderingContext2D.prototype.roundRect;
+    CanvasRenderingContext2D.prototype.clearRect=function(...args) { if(this.canvas===document.querySelector('.timing-field canvas')) (window as any).autoHeads=[]; return clear.apply(this,args); };
+    CanvasRenderingContext2D.prototype.roundRect=function(...args) { if(this.canvas===document.querySelector('.timing-field canvas')) (window as any).autoHeads.push({y:args[1]+args[3]/2});return round.apply(this,args); };
+  });
+  const times=await begin(page), lanes=[2,3,1,4,0,5];
+  // The saved 1s setting is ignored: a head appears exactly 2.5s before its corrected target.
+  await advance(page,times[4]+.3-2.5-.01);
+  expect(await page.evaluate(()=>(window as any).autoHeads.length)).toBe(0);
+  await advance(page,times[4]+.3-2.5+.01);
+  expect(await page.evaluate(()=>(window as any).autoHeads.length)).toBeGreaterThan(0);
+  for(let i=0;i<8;i++) {
+    await advance(page,times[i+4]-.1); await tap(page,lanes[i%6],info.project.name==='mobile-touch');
+    if(i<7) await expect(page.locator('#timing-preview-value')).toHaveText('+300 ms');
+  }
+  await expect(page.locator('#timing-preview-value')).toHaveText('-100 ms');
+  await expect(page.locator('#timing-preview-auto')).toContainText('自動反映：-100 ms');
+  await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · ずれ 0 ms');
+  await tap(page,lanes[7%6],info.project.name==='mobile-touch'); // Same note is never sampled twice.
+  await expect(page.locator('#timing-preview-auto')).toContainText('有効8回');
+  await advance(page,times[12]-.1);
+  const aligned=await page.evaluate(async()=>{
+    const {fieldGeometry}=await import('/src/field-geometry.ts');
+    const rect=document.querySelector('.timing-field canvas')!.getBoundingClientRect();
+    return (window as any).autoHeads.some((head:any)=>Math.abs(head.y-fieldGeometry(rect.width,rect.height).near)<.01);
+  });
+  expect(aligned).toBe(true);
+  for(let i=8;i<20;i++) {
+    await advance(page,times[i+4]-.1); await tap(page,lanes[i%6],info.project.name==='mobile-touch');
+    await expect(page.locator('#timing-preview-value')).toHaveText('-100 ms');
+    await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · ずれ 0 ms');
+  }
+  await expect(page.locator('#input-offset')).toHaveValue('300');
+  await page.locator('#timing-preview-apply').click(); await expect(page.locator('#input-offset')).toHaveValue('-100');
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({inputOffset:-100,travel:2.5,sound:false,soundVolume:0,soundDelay:150});
+  await expect(page.locator('#score')).toHaveText('0');
+});
+
+test('retains correction until stable taps are available and ignores an isolated late tap', async ({page},info) => {
+  await setup(page); await open(page); const times=await begin(page),lanes=[2,3,1,4,0,5];
+  for(let i=0;i<10;i++) {
+    await advance(page,times[i+4]+(i===7?.35:.08)); await tap(page,lanes[i%6],info.project.name==='mobile-touch');
+    if(i<8) await expect(page.locator('#timing-preview-value')).toHaveText('0 ms');
+    if(i===7) await expect(page.locator('#timing-preview-auto')).toContainText('ばらつき');
+  }
+  await expect(page.locator('#timing-preview-value')).toHaveText('+80 ms');
+  await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · ずれ 0 ms');
+  await page.locator('#timing-preview-close').click(); await expect(page.locator('#input-offset')).toHaveValue('0');
+  await page.locator('#flow-calibrate').click(); await expect(page.locator('#timing-preview-value')).toHaveText('0 ms');
+});
+
+test('plays real cymbal samples on the reference clock, supports mute and keeps game audio preferences', async ({page},info) => {
+  await setup(page);
+  await page.evaluate(()=>localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({sound:false,soundVolume:0,soundDelay:150})));
+  await page.reload(); await expect(page.locator('#restart')).toBeEnabled(); await open(page);
+  const times=await begin(page);
+  await advance(page,times[4]+.08); await tap(page,2,info.project.name==='mobile-touch');
+  const sounds=await page.evaluate(()=>(window as any).previewCymbals);
+  expect(sounds).toHaveLength(1); expect(sounds[0].sameClock).toBe(true);
+  expect(sounds[0].when).toBe(sounds[0].now); expect(sounds[0].peak).toBeGreaterThan(.3); expect(sounds[0].duration).toBeGreaterThan(.05);
+  await page.locator('.timing-preview-help summary').click(); await page.locator('#timing-preview-cymbal').uncheck();
+  await advance(page,times[5]+.08); await tap(page,3,info.project.name==='mobile-touch');
+  expect(await page.evaluate(()=>(window as any).previewCymbals.length)).toBe(1);
+  await page.locator('#timing-preview-cymbal').check(); await page.locator('#timing-preview-volume').fill('30'); await page.locator('#timing-preview-volume').dispatchEvent('input');
+  await advance(page,times[6]+.08); await tap(page,1,info.project.name==='mobile-touch');
+  expect(await page.evaluate(()=>(window as any).previewCymbals.length)).toBe(2);
+  await page.locator('#timing-preview-close').click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).previewReferenceContext.state)).toBe('closed');
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({sound:false,soundVolume:0,soundDelay:150});
 });
 
 test('shows errors outside GOOD, accepts negative correction and discards cancellation', async ({ page }, info) => {

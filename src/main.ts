@@ -331,12 +331,12 @@ element('play-start').addEventListener('click', () => {
 function showSettings(open: boolean): void {
   settingsPanel.hidden = !open;
   settingsToggle.setAttribute('aria-expanded', String(open));
-  if (open) element<HTMLInputElement>('travel').focus({ preventScroll: true });
+  if (open) element<HTMLButtonElement>('flow-calibrate').focus({ preventScroll: true });
   else settingsToggle.focus({ preventScroll: true });
 }
 settingsToggle.addEventListener('click', () => showSettings(settingsPanel.hidden), { signal });
 element('settings-close').addEventListener('click', () => showSettings(false), { signal });
-const travel = element<HTMLInputElement>('travel'), offset = element<HTMLInputElement>('offset');
+const offset = element<HTMLInputElement>('offset');
 const soundToggle = element<HTMLInputElement>('sound-toggle');
 const soundVolume = element<HTMLInputElement>('sound-volume');
 const inputOffset = element<HTMLInputElement>('input-offset'), soundDelay = element<HTMLInputElement>('sound-delay');
@@ -347,7 +347,7 @@ function reflectSettings(): void {
   inputOffset.value = String(settings.inputOffset); soundDelay.value = String(settings.soundDelay);
   element('input-offset-value').textContent = `${settings.inputOffset > 0 ? '+' : ''}${settings.inputOffset} ms`;
   element('sound-delay-value').textContent = `${settings.soundDelay} ms`;
-  travel.value = String(settings.travel); offset.value = String(settings.offset);
+  offset.value = String(settings.offset);
   if (bpm) bpm.value = String(settings.bpm);
   if (startTime) startTime.value = String(settings.startTime);
   if (debug) debug.checked = settings.debug;
@@ -358,19 +358,17 @@ function reflectSettings(): void {
   element<HTMLButtonElement>('sound-test').disabled = !settings.sound || settings.soundVolume === 0;
   soundVolume.value = String(settings.soundVolume);
   element('sound-volume-value').textContent = `${settings.soundVolume}%`;
-  element('travel-value').textContent = `${settings.travel.toFixed(2)}秒`;
   element('offset-value').textContent = `${settings.offset > 0 ? '+' : ''}${settings.offset} ms`;
   if (__ADMIN__) element('debug-panel').hidden = !settings.debug;
 }
 function changeSettings(): void {
-  settings = normalizeSettings({ ...settings, travel: travel.valueAsNumber, offset: offset.valueAsNumber, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
+  settings = normalizeSettings({ ...settings, offset: offset.valueAsNumber, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle.checked, soundVolume: soundVolume.valueAsNumber, inputOffset: inputOffset.valueAsNumber, soundDelay: soundDelay.valueAsNumber });
   reflectSettings();
   if (settings.sound && settings.soundVolume > 0 && state === PLAYER_STATE.PLAYING) void sound.unlock();
   const saved = saveSettings(settings, song);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
   if (__ADMIN__ && source === 'test' && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
 }
-travel.addEventListener('input', changeSettings, { signal });
 offset.addEventListener('input', changeSettings, { signal });
 bpm?.addEventListener('change', changeSettings, { signal });
 startTime?.addEventListener('change', changeSettings, { signal });
