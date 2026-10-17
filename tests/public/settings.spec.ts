@@ -14,7 +14,7 @@ test('offers only calibration and cymbal volume, migrates old mute and removes h
   await expect(panel.locator('button:not(#settings-close)')).toHaveCount(1);
   await expect(panel.locator('input')).toHaveCount(1); await expect(panel.locator('select')).toHaveCount(0);
   await expect(panel.getByRole('button',{name:'ノーツをみて調整',exact:true})).toBeVisible();
-  await expect(panel.getByLabel('シンバル音の音量')).toHaveValue('0');
+  await expect(panel.getByLabel('ノーツ音の音量')).toHaveValue('0');
   await expect(panel.locator('#offset,#input-offset,#sound-delay,#sound-toggle,#auto-calibrate,#timing-reset,#sound-test')).toHaveCount(0);
   await page.locator('#sound-volume').fill('50'); await page.locator('#sound-volume').dispatchEvent('input');
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({sound:true,soundVolume:50,soundDelay:0,offset:0,inputOffset:80});

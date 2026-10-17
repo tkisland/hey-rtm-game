@@ -17,6 +17,7 @@ type Callbacks = {
   pause(): void;
   settings(): { inputOffset: number };
   apply(offset: number): void;
+  songPreview?(): void;
 };
 
 /** An isolated rehearsal: the candidate offset affects the same renderer and engine as play. */
@@ -38,11 +39,19 @@ export function createTimingPreview(callbacks: Callbacks) {
     <div class="timing-preview-actions"><button id="timing-preview-start" type="button">試す</button><button id="timing-preview-apply" type="button">適用</button><button id="timing-preview-close" type="button">キャンセル</button></div>
     <details class="timing-preview-help"><summary>調整のヒント・音量</summary>
       <p>上の横線が判定位置です。直近10回のうち8回以上の安定したタップから補正し、ノーツの到達と判定にすぐ反映します。ばらつきが大きい場合は値を変えません。手動で微調整すると測定をやり直します。「適用」するまで保存しません。</p>
-      <label>基準音・シンバル音量<input id="timing-preview-volume" type="range" min="10" max="100" step="10" value="70" /></label>
-      <label><input id="timing-preview-cymbal" type="checkbox" checked />シンバル音を鳴らす</label>
-      <p>入力時は本番と同じシンバル音を鳴らします。この画面の音設定はゲームの設定を変更しません。基準音とMVでは音のずれが異なる場合があるので、適用後は実際の曲でも確認してください。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
+      <label>基準音・ノーツ音の音量<input id="timing-preview-volume" type="range" min="10" max="100" step="10" value="70" /></label>
+      <label><input id="timing-preview-cymbal" type="checkbox" checked />ノーツ音を鳴らす</label>
+      <p>入力時は本番と同じノーツ音を鳴らします。この画面の音設定はゲームの設定を変更しません。基準音とMVでは音のずれが異なる場合があるので、適用後は実際の曲でも確認してください。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
     </details>`;
   document.body.append(dialog);
+  if (callbacks.songPreview) {
+    const button=document.createElement('button');button.type='button';button.id='timing-preview-song';
+    button.textContent='曲・動画に合わせて調整';
+    button.addEventListener('click',()=>{
+      stop();dialog.addEventListener('close',()=>callbacks.songPreview!(),{once:true});dialog.close();
+    });
+    dialog.querySelector('.timing-instructions')!.after(button);
+  }
   const find = <T extends HTMLElement>(id: string) => dialog.querySelector<T>(`#${id}`)!;
   const slider = find<HTMLInputElement>('timing-preview-offset');
   const value = find('timing-preview-value'), feedback = find('timing-preview-feedback');
@@ -153,7 +162,7 @@ export function createTimingPreview(callbacks: Callbacks) {
     try {
       if (session) { try { previousSession = session.type; session.type = 'playback'; } catch { previousSession = null; } }
       const context = new AudioContext({ latencyHint: 'interactive' }); audio = context;
-      cymbal = new TapSound(() => report('シンバル音を再生できません。音量を確認し、「試す」で再試行してください。'), context);
+      cymbal = new TapSound(() => report('ノーツ音を再生できません。音量を確認し、「試す」で再試行してください。'), context);
       cymbal.volume = Number(volume.value); cymbal.enabled = cymbalToggle.checked;
       cymbal.setPlaybackActive(true);
       // Activate both paths in the same user gesture, sharing one audio clock/output.

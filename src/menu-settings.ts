@@ -1,6 +1,7 @@
 import { loadSettings, normalizePlayerSettings, saveSettings } from './settings';
 import type { Settings } from './settings';
 import { createTimingPreview } from './timing-preview';
+import { DEFAULT_SONG, songUrl } from './songs';
 
 /** The same shared player preferences used by the game and tutorial. */
 export function mountMenuSettings(): () => void {
@@ -11,9 +12,9 @@ export function mountMenuSettings(): () => void {
   dialog.innerHTML = `
     <div class="menu-settings-heading"><h2 id="menu-settings-title">設定</h2><button id="settings-close" class="text-button" type="button">閉じる</button></div>
     <button id="flow-calibrate" class="restart-button" type="button">ノーツをみて調整</button>
-    <label for="sound-volume">シンバル音の音量 <output id="sound-volume-value">70%</output></label>
+    <label for="sound-volume">ノーツ音の音量 <output id="sound-volume-value">70%</output></label>
     <input id="sound-volume" type="range" min="0" max="100" step="5" value="70" />
-    <p class="field-help">シンバル音と長オシ中の音量です。0%で消音になります。</p>
+    <p class="field-help">タップ時や長オシ中のノーツ音の音量です。0%で消音になります。</p>
     <p id="storage-status" class="field-help" role="status">設定はゲームと遊び方にも反映されます。</p>`;
   document.body.append(dialog);
   const volume = dialog.querySelector<HTMLInputElement>('#sound-volume')!;
@@ -29,7 +30,9 @@ export function mountMenuSettings(): () => void {
     reflect();
     status.textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。ブラウザの保存設定を確認してください。';
   }
-  const preview = createTimingPreview({ pause() {}, settings: () => settings, apply: inputOffset => save({inputOffset}) });
+  const preview = createTimingPreview({ pause() {}, settings: () => settings, apply: inputOffset => save({inputOffset,visualOffset:inputOffset}),
+    songPreview() { const url=new URL(songUrl(DEFAULT_SONG,'game'),location.href);url.searchParams.set('timing','1');location.href=url.href; },
+  });
   opener.addEventListener('click', () => {
     if (dialog.open) return;
     settings = read(); reflect();

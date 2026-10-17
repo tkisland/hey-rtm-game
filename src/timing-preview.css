@@ -3,6 +3,7 @@
 .timing-preview h2 { margin:0 0 6px; font-size:17px; }
 .timing-preview button { min-height:44px; padding:8px 12px; border:1px solid #bda7f766; border-radius:8px; background:#30283f; font:inherit; color:inherit; }
 .timing-instructions { margin:0 0 8px; font-size:11px; line-height:1.7; }
+#timing-preview-song { width:100%; margin-bottom:8px; border-color:#ff9cba; font-size:12px; }
 .timing-field { position:relative; height:clamp(224px,calc(100svh - 350px),440px); border-radius:12px; overflow:hidden; background:#0e1120; touch-action:none; }
 .timing-field canvas { display:block; width:100%; height:100%; }
 .timing-pads { position:absolute; inset:0; pointer-events:none; }
@@ -29,7 +30,8 @@
 @media(orientation:landscape) and (max-height:500px) and (min-width:650px) {
   .timing-preview { width:calc(100% - 16px); max-width:900px; display:grid; grid-template-columns:minmax(300px,1.3fr) minmax(260px,1fr); column-gap:12px; }
   .timing-preview:not([open]) { display:none; }
-  .timing-preview h2,.timing-instructions { grid-column:1 / -1; }
+  .timing-preview h2,.timing-instructions,#timing-preview-song { grid-column:1 / -1; }
   .timing-field { grid-column:1; grid-row:3 / 6; height:max(224px,calc(100svh - 96px)); }
+  .timing-preview:has(#timing-preview-song) .timing-field { grid-row:4 / 7; }
   .timing-adjustment,.timing-preview-actions,.timing-preview-help { grid-column:2; }
 }
