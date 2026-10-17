@@ -1,6 +1,7 @@
 import { loadSettings, normalizePlayerSettings, saveSettings } from './settings';
 import type { Settings } from './settings';
 import { createTimingPreview } from './timing-preview';
+import { DEFAULT_SONG, songUrl } from './songs';
 
 /** The same shared player preferences used by the game and tutorial. */
 export function mountMenuSettings(): () => void {
@@ -29,7 +30,9 @@ export function mountMenuSettings(): () => void {
     reflect();
     status.textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。ブラウザの保存設定を確認してください。';
   }
-  const preview = createTimingPreview({ pause() {}, settings: () => settings, apply: inputOffset => save({inputOffset}) });
+  const preview = createTimingPreview({ pause() {}, settings: () => settings, apply: inputOffset => save({inputOffset,visualOffset:inputOffset}),
+    songPreview() { const url=new URL(songUrl(DEFAULT_SONG,'game'),location.href);url.searchParams.set('timing','1');location.href=url.href; },
+  });
   opener.addEventListener('click', () => {
     if (dialog.open) return;
     settings = read(); reflect();

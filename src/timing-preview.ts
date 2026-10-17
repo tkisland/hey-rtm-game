@@ -17,6 +17,7 @@ type Callbacks = {
   pause(): void;
   settings(): { inputOffset: number };
   apply(offset: number): void;
+  songPreview?(): void;
 };
 
 /** An isolated rehearsal: the candidate offset affects the same renderer and engine as play. */
@@ -43,6 +44,14 @@ export function createTimingPreview(callbacks: Callbacks) {
       <p>入力時は本番と同じノーツ音を鳴らします。この画面の音設定はゲームの設定を変更しません。基準音とMVでは音のずれが異なる場合があるので、適用後は実際の曲でも確認してください。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
     </details>`;
   document.body.append(dialog);
+  if (callbacks.songPreview) {
+    const button=document.createElement('button');button.type='button';button.id='timing-preview-song';
+    button.textContent='曲・動画に合わせて調整';
+    button.addEventListener('click',()=>{
+      stop();dialog.addEventListener('close',()=>callbacks.songPreview!(),{once:true});dialog.close();
+    });
+    dialog.querySelector('.timing-instructions')!.after(button);
+  }
   const find = <T extends HTMLElement>(id: string) => dialog.querySelector<T>(`#${id}`)!;
   const slider = find<HTMLInputElement>('timing-preview-offset');
   const value = find('timing-preview-value'), feedback = find('timing-preview-feedback');

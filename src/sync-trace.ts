@@ -10,6 +10,7 @@ export interface SyncObservation {
   stale: boolean;
   seek: boolean;
   inputOffsetMs: number;
+  visualOffsetMs?: number;
   chartOffsetMs: number;
   inputErrorMs: number | null;
   frameGapMs: number;

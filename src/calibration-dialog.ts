@@ -3,7 +3,7 @@ import { CALIBRATION, CalibrationMeasurement } from './calibration';
 import type { CalibrationResult } from './calibration';
 import { createTimingPreview } from './timing-preview';
 
-export function createCalibrationDialog(callbacks: { pause(): void; settings(): { inputOffset: number }; apply(offset: number): void }): {
+export function createCalibrationDialog(callbacks: { pause(): void; settings(): { inputOffset: number }; apply(offset: number): void; songPreview?(): void }): {
   readonly active: boolean; open(): void; openPreview(): void; destroy(): void;
 } {
   const preview = createTimingPreview(callbacks);
