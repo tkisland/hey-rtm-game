@@ -21,7 +21,7 @@ const steps = [
   {title:'オシ変', description:'縦の帯では同じ色を保持。横矢印が上の横線に来たら、指をつけたまま矢印の先の色へ移ろう。離れた色にも移れます。PCは次キーを押すか、先に次を押して矢印で前を離す。二重線で離そう。'},
 ];
 
-export function mountTutorial(): () => void {
+export function mountTutorial(options: {onComplete?():void;onContinue?():void;continueLabel?():string} = {}): () => void {
   const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
   const dialog = el<HTMLDialogElement>('tutorial'), opener = el<HTMLButtonElement>('open-tutorial');
   const title = el('tutorial-title'), description = el('tutorial-description'), status = el('tutorial-status');
@@ -45,6 +45,8 @@ export function mountTutorial(): () => void {
   const tutorialSettings = () => __ADMIN__ ? loadSettings() : normalizePlayerSettings(loadSettings());
   let settings = tutorialSettings();
   audioToggle.checked = settings.sound && settings.soundVolume > 0;
+  const completedSteps = new Set<number>();
+  let continueAfterClose = false;
   let step = 0, engine = new GameEngine(tutorialChart(0)), phase: 'ready'|'starting'|'playing'|'finished' = 'ready';
   let renderer: Renderer | null = null, sound: TapSound | null = null;
   let frame = 0, epoch = 0, began = 0, lastBeat = -1, duration = 0;
@@ -129,6 +131,11 @@ export function mountTutorial(): () => void {
       status.textContent = '練習終了'; progress.value = 1;
       const hits = engine.notes.length - engine.counts.MISS;
       feedback.textContent = `${hits} / ${engine.notes.length} ノーツ成功！${hits === engine.notes.length ? 'できました！' : '「もう一度」で再挑戦できます。'}`;
+      completedSteps.add(step);
+      if (completedSteps.size === steps.length) {
+        options.onComplete?.();
+        if (step === steps.length - 1) next.textContent = options.continueLabel?.() ?? '選曲に戻る';
+      }
       feedback.classList.toggle('success', hits === engine.notes.length); next.scrollIntoView({block:'nearest'}); return;
     }
     frame = requestAnimationFrame(tick);
@@ -140,7 +147,7 @@ export function mountTutorial(): () => void {
     title.textContent = steps[step].title; description.textContent = steps[step].description;
     feedback.textContent = '「練習をはじめる」で、4拍のカウントからスタート。'; feedback.classList.remove('success');
     status.textContent = `${TUTORIAL_BPM} BPM · 約${Math.round(duration)}秒`; start.textContent = '練習をはじめる';
-    previous.disabled = step === 0; next.textContent = step === steps.length - 1 ? '選曲に戻る' : '次へ';
+    previous.disabled = step === 0; next.textContent = step === steps.length - 1 ? (completedSteps.size === steps.length ? options.continueLabel?.() ?? '選曲に戻る' : '選曲に戻る') : '次へ';
     progress.value = 0; labels.forEach(label => { label.hidden = true; }); hitTimes.fill(-Infinity);
     audioState();
     renderer?.clearEffects(); updateScore(); draw(performance.now(), 0);
@@ -179,7 +186,7 @@ export function mountTutorial(): () => void {
     if (dialog.open) return;
     settings = tutorialSettings(); audioToggle.checked = settings.sound && settings.soundVolume > 0;
     volume.value = String(settings.soundVolume || 70);
-    step = 0; dialog.showModal(); document.body.classList.add('tutorial-visible');
+    completedSteps.clear(); continueAfterClose = false; step = 0; dialog.showModal(); document.body.classList.add('tutorial-visible');
     renderer = new Renderer(canvas); unbindTargets = bindTargets(canvas, targets); showStep();
     resize = new ResizeObserver(() => { if (phase !== 'playing') draw(performance.now(), phase === 'finished' ? duration : 0); }); resize.observe(canvas);
   }, {signal});
@@ -209,9 +216,9 @@ export function mountTutorial(): () => void {
   function closeTutorial(): void { cleanup(); dialog.close(); }
   el('tutorial-close').addEventListener('click', closeTutorial, {signal});
   dialog.addEventListener('cancel', cleanup, {signal});
-  dialog.addEventListener('close', () => { if (!dialog.open) { cleanup(); opener.focus({preventScroll:true}); } }, {signal});
+  dialog.addEventListener('close', () => { if (!dialog.open) { cleanup(); opener.focus({preventScroll:true}); if (continueAfterClose) { continueAfterClose = false; options.onContinue?.(); } } }, {signal});
   previous.addEventListener('click', () => { if (step > 0) { step--; showStep(); title.focus(); } }, {signal});
-  next.addEventListener('click', () => { if (step === steps.length - 1) closeTutorial(); else { step++; showStep(); title.focus(); } }, {signal});
+  next.addEventListener('click', () => { if (step === steps.length - 1) { continueAfterClose = completedSteps.size === steps.length; closeTutorial(); } else { step++; showStep(); title.focus(); } }, {signal});
   window.addEventListener('blur', interrupted, {signal});
   document.addEventListener('visibilitychange', () => { if (document.hidden) interrupted(); }, {signal});
   return () => { cleanup(); listeners.abort(); dialog.close(); pads.replaceChildren(); };

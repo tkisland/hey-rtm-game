@@ -1,10 +1,11 @@
 import { loadSettings, normalizePlayerSettings, saveSettings } from './settings';
+import {updateOnboarding} from './onboarding-state';
 import type { Settings } from './settings';
 import { createSongTimingPreview } from './song-timing-preview';
 import { createTimingPreview } from './timing-preview';
 
 /** The same shared player preferences used by the game and tutorial. */
-export function mountMenuSettings(): () => void {
+export function mountMenuSettings(): {openTiming():void;destroy():void} {
   const opener = document.getElementById('settings-toggle')!;
   const dialog = document.createElement('dialog');
   dialog.id = 'settings-panel'; dialog.className = 'menu-settings settings-panel';
@@ -27,25 +28,38 @@ export function mountMenuSettings(): () => void {
   let settings = read();
   const events = new AbortController(), signal = events.signal;
   const reflect = () => { volume.value = String(settings.soundVolume); value.value = `${settings.soundVolume}%`; };
-  function save(change: Partial<Settings>): void {
+  function save(change: Partial<Settings>): boolean {
     settings = { ...settings, ...change };
     const saved = saveSettings(settings);
     reflect();
     status.textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。ブラウザの保存設定を確認してください。';
+    return saved;
   }
-  const songPreview = createSongTimingPreview({ pause() {}, settings: () => settings, apply: noteOffset => save({noteOffset}) });
+  let guided = false;
+  const songPreview = createSongTimingPreview({ pause() {}, settings: () => settings, apply(noteOffset,checked) {
+    const saved = save({noteOffset});
+    if (saved && checked) {
+      updateOnboarding({timing:true});
+      if (guided) queueMicrotask(() => dialog.close());
+      guided = false;
+    }
+  } });
   const preview = createTimingPreview({ pause() {}, settings: () => settings, apply: inputOffset => save({inputOffset}) });
-  opener.addEventListener('click', () => {
+  function openSettings(): void {
     if (dialog.open) return;
     settings = read(); reflect();
     status.textContent = '設定はゲームと遊び方にも反映されます。';
     dialog.showModal(); opener.setAttribute('aria-expanded','true');
     dialog.querySelector<HTMLButtonElement>('#song-calibrate')!.focus();
-  }, {signal});
+  }
+  opener.addEventListener('click', openSettings, {signal});
   dialog.querySelector('#settings-close')!.addEventListener('click', () => dialog.close(), {signal});
-  dialog.addEventListener('close', () => { opener.setAttribute('aria-expanded','false'); opener.focus(); }, {signal});
+  dialog.addEventListener('close', () => { guided = false; opener.setAttribute('aria-expanded','false'); opener.focus(); }, {signal});
   dialog.querySelector('#flow-calibrate')!.addEventListener('click', () => preview.open(), {signal});
   dialog.querySelector('#song-calibrate')!.addEventListener('click', () => songPreview.open(), {signal});
   volume.addEventListener('input', () => save({sound:true,soundVolume:volume.valueAsNumber}), {signal});
-  return () => { events.abort(); preview.destroy(); songPreview.destroy(); dialog.close(); dialog.remove(); };
+  return {
+    openTiming() { guided = true; openSettings(); songPreview.open(); },
+    destroy() { events.abort(); preview.destroy(); songPreview.destroy(); dialog.close(); dialog.remove(); },
+  };
 }
