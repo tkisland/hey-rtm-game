@@ -94,12 +94,12 @@
 .game-page .game .stage,.game-page .game #game-canvas { border-radius:0; }
 .game-page .surface-field::before { border-top:0; border-radius:0 0 20px 20px; }
 
-@media (orientation:portrait) and (max-height:760px) {
-  .game-page .media-panel .field-hud { position:absolute; top:0; left:0; width:calc((100% - 216px) / 2); height:200px; min-height:0; padding:0; flex-direction:column; justify-content:center; gap:10px; }
-  .game-page .field-hud .stage-song-title { max-width:100%; font-size:8px; overflow-wrap:anywhere; }
-  .game-page .field-hud .scoreboard,.game-page .field-hud .scoreboard > div { flex-direction:column; align-items:center; gap:3px; }
-  .game-page .field-hud .scoreboard { gap:12px; }
-  .game-page .field-hud #score,.game-page .field-hud #combo { font-size:10px; }
+@media (orientation:portrait) {
+  .short-concert .game-page .media-panel .field-hud { position:absolute; top:0; left:0; width:calc((100% - 216px) / 2); height:200px; min-height:0; padding:0; flex-direction:column; justify-content:center; gap:10px; }
+  .short-concert .game-page .field-hud .stage-song-title { max-width:100%; font-size:8px; overflow-wrap:anywhere; }
+  .short-concert .game-page .field-hud .scoreboard,.short-concert .game-page .field-hud .scoreboard > div { flex-direction:column; align-items:center; gap:3px; }
+  .short-concert .game-page .field-hud .scoreboard { gap:12px; }
+  .short-concert .game-page .field-hud #score,.short-concert .game-page .field-hud #combo { font-size:10px; }
 }
 
 @media (max-width:760px), (hover:none) and (pointer:coarse) {

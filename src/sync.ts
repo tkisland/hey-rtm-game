@@ -4,6 +4,7 @@ export function stateName(state: number): string {
 }
 export const CLOCK_LIMITS = {
   prediction: 0.5,       // Never run indefinitely from wall time if API updates stop.
+  maxPrediction: 1,     // Extend only after observing sparse updates progressing at the requested rate.
   correctionRate: 0.2,   // Correct small timing errors smoothly at 0.8x–1.2x speed.
   maxLead: 0.05,        // At a fresh timestamp, do not keep outrunning a slow video clock.
   progressWindow: 0.8, // Observe multiple updates before adapting to a genuinely slower clock.
@@ -16,6 +17,7 @@ export interface ClockSample {
   rawTime: number;
   playing: boolean;
   seek: boolean;
+  resync: boolean;
   backwards: boolean;
   stale: boolean;
   predictionRate: number;
@@ -30,12 +32,20 @@ export class VideoClock {
   private progress: { time: number; wall: number } | null = null;
   private predictionRate = 1;
 
-  reset(): void { this.previous = null; this.stale = false; this.progress = null; }
+  private updateIntervals: number[] = [];
+  private horizon: number = CLOCK_LIMITS.prediction;
+
+  reset(): void { this.previous = null; this.stale = false; this.progress = null; this.updateIntervals = []; this.horizon = CLOCK_LIMITS.prediction; }
 
   sample(rawTime: number, state: number, wallMs: number, playbackRate = 1): ClockSample {
     const previous = this.previous;
     const valid = Number.isFinite(rawTime);
-    const raw = valid ? Math.max(0, rawTime) : previous?.rawTime ?? 0;
+    const observedRaw = valid ? Math.max(0, rawTime) : previous?.rawTime ?? 0;
+    // Some iframe updates briefly replay an older timestamp. While playing,
+    // ignore a small reversal rather than resetting an entire score session.
+    const backwardJitter = previous && previous.state === PLAYER_STATE.PLAYING && state === PLAYER_STATE.PLAYING &&
+      observedRaw < previous.rawTime && previous.rawTime - observedRaw <= CLOCK_LIMITS.seek;
+    const raw = backwardJitter ? previous.rawTime : observedRaw;
     const rate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1;
     const rateChanged = previous !== null && rate !== previous.rate;
     const playingState = valid && state === PLAYER_STATE.PLAYING;
@@ -44,6 +54,7 @@ export class VideoClock {
     const elapsed = previous ? Math.max(0, (wallMs - previous.wall) / 1000) : 0;
     let seek = false;
     let backwards = false;
+    let resync = false;
     if (valid && previous) {
       const delta = raw - previous.rawTime;
       const wasPlaying = previous.state === PLAYER_STATE.PLAYING;
@@ -51,14 +62,26 @@ export class VideoClock {
       // not the last animation frame. A normal 250ms update must not look like a seek.
       const expected = wasPlaying ? this.anchor.time + Math.max(0, (wallMs - this.anchor.wall) / 1000) * this.predictionRate : previous.rawTime;
       const tolerance = wasPlaying || stateChanged ? CLOCK_LIMITS.seek : CLOCK_LIMITS.backwards;
-      const discontinuity = fresh && Math.abs(raw - expected) > tolerance;
+      const reportedExpected = wasPlaying ? this.anchor.time + Math.max(0,(wallMs-this.anchor.wall)/1000)*previous.rate : previous.rawTime;
+      const discontinuity = fresh && Math.min(Math.abs(raw-expected),Math.abs(raw-reportedExpected)) > tolerance;
       const suspended = wasPlaying && elapsed > CLOCK_LIMITS.suspendedFrame && Math.abs(delta) > 0.16;
       const recovered = wasPlaying && playingState && this.stale && fresh;
-      seek = delta < -CLOCK_LIMITS.backwards || discontinuity || suspended || recovered;
+      seek = delta < -(wasPlaying || stateChanged ? CLOCK_LIMITS.seek : CLOCK_LIMITS.backwards) || discontinuity;
+      resync = !seek && (suspended || recovered);
       backwards = seek && delta < 0;
     }
 
-    if (!playingState || stateChanged || rateChanged || seek) {
+    if (stateChanged || rateChanged || seek) {
+      this.updateIntervals = []; this.horizon = CLOCK_LIMITS.prediction;
+    } else if (playingState && fresh) {
+      const gap = (wallMs-this.anchor.wall)/1000;
+      const observedRate = gap > 0 ? (raw-this.anchor.time)/gap : 0;
+      if (gap > 0 && gap <= CLOCK_LIMITS.maxPrediction && Math.abs(observedRate-rate) <= rate*CLOCK_LIMITS.correctionRate) {
+        this.updateIntervals.push(gap); if(this.updateIntervals.length>4)this.updateIntervals.shift();
+        this.horizon = Math.max(CLOCK_LIMITS.prediction,Math.min(CLOCK_LIMITS.maxPrediction,Math.max(...this.updateIntervals)*1.25));
+      }
+    }
+    if (!playingState || stateChanged || rateChanged || seek || resync) {
       // Pause/buffering and resuming/seek use the authoritative timestamp immediately.
       if (valid) { this.anchor = { time: raw, wall: wallMs }; this.time = raw; }
       this.stale = !valid;
@@ -78,7 +101,7 @@ export class VideoClock {
       }
       if (fresh) this.anchor = { time: raw, wall: wallMs };
       const age = Math.max(0, (wallMs - this.anchor.wall) / 1000);
-      const target = this.anchor.time + Math.min(age, CLOCK_LIMITS.prediction) * this.predictionRate;
+      const target = this.anchor.time + Math.min(age, this.horizon) * this.predictionRate;
       const advance = elapsed * this.predictionRate;
       const predicted = this.time + advance;
       const correction = Math.max(-advance * CLOCK_LIMITS.correctionRate,
@@ -89,10 +112,10 @@ export class VideoClock {
       // timestamp. Late arrivals may briefly hold the output; jitter never reverses it.
       const bounded = Math.min(predicted + correction, target + CLOCK_LIMITS.maxLead * this.predictionRate);
       this.time = Math.max(this.time,
-        Math.min(this.anchor.time + CLOCK_LIMITS.prediction * this.predictionRate, bounded));
-      this.stale = age > CLOCK_LIMITS.prediction;
+        Math.min(this.anchor.time + this.horizon * this.predictionRate, bounded));
+      this.stale = age > this.horizon;
     }
     this.previous = { rawTime: raw, wall: wallMs, state, rate };
-    return { time: this.time, rawTime: raw, playing: playingState && !this.stale, seek, backwards, stale: this.stale, predictionRate:this.predictionRate };
+    return { time: this.time, rawTime: observedRaw, playing: playingState && !this.stale, seek, resync, backwards, stale: this.stale, predictionRate:this.predictionRate };
   }
 }

@@ -4,6 +4,39 @@ import { GameEngine } from '../src/engine';
 import { generateChart } from '../src/chart';
 
 describe('video-anchored interpolation', () => {
+  it('preserves score and judges elapsed notes after a long rendering frame during continuous playback', () => {
+    const clock=new VideoClock(), chart=generateChart();
+    chart.notes=[{id:1,time:12,lane:0,type:'tap'},{id:2,time:12.8,lane:1,type:'tap'}];
+    const game=new GameEngine(chart);
+    clock.sample(12,S.PLAYING,0);game.input(0,12);
+    clock.sample(12.1,S.PLAYING,100);
+    const sample=clock.sample(13.1,S.PLAYING,1100);
+    expect(sample.seek).toBe(false);
+    game.advance(sample.time);
+    expect(game.score).toBe(1000);expect(game.counts).toEqual({PERFECT:1,GREAT:0,GOOD:0,MISS:1});expect(game.skipped).toBe(0);
+  });
+  it('does not reset scores for a transient backwards API timestamp while playing', () => {
+    const clock=new VideoClock();clock.sample(12,S.PLAYING,0);clock.sample(12.25,S.PLAYING,250);
+    const jitter=clock.sample(12.15,S.PLAYING,266);
+    expect(jitter.seek).toBe(false);expect(jitter.time).toBeGreaterThanOrEqual(12.25);
+    expect(clock.sample(12.28,S.PLAYING,280).seek).toBe(false);
+  });
+  it.each([S.PAUSED,S.BUFFERING])('retains the session when entering state %s with a slightly older timestamp', state=>{
+    const clock=new VideoClock();clock.sample(12,S.PLAYING,0);clock.sample(12.25,S.PLAYING,250);
+    expect(clock.sample(12.15,state,266).seek).toBe(false);
+    expect(clock.sample(12.15,state,500).seek).toBe(false);
+    expect(clock.sample(12.15,S.PLAYING,600).seek).toBe(false);
+  });
+  it.each([.6,.75,1])('learns normal %ss timestamp updates without recurring freezes or skipped notes', interval=>{
+    const clock=new VideoClock();let previous=0;
+    for(let frame=0;frame<600;frame++){
+      const wall=frame/60,raw=Math.floor((wall+1e-8)/interval)*interval;
+      const sample=clock.sample(raw,S.PLAYING,wall*1000);
+      expect(sample.seek).toBe(false);
+      if(wall>interval*2){expect(sample.playing).toBe(true);expect(sample.time).toBeGreaterThan(previous);expect(Math.abs(sample.time-wall)).toBeLessThan(.06);}
+      previous=sample.time;
+    }
+  });
   it.each([0.7,0.5,0.1])('does not retain a large lead when reported playing time advances at %sx', actualRate => {
     const clock = new VideoClock(); let previous = 12, maximumLead = 0;
     for(let frame=0;frame<60*30;frame++) {
@@ -101,7 +134,7 @@ describe('video-anchored interpolation', () => {
       expect(sample.time).toBeLessThanOrEqual(12 + CLOCK_LIMITS.prediction);
       if (wall > 500) expect(sample).toMatchObject({ playing: false, stale: true });
     }
-    expect(clock.sample(15, S.PLAYING, 3016)).toMatchObject({ time: 15, seek: true, backwards: false, playing: true, stale: false });
+    expect(clock.sample(15, S.PLAYING, 3016)).toMatchObject({ time: 15, seek: false, resync: true, backwards: false, playing: true, stale: false });
   });
   it('detects real seeks and suspended tabs without treating sparse normal updates as seeks', () => {
     const clock = new VideoClock();
@@ -109,7 +142,7 @@ describe('video-anchored interpolation', () => {
     expect(clock.sample(12.25, S.PLAYING, 250).seek).toBe(false);
     expect(clock.sample(30, S.PLAYING, 266)).toMatchObject({ time: 30, seek: true, backwards: false });
     expect(clock.sample(10, S.PLAYING, 282)).toMatchObject({ time: 10, seek: true, backwards: true });
-    expect(clock.sample(20, S.PLAYING, 10282)).toMatchObject({ time: 20, seek: true });
+    expect(clock.sample(20, S.PLAYING, 10282)).toMatchObject({ time: 20, seek: false, resync: true });
   });
   it('keeps the last output and disables progression on an invalid timestamp', () => {
     const clock = new VideoClock();

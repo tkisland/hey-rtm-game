@@ -9,6 +9,11 @@ export interface SyncObservation {
   playing: boolean;
   stale: boolean;
   seek: boolean;
+  resync?: boolean;
+  score?: number;
+  judgedNotes?: number;
+  skippedNotes?: number;
+  totalNotes?: number;
   inputOffsetMs: number;
   chartOffsetMs: number;
   noteOffsetMs?: number;
@@ -46,7 +51,7 @@ export class SyncTrace {
     if (valid && (!previous || sample.apiTime !== previous.apiTime)) this.lastUpdateAt = sample.atMs;
     const changed = !previous || sample.playerState !== previous.playerState || sample.stale !== previous.stale;
     const backwards = previous && sample.apiTime < previous.apiTime - .06;
-    if (!valid || !sample.playing || sample.stale || sample.seek || changed || backwards) {
+    if (!valid || !sample.playing || sample.stale || sample.seek || sample.resync || changed || backwards) {
       this.rateAnchor = null; this.observedRate = null;
     }
     if (valid && sample.playing && !sample.stale) {
@@ -59,7 +64,7 @@ export class SyncTrace {
     }
     this.maxFrameGap = Math.max(this.maxFrameGap, sample.frameGapMs);
     this.previous = sample;
-    if (!changed && !sample.seek && sample.atMs - this.lastStoredAt < 250) return null;
+    if (!changed && !sample.seek && !sample.resync && sample.atMs - this.lastStoredAt < 250) return null;
     const row: SyncTraceRow = { ...sample, elapsedMs:sample.atMs - this.startedAt,
       clockLeadMs:(sample.clockTime - sample.apiTime) * 1000,
       noteLeadMs:(sample.judgementTime - sample.apiTime) * 1000,

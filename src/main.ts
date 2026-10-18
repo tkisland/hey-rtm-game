@@ -113,7 +113,7 @@ let player: YouTubePlayer | null = null;
 let state = -2;
 let failed = false;
 let videoTime = 0;
-let apiVideoTime = 0, videoRate = 1, predictionRate = 1, diagnosticsSeek = false;
+let apiVideoTime = 0, videoRate = 1, predictionRate = 1, diagnosticsSeek = false, diagnosticsResync = false;
 let smoothedVideoTime = 0;
 let clockStale = false;
 let restartTarget: number | null = null;
@@ -135,9 +135,10 @@ canvas.addEventListener('pointerdown', event => {
 }, { signal });
 
 function updateScore(): void {
-  score.textContent = engine.score.toLocaleString('ja-JP');
-  combo.textContent = String(engine.combo);
-  maxCombo.textContent = `MAX ${engine.maxCombo}`;
+  const nextScore = engine.score.toLocaleString('ja-JP'), nextCombo = String(engine.combo), nextMax = `MAX ${engine.maxCombo}`;
+  if (score.textContent !== nextScore) score.textContent = nextScore;
+  if (combo.textContent !== nextCombo) combo.textContent = nextCombo;
+  if (maxCombo.textContent !== nextMax) maxCombo.textContent = nextMax;
 }
 function syncHoldSound(playing: boolean, now: number): void {
   const lanes = new Set<number>();
@@ -146,6 +147,8 @@ function syncHoldSound(playing: boolean, now: number): void {
   }
   sound.syncHolds(lanes, now);
 }
+const reducedFeedbackMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const feedbackAnimations: (Animation | undefined)[] = Array(6);
 function showHit(hit: Hit, now: number): void {
   if (hit.phase === 'sweep') { if (hit.judgement !== 'MISS') renderer.flash(hit.lane, now, hit.judgement); return; }
   const feedbackLane = hit.boxComplete ? 2 : hit.lane, feedback = judgements[feedbackLane];
@@ -154,14 +157,20 @@ function showHit(hit: Hit, now: number): void {
   feedback.dataset.kind = hit.judgement;
   feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱オシ成功！' : hit.phase === 'move' ? 'オシ変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
   feedback.querySelector('.judgement-error')!.textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
-  feedback.classList.remove('pop');
-  void feedback.offsetWidth;
-  feedback.classList.add('pop');
+  feedbackAnimations[feedbackLane]?.cancel();
+  if (!reducedFeedbackMotion.matches) feedbackAnimations[feedbackLane] = feedback.animate([{scale:'1.08',opacity:.8},{scale:'1',opacity:1}],{duration:180,easing:'ease-out'});
   if (hit.judgement !== 'MISS') {
     renderer.flash(hit.lane, now, hit.judgement);
     if (hit.boxComplete && hit.boxId !== undefined) { sound.playBoxSweep(); renderer.completeBox(now, hit.boxId); }
   }
   updateScore();
+}
+// A stalled frame can settle many notes at once; display only the latest
+// feedback per lane instead of updating/restarting the same DOM animation repeatedly.
+function showHits(hits: Hit[], now: number): void {
+  const latest = new Map<number,Hit>();
+  for (const hit of hits) latest.set(hit.boxComplete ? 2 : hit.lane,hit);
+  for (const hit of latest.values()) showHit(hit,now);
 }
 function clearResults(): void {
   resultShown = false;
@@ -171,6 +180,7 @@ function clearResults(): void {
   lastInputError = null;
   judgementTimes.fill(-Infinity);
   judgements.forEach(feedback => { feedback.hidden = true; delete feedback.dataset.kind; });
+  feedbackAnimations.forEach(animation => animation?.cancel());
   renderer.clearEffects();
   updateScore();
 }
@@ -193,7 +203,7 @@ function showResults(): void {
     label.textContent = name; value.textContent = String(count);
     item.append(label, value); counts.append(item);
   }
-  element('result-accuracy').textContent = `得点率 ${engine.accuracy.toFixed(1)}%（判定済みノーツのみ） · シークでスキップ ${engine.skipped} / 全 ${engine.notes.length} ノーツ`;
+  element('result-accuracy').textContent = `得点率 ${engine.accuracy.toFixed(1)}%（判定済みノーツのみ） · 判定済み ${Object.values(engine.counts).reduce((sum,n)=>sum+n,0)} · シークでスキップ ${engine.skipped} / 全 ${engine.notes.length} ノーツ`;
 }
 function readTime(now: number): { time: number; playing: boolean } {
   if (!player || failed) return { time: smoothedVideoTime - (settings.offset + settings.noteOffset) / 1000, playing: false };
@@ -205,6 +215,7 @@ function readTime(now: number): { time: number; playing: boolean } {
     const sample = clock.sample(apiVideoTime, state, now, videoRate);
     predictionRate = sample.predictionRate;
     if (diagnostics && sample.seek) diagnosticsSeek = true;
+    if (diagnostics && sample.resync) diagnosticsResync = true;
     videoTime = sample.rawTime;
     smoothedVideoTime = sample.time;
     const wasStale = clockStale;
@@ -227,7 +238,10 @@ function readTime(now: number): { time: number; playing: boolean } {
       sound.cancelPending();
       engine.seek(compensateInput(gameTime, settings.inputOffset), sample.backwards);
       clearResults();
-      notice.textContent = sample.backwards ? '後方シーク：スコアをリセットしました。' : '前方シーク・時刻の再同期：飛ばしたノーツはMISSに数えません。';
+      notice.textContent = sample.backwards ? '後方シーク：スコアをリセットしました。' : '前方シーク：飛ばしたノーツはMISSに数えません。';
+    }
+    if (sample.resync && !engine.finished && state !== PLAYER_STATE.ENDED) {
+      notice.textContent = '動画時刻を再同期しました。得点・判定数は保持しています。';
     }
     return { time: gameTime, playing: sample.playing && !(calibration.active || songTiming.active) };
   } catch {
@@ -299,7 +313,7 @@ function hit(lane: number, gesture?: InputGesture): void {
   if (!gesture?.sweepOnly) sound.play(lane);
   if (!sample.playing) return;
   const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
-  updates.forEach(update => showHit(update, now));
+  showHits(updates,now);
   const hit = engine.input(lane, compensateInput(sample.time, settings.inputOffset), gesture);
   if (hit) { lastInputError = hit.errorMs; showHit(hit, now); }
   syncHoldSound(true, now);
@@ -311,7 +325,7 @@ const unbindInput = bindInput(buttons, hit, lanes => {
   const released = [...previous].filter(lane => !lanes.has(lane));
   const now = performance.now(), sample = readTime(now);
   if (!sample.playing) { syncHoldSound(false, now); return; }
-  engine.advance(compensateInput(sample.time, settings.inputOffset), lanes).forEach(result => showHit(result, now));
+  showHits(engine.advance(compensateInput(sample.time, settings.inputOffset), lanes),now);
   released.forEach(lane => engine.release(lane, compensateInput(sample.time, settings.inputOffset)).forEach(result => showHit(result, now)));
   syncHoldSound(true, now);
   showResults();
@@ -453,11 +467,11 @@ function frame(now: number): void {
   sound.setPlaybackActive(sample.playing);
   if (sample.playing) {
     const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
-    updates.forEach(update => showHit(update, now));
+    showHits(updates,now);
   } else if (state === PLAYER_STATE.ENDED && !engine.finished) {
     const end = Math.max(sample.time,...engine.notes.map(note => note.type === 'hold' ? note.endTime : note.time));
     // Close any remaining judgement windows when playback has actually ended.
-    engine.advance(end + 1,renderer.pressed).forEach(update => showHit(update,now));
+    showHits(engine.advance(end + 1,renderer.pressed),now);
   }
   showResults();
   syncHoldSound(sample.playing, now);
@@ -492,9 +506,10 @@ function frame(now: number): void {
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }
   diagnostics?.record({ atMs:performance.now(), apiTime:apiVideoTime, clockTime:smoothedVideoTime,
     judgementTime:compensateInput(sample.time,settings.inputOffset), playerState:state, reportedRate:videoRate, predictionRate,
-    playing:sample.playing, stale:clockStale, seek:diagnosticsSeek, inputOffsetMs:settings.inputOffset,
+    playing:sample.playing, stale:clockStale, seek:diagnosticsSeek, resync:diagnosticsResync,
+    score:engine.score, judgedNotes:Object.values(engine.counts).reduce((sum,n)=>sum+n,0), skippedNotes:engine.skipped, totalNotes:engine.notes.length, inputOffsetMs:settings.inputOffset,
     chartOffsetMs:settings.offset, noteOffsetMs:settings.noteOffset, inputErrorMs:lastInputError, frameGapMs:Math.max(0,now-previousFrame), fps });
-  diagnosticsSeek = false;
+  diagnosticsSeek = false; diagnosticsResync = false;
   if (__ADMIN__ && settings.debug && now - debugUpdated >= 100) {
     debugUpdated = now;
     element('debug-time').textContent = `${videoTime.toFixed(3)} s`;
@@ -518,6 +533,7 @@ function dispose(): void {
   if (disposed) return;
   disposed = true;
   cancelAnimationFrame(frameId);
+  feedbackAnimations.forEach(animation => animation?.cancel());
   listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); songTiming.destroy(); diagnostics?.destroy(); unbindTargets(); unbindVenue(); unbindLayout();
 }
 let stopAccess = () => {};
