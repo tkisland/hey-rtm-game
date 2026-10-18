@@ -14,8 +14,13 @@ export function drawVenue(ctx:CanvasRenderingContext2D,field:FieldGeometry):void
     const canvas = document.createElement('canvas'); canvas.width = Math.round(field.width*dpr);canvas.height = Math.round(field.height*dpr);
     const art = canvas.getContext('2d')!; art.scale(dpr,dpr);
     art.fillStyle='#080817';art.fillRect(0,0,field.width,field.height);
-    // The illustration's stage deck is at source y=225 of 1536; align it with p=0.
-    if (ready) art.drawImage(artwork,0,0,field.width,field.origin*1536/225);
+    // The monitor replaces the upper rigging in the main game. Crop that part
+    // rather than squashing the performers into the shallow stage below it.
+    // The stage deck remains at source y=225, aligned with the lanes' p=0.
+    if (ready) {
+      const top = field.stageSourceTop, sourceHeight = artwork.naturalHeight - top;
+      art.drawImage(artwork,0,top,artwork.naturalWidth,sourceHeight,0,0,field.width,field.origin*sourceHeight/(225-top));
+    }
     const padTop = field.pads[0].y - field.padHeight / 2 - 8;
     const consoleShade = art.createLinearGradient(0,padTop-14,0,padTop+28);
     consoleShade.addColorStop(0,'#08081700'); consoleShade.addColorStop(1,'#080817');

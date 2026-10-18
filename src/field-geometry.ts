@@ -3,11 +3,11 @@ import { WINDOWS } from './engine';
 export type HitZone = 'PERFECT' | 'GREAT' | 'GOOD';
 export interface Target { x: number; y: number; width: number; height: number }
 export interface FieldGeometry {
-  width: number; height: number; origin: number; cell: number; margin: number; centerSpace: number;
+  width: number; height: number; origin: number; cell: number; margin: number; centerSpace: number; stageSourceTop: number;
   near: number; approach: number; padWidth: number; padHeight: number; targets: Target[]; pads: Target[];
 }
 export interface FieldPoint { x: number; y: number; width: number; scale: number }
-export function fieldGeometry(width: number, height: number): FieldGeometry {
+export function fieldGeometry(width: number, height: number, stageHeight?: number): FieldGeometry {
   // Six equal playable lanes; reserve 60% of the original empty center lane.
   // On narrow screens, shrink only the empty lane to keep every button at least 44px.
   const margin = Math.max(0, Math.min(8, (width - 6 * 44) / 2));
@@ -16,7 +16,7 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
   const cell = (available - centerSpace) / 6;
   const padWidth = Math.min(80, Math.max(44, cell * .96));
   const padHeight = Math.min(74, Math.max(60, height * 0.15));
-  const origin = Math.min(148, Math.max(28, (height - 240) * .28));
+  const origin = Math.min(stageHeight ?? 148, Math.max(28, (height - 240) * .28));
   // Lift the row toward resting thumbs; short fields retain their usable runway.
   // This 44–92px clearance is in addition to the canvas's safe-area inset.
   const bottomClearance = 44 + Math.min(48, Math.max(0, (height - 224) * .16));
@@ -26,7 +26,7 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
   const lateBottom = padY - padHeight / 2 - 16;
   const near = Math.max(origin, (lateBottom + (lateProgress - 1) * origin) / lateProgress);
   const approach = near - origin;
-  const field: FieldGeometry = { width, height, origin, cell, margin, centerSpace, near, approach, padWidth, padHeight, targets: [], pads: [] };
+  const field: FieldGeometry = { width, height, origin, cell, margin, centerSpace, stageSourceTop: stageHeight === undefined ? 0 : 120, near, approach, padWidth, padHeight, targets: [], pads: [] };
   field.targets = Array.from({ length: 6 }, (_, lane) => {
     const point = project(field, lane, 1);
     return { x: point.x, y: point.y, width: padWidth, height: 20 };
@@ -49,10 +49,15 @@ export function timingBands(field: FieldGeometry, lane: number, travel: number) 
     top: project(field, lane, 1 - WINDOWS[kind] / travel), bottom: project(field, lane, 1 + WINDOWS[kind] / travel),
   }));
 }
+/** The main concert uses a shallow stage below its monitor; previews keep their original stage. */
+export function canvasGeometry(canvas: HTMLCanvasElement): FieldGeometry {
+  const rect = canvas.getBoundingClientRect(), stageHeight = Number(canvas.dataset.stageHeight);
+  return fieldGeometry(rect.width, rect.height, stageHeight > 0 && Number.isFinite(stageHeight) ? stageHeight : undefined);
+}
 /** Bind thumb pads below the receptors; expose the receptor position for visible feedback. */
 export function bindTargets(canvas: HTMLCanvasElement, elements: HTMLElement[]): () => void {
   const update = () => {
-    const rect = canvas.getBoundingClientRect(), field = fieldGeometry(rect.width, rect.height);
+    const field = canvasGeometry(canvas);
     // End the visible concert frame just below the console; browser clearance stays outside it.
     canvas.parentElement!.style.setProperty('--frame-bottom', `${field.pads[0].y + field.padHeight / 2 + 14}px`);
     elements.forEach((element, lane) => {
