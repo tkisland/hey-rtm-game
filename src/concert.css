@@ -47,12 +47,13 @@
 
 /* One concert: the official player is a monitor directly above the shallow stage. */
 .game-page #app { max-width:800px; }
-.game-page .live-layout { grid-template-columns:minmax(0,1fr); gap:0; }
+.game-page .live-layout { position:relative; isolation:isolate; grid-template-columns:minmax(0,1fr); gap:0; }
+.concert-backdrop { position:fixed; z-index:0; display:block; pointer-events:none; border-radius:0 0 20px 20px; }
 .game-page .media-panel {
   grid-column:1; grid-row:1; display:grid;
   grid-template-columns:minmax(0,1fr) 240px minmax(0,1fr);
   gap:0 8px; padding:0 8px 4px; border:0; border-radius:16px 16px 0 0;
-  background:linear-gradient(#09071840,#09071870),url('./assets/concert-venue.webp') center top / 100% auto,#0b0917;
+  background:none;
 }
 .game-page .media-panel .field-hud {
   position:static; grid-column:1 / -1; min-height:26px; padding:3px 0;
@@ -66,15 +67,16 @@
 .game-page .field-hud .metric-label { font-size:7px; }
 .game-page .media-panel .video-section {
   position:relative; grid-column:2; grid-row:2; width:240px; height:200px;
-  box-shadow:0 0 0 3px #48315d,0 0 0 5px #bc8de577,0 0 20px #d760ff30;
+  box-shadow:0 0 0 2px #180e2a,0 0 0 5px #ad7ada,0 0 0 9px #251632,0 0 0 10px #c59ee8aa,0 0 24px #d760ff55;
 }
 .game-page .media-panel .video-section::before,
 .game-page .media-panel .video-section::after {
-  content:''; position:absolute; top:0; bottom:0; width:5px; pointer-events:none;
-  background:repeating-linear-gradient(to bottom,#fff0 0 18px,#ffe3ff 19px 21px,#df87ff 22px 25px,#fff0 26px 38px);
+  content:''; position:absolute; top:-10px; bottom:-10px; width:9px; pointer-events:none;
+  background:repeating-linear-gradient(45deg,transparent 0 9px,#dcacf6 10px 11px,transparent 12px 20px),repeating-linear-gradient(-45deg,#251632 0 9px,#ba89d6 10px 11px,#251632 12px 20px);
+  border:1px solid #d9a7f4; box-shadow:0 0 10px #c674ff70;
 }
-.game-page .media-panel .video-section::before { left:-7px; }
-.game-page .media-panel .video-section::after { right:-7px; }
+.game-page .media-panel .video-section::before { left:-10px; }
+.game-page .media-panel .video-section::after { right:-10px; }
 .game-page .media-panel .video-frame { width:100%; height:200px; min-height:200px; aspect-ratio:auto; border-radius:0; outline:0; }
 .game-page .session-summary { grid-column:3; grid-row:2; display:flex; flex-direction:column; justify-content:center; gap:0; min-width:0; }
 .game-page .session-summary .song-heading { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
@@ -83,7 +85,12 @@
 .game-page .replay-button { height:44px; }
 .game-page .playback-details { margin-top:4px; }
 .game-page .playback-details summary { min-height:36px; }
-.game-page .game { grid-column:1; grid-row:2; border-radius:0; }
+.game-page .media-controls button,.game-page .playback-details summary { background-color:#130c25e6; border:1px solid #d7a2ee66; border-radius:8px; }
+.game-page .game .penlight-pad { border:1px solid color-mix(in srgb,var(--lane) 25%,transparent); background:linear-gradient(transparent,color-mix(in srgb,var(--lane) 9%,#100b1b)); box-shadow:0 0 12px color-mix(in srgb,var(--lane) 12%,transparent); }
+.game-page .game .penlight-art { top:8px; width:28px; height:calc(100% - 24px); max-height:84px; }
+.game-page .game .penlight-art::before { left:2px; width:24px; border-radius:10px 10px 5px 5px; }
+.game-page .game .penlight-art::after { left:8px; width:12px; }
+.game-page .game { position:relative; z-index:1; grid-column:1; grid-row:2; border-radius:0; }
 .game-page .game .stage,.game-page .game #game-canvas { border-radius:0; }
 .game-page .surface-field::before { border-top:0; border-radius:0 0 20px 20px; }
 
@@ -104,6 +111,7 @@
   .game-page .field-hud .scoreboard > div { gap:3px; }
   .game-page .stage-song-title { font-size:9px; }
 }
+@media (hover:none) and (pointer:coarse) { .game-page .game .penlight-key { display:none; } }
 /* A 200px-tall monitor above the runway cannot fit a short landscape viewport. */
 @media (orientation:landscape) and (max-height:500px) {
   .game-page #app { max-width:none; }

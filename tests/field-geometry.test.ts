@@ -66,8 +66,8 @@ describe('perspective timing windows and horizontal targets', () => {
       expect(concert.pads).toEqual(preview.pads);
       expect(concert.origin).toBeLessThanOrEqual(40);
       expect(concert.approach).toBeGreaterThanOrEqual(preview.approach);
-      expect(concert.stageSourceTop).toBe(120);
-      expect(preview.stageSourceTop).toBe(0);
+      expect(concert.sharedVenue).toBe(true);
+      expect(preview.sharedVenue).toBe(false);
       for (let lane=0;lane<6;lane++) {
         expect(project(concert,lane,1).y).toBe(concert.targets[lane].y);
         expect(timingBands(concert,lane,2.5)[0].bottom.y).toBeLessThan(concert.pads[lane].y-concert.padHeight/2);

@@ -5,6 +5,7 @@ import './penlight.css';
 import './concert.css';
 import { LANE_COLORS } from './colors';
 import { bindDockLayout } from './layout';
+import { bindConcertVenue } from './concert-venue';
 import { bindTargets } from './field-geometry';
 import { TapSound } from './sound';
 import { createCalibrationDialog } from './calibration-dialog';
@@ -100,6 +101,7 @@ sound.enabled = settings.sound;
 sound.volume = settings.soundVolume;
 sound.delay = settings.soundDelay;
 const unbindLayout = bindDockLayout(document.querySelector('.stage')!, document.querySelector('.controls-dock')!);
+const unbindVenue = bindConcertVenue(element<HTMLCanvasElement>('game-canvas'), document.querySelector('.media-panel')!, document.querySelector('.live-layout')!);
 const result = element('result'), stageHint = element('stage-hint');
 const hintTitle = stageHint.querySelector('strong')!;
 const hintDescription = stageHint.querySelector<HTMLElement>('span:last-child')!;
@@ -516,7 +518,7 @@ function dispose(): void {
   if (disposed) return;
   disposed = true;
   cancelAnimationFrame(frameId);
-  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); songTiming.destroy(); diagnostics?.destroy(); unbindTargets(); unbindLayout();
+  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); songTiming.destroy(); diagnostics?.destroy(); unbindTargets(); unbindVenue(); unbindLayout();
 }
 let stopAccess = () => {};
 if (previewUid) {
