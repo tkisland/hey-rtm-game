@@ -18,9 +18,10 @@ test('compact video keeps its native controls usable while the field starts high
       });
       const hud=document.querySelector('.field-hud')!.getBoundingClientRect();
       const score=document.getElementById('score')!.getBoundingClientRect();
-      const inField=hud.top>=field.top&&hud.bottom<=field.bottom&&score.left>=field.left&&score.right<=field.right;
+      const panel=document.querySelector('.media-panel')!.getBoundingClientRect();
+      const inMonitor=hud.top>=panel.top&&hud.bottom<=panel.bottom&&score.left>=panel.left&&score.right<=panel.right;
       return video.width>=200&&video.height>=200&&center===iframe&&separate&&pads&&
-        inField&&field.top<=(video.bottom<=field.top?260:64)&&field.bottom<=innerHeight+.5&&document.documentElement.scrollWidth<=innerWidth;
+        inMonitor&&field.top<=(video.bottom<=field.top?video.bottom+4.5:64)&&field.bottom<=innerHeight+.5&&document.documentElement.scrollWidth<=innerWidth;
     })).toBe(true);
     await expect(page.locator('.playback-info')).not.toBeVisible();
   }
@@ -38,6 +39,18 @@ test('video status, external link and settings can be opened without pushing the
   expect(await page.locator('#game-canvas').boundingBox()).toEqual(before);
   await page.locator('#settings-close').click();
   expect(await page.locator('#game-canvas').boundingBox()).toEqual(before);
+});
+test('portrait runway is longer and rendered receptors use the same shallow-stage geometry as the touch pads',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await expect.poll(()=>page.locator('#game-canvas').evaluate(async(canvas:HTMLCanvasElement)=>{
+    const {canvasGeometry}=await import('/src/field-geometry.ts');
+    const field=canvasGeometry(canvas),r=canvas.getBoundingClientRect();
+    // The previous 390x844 layout provided about 268 CSS pixels of approach.
+    return field.approach>=299&&field.origin===40&&[...document.querySelectorAll('.game .lane-receptor')].every((node,lane)=>{
+      const receptor=node.getBoundingClientRect();
+      return Math.abs(receptor.top+receptor.height/2-r.top-field.targets[lane].y)<.1;
+    });
+  })).toBe(true);
 });
 test('closing and reopening results preserves playback and the field position',async({page})=>{
   const before=await page.locator('#game-canvas').boundingBox();

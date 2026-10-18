@@ -60,6 +60,20 @@ describe('perspective timing windows and horizontal targets', () => {
       }
     }
   });
+  it('extends the main runway with a cropped shallow stage without moving or shrinking the thumb pads', () => {
+    for (const [width,height] of [[304,232],[374,570],[768,618],[558,344]]) {
+      const preview = fieldGeometry(width,height), concert = fieldGeometry(width,height,40);
+      expect(concert.pads).toEqual(preview.pads);
+      expect(concert.origin).toBeLessThanOrEqual(40);
+      expect(concert.approach).toBeGreaterThanOrEqual(preview.approach);
+      expect(concert.stageSourceTop).toBe(120);
+      expect(preview.stageSourceTop).toBe(0);
+      for (let lane=0;lane<6;lane++) {
+        expect(project(concert,lane,1).y).toBe(concert.targets[lane].y);
+        expect(timingBands(concert,lane,2.5)[0].bottom.y).toBeLessThan(concert.pads[lane].y-concert.padHeight/2);
+      }
+    }
+  });
   it('uses horizontal mirrored targets, fixed independently of speed and input correction', () => {
     const field = fieldGeometry(370, 480);
     for (let lane = 0; lane < 3; lane++) {

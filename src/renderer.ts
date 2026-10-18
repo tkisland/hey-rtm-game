@@ -8,7 +8,7 @@ import { LANE_COLORS } from './colors';
 import { chordCurve, chordGroups, playNoteThickness } from './note-display';
 import type { Chart, ChartNote } from './chart';
 import { beatsBetween } from './tempo';
-import { fieldGeometry, project, timingBands } from './field-geometry';
+import { canvasGeometry, project, timingBands } from './field-geometry';
 import type { FieldGeometry, FieldPoint, HitZone } from './field-geometry';
 
 export class Renderer {
@@ -31,7 +31,7 @@ export class Renderer {
   }
   private resize(): void {
     const rect = this.canvas.getBoundingClientRect();
-    this.field = fieldGeometry(rect.width, rect.height);
+    this.field = canvasGeometry(this.canvas);
     this.frameClip = new Path2D();
     this.frameClip.roundRect(0, 0, rect.width, this.field.pads[0].y + this.field.padHeight / 2 + 14, 20);
     const dpr = Math.min(2, window.devicePixelRatio || 1);

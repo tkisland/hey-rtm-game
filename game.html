@@ -36,7 +36,14 @@
       </header>
       <main class="game-main">
         <div class="live-layout">
-          <aside class="media-panel" aria-label="楽曲と再生操作">
+          <aside class="media-panel" aria-label="ステージ映像モニターと再生操作">
+            <div class="field-hud">
+              <span id="stage-song-title" class="stage-song-title" aria-hidden="true"></span>
+              <div class="scoreboard">
+                <div><span class="metric-label">SCORE</span><strong id="score">0</strong></div>
+                <div class="combo-metric"><span class="metric-label">COMBO</span><strong id="combo">0</strong><span id="max-combo">MAX 0</span></div>
+              </div>
+            </div>
             <section class="video-section" aria-label="YouTube公式ミュージックビデオ">
           <div class="video-frame"><div id="youtube-player"></div></div>
         </section>
@@ -54,14 +61,7 @@
           </aside>
           <section class="game" aria-label="6レーンリズムゲーム">
           <div class="stage"><div class="surface-field">
-            <canvas id="game-canvas" tabindex="0" aria-label="6レーンのノーツ。ボタンより上の横線が判定位置。下の同じ色のボタンで入力。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
-            <div class="field-hud">
-              <span id="stage-song-title" class="stage-song-title" aria-hidden="true"></span>
-              <div class="scoreboard">
-                <div><span class="metric-label">SCORE</span><strong id="score">0</strong></div>
-                <div class="combo-metric"><span class="metric-label">COMBO</span><strong id="combo">0</strong><span id="max-combo">MAX 0</span></div>
-              </div>
-            </div>
+            <canvas id="game-canvas" data-stage-height="40" tabindex="0" aria-label="6レーンのノーツ。ボタンより上の横線が判定位置。下の同じ色のボタンで入力。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
             <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LIVE STAGE</span><strong>動画の▶でライブをはじめよう</strong><span hidden></span></div>
             <section class="controls-dock" aria-label="リズム操作エリア">
               <p id="control-status">MVを再生してスタート</p>

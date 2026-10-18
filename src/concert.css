@@ -44,3 +44,74 @@
   .game-page .field-hud .metric-label { font-size:7px; }
   .game-page .game .stage-hint { top:28%; padding:8px; }
 }
+
+/* One concert: the official player is a monitor directly above the shallow stage. */
+.game-page #app { max-width:800px; }
+.game-page .live-layout { grid-template-columns:minmax(0,1fr); gap:0; }
+.game-page .media-panel {
+  grid-column:1; grid-row:1; display:grid;
+  grid-template-columns:minmax(0,1fr) 240px minmax(0,1fr);
+  gap:0 8px; padding:0 8px 4px; border:0; border-radius:16px 16px 0 0;
+  background:linear-gradient(#09071840,#09071870),url('./assets/concert-venue.webp') center top / 100% auto,#0b0917;
+}
+.game-page .media-panel .field-hud {
+  position:static; grid-column:1 / -1; min-height:26px; padding:3px 0;
+  align-items:center; gap:8px; border-radius:0; background:none;
+}
+.game-page .stage-song-title { max-width:50%; font-size:10px; line-height:1.4; }
+.game-page .field-hud .scoreboard { display:flex; flex-direction:row; align-items:center; height:auto; padding:0; margin:0; border:0; gap:10px; flex-wrap:wrap; }
+.game-page .field-hud .scoreboard > div { display:flex; flex-direction:row; align-items:baseline; min-width:0; gap:4px; }
+.game-page .field-hud #max-combo { display:none; }
+.game-page .field-hud #score,.game-page .field-hud #combo { font-size:15px; }
+.game-page .field-hud .metric-label { font-size:7px; }
+.game-page .media-panel .video-section {
+  position:relative; grid-column:2; grid-row:2; width:240px; height:200px;
+  box-shadow:0 0 0 3px #48315d,0 0 0 5px #bc8de577,0 0 20px #d760ff30;
+}
+.game-page .media-panel .video-section::before,
+.game-page .media-panel .video-section::after {
+  content:''; position:absolute; top:0; bottom:0; width:5px; pointer-events:none;
+  background:repeating-linear-gradient(to bottom,#fff0 0 18px,#ffe3ff 19px 21px,#df87ff 22px 25px,#fff0 26px 38px);
+}
+.game-page .media-panel .video-section::before { left:-7px; }
+.game-page .media-panel .video-section::after { right:-7px; }
+.game-page .media-panel .video-frame { width:100%; height:200px; min-height:200px; aspect-ratio:auto; border-radius:0; outline:0; }
+.game-page .session-summary { grid-column:3; grid-row:2; display:flex; flex-direction:column; justify-content:center; gap:0; min-width:0; }
+.game-page .session-summary .song-heading { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.game-page .media-controls { flex-direction:column; align-items:center; gap:8px; }
+.game-page .play-button { flex:none; width:100%; max-width:84px; min-height:44px; padding:6px 2px; font-size:11px; }
+.game-page .replay-button { height:44px; }
+.game-page .playback-details { margin-top:4px; }
+.game-page .playback-details summary { min-height:36px; }
+.game-page .game { grid-column:1; grid-row:2; border-radius:0; }
+.game-page .game .stage,.game-page .game #game-canvas { border-radius:0; }
+.game-page .surface-field::before { border-top:0; border-radius:0 0 20px 20px; }
+
+@media (orientation:portrait) and (max-height:760px) {
+  .game-page .media-panel .field-hud { position:absolute; top:0; left:0; width:calc((100% - 216px) / 2); height:200px; min-height:0; padding:0; flex-direction:column; justify-content:center; gap:10px; }
+  .game-page .field-hud .stage-song-title { max-width:100%; font-size:8px; overflow-wrap:anywhere; }
+  .game-page .field-hud .scoreboard,.game-page .field-hud .scoreboard > div { flex-direction:column; align-items:center; gap:3px; }
+  .game-page .field-hud .scoreboard { gap:12px; }
+  .game-page .field-hud #score,.game-page .field-hud #combo { font-size:10px; }
+}
+
+@media (max-width:760px), (hover:none) and (pointer:coarse) {
+  .game-page .media-panel { grid-template-columns:minmax(0,1fr) 200px minmax(0,1fr); padding:0 0 4px; }
+  .game-page .media-panel .video-section { width:200px; }
+  .game-page .game .stage { border-radius:0; }
+  .game-page .field-hud .scoreboard { gap:6px; }
+  .game-page .field-hud #score,.game-page .field-hud #combo { font-size:12px; }
+  .game-page .field-hud .scoreboard > div { gap:3px; }
+  .game-page .stage-song-title { font-size:9px; }
+}
+/* A 200px-tall monitor above the runway cannot fit a short landscape viewport. */
+@media (orientation:landscape) and (max-height:500px) {
+  .game-page #app { max-width:none; }
+  .game-page .live-layout { grid-template-columns:260px minmax(280px,1fr); gap:10px; }
+  .game-page .media-panel { grid-column:1; grid-row:1; grid-template-columns:200px minmax(0,1fr); gap:0 8px; padding:0 4px 4px; }
+  .game-page .media-panel .video-section { grid-column:1; grid-row:2; width:200px; height:200px; }
+  .game-page .session-summary { grid-column:2; grid-row:2; }
+  .game-page .media-panel .field-hud { flex-direction:column; align-items:start; gap:2px; }
+  .game-page .stage-song-title { max-width:100%; }
+  .game-page .game { grid-column:2; grid-row:1; }
+}
