@@ -22,7 +22,7 @@ export function drawVenue(ctx:CanvasRenderingContext2D,field:FieldGeometry):void
     art.fillStyle = consoleShade; art.fillRect(0,padTop-14,field.width,field.height-padTop+14);
     for (let lane = 0; lane < 6; lane++) {
       const color = LANE_COLORS[lane];
-      const edges = [project(field,lane-.49,0),project(field,lane+.49,0),project(field,lane+.49,1),project(field,lane-.49,1)];
+      const edges = [project(field, lane, 0, -.49),project(field, lane, 0, +.49),project(field, lane, 1, +.49),project(field, lane, 1, -.49)];
       const runway = art.createLinearGradient(0,field.origin,0,field.near);
       runway.addColorStop(0,'#141121f5'); runway.addColorStop(.4,'#151122ee'); runway.addColorStop(1,color+'48');
       art.beginPath(); art.moveTo(edges[0].x,edges[0].y);

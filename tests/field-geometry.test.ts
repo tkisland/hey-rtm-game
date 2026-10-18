@@ -23,13 +23,19 @@ describe('perspective timing windows and horizontal targets', () => {
       const field = fieldGeometry(width, height);
       const gap = field.pads[1].x - field.pads[0].x - field.padWidth;
       expect(gap).toBeGreaterThanOrEqual(0);
-      if (width >= 370) expect(gap).toBeGreaterThanOrEqual(15);
+      expect(field.centerSpace).toBeGreaterThan(0);
+      if (width >= 370) expect(field.padWidth).toBeGreaterThan(48);
+      for (const progress of [0, .5, 1]) {
+        expect(project(field, 3, progress, -.49).x).toBeGreaterThan(project(field, 2, progress, .49).x);
+        expect(project(field, 2.5, progress).x).toBeCloseTo(width / 2);
+      }
       for (let lane = 1; lane < 6; lane++) {
         expect(field.pads[lane].width).toBe(field.pads[0].width);
-        expect(field.pads[lane].x - field.pads[lane - 1].x - field.padWidth).toBeCloseTo(gap);
+        expect(field.pads[lane].x - field.pads[lane - 1].x - field.padWidth)
+          .toBeCloseTo(gap + (lane === 3 ? field.centerSpace : 0));
         for (const progress of [0, .5, 1]) {
-          expect(project(field, lane + .49, progress).x - project(field, lane - .49, progress).x)
-            .toBeCloseTo(project(field, .49, progress).x - project(field, -.49, progress).x);
+          expect(project(field, lane, progress, .49).x - project(field, lane, progress, -.49).x)
+            .toBeCloseTo(project(field, 0, progress, .49).x - project(field, 0, progress, -.49).x);
         }
       }
       for (let lane = 0; lane < 6; lane++) {

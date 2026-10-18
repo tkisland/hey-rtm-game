@@ -123,8 +123,8 @@ export class Renderer {
     for (let lane = 0; lane < 6; lane++) {
       const color = LANE_COLORS[lane];
       // The stage floor meets the receiving line. Late judgement bands remain below it.
-      const edges = [project(field, lane - 0.49, 0), project(field, lane + 0.49, 0),
-        project(field, lane + 0.49, 1), project(field, lane - 0.49, 1)];
+      const edges = [project(field, lane, 0, -.49), project(field, lane, 0, +.49),
+        project(field, lane, 1, +.49), project(field, lane, 1, -.49)];
       const age = now - (this.flashes.get(lane)?.time ?? -1000);
       const alpha = this.pressed.has(lane) ? 0.10 : Math.max(0, 1 - age / 220) * 0.20;
       if (alpha > 0) { ctx.globalAlpha = alpha; ctx.fillStyle = color; this.polygon(edges); ctx.globalAlpha = 1; }
