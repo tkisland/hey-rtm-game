@@ -38,3 +38,38 @@ test('opening details and hitting the penlights leaves the monitor and runway fi
   expect(await page.locator('iframe').boundingBox()).toEqual(video);
   expect(await page.locator('#game-canvas').boundingBox()).toEqual(field);
 });
+
+test('one venue spans the monitor and runway while the game canvas leaves the stage transparent',async({page})=>{
+  for(const [width,height] of [[390,844],[320,480],[428,926],[1280,900],[844,390]]) {
+    await page.setViewportSize({width,height});
+    await expect.poll(()=>page.evaluate(()=>{
+      const venue=document.querySelector<HTMLCanvasElement>('.concert-backdrop')!;
+      const canvas=document.querySelector<HTMLCanvasElement>('#game-canvas')!;
+      const v=venue.getBoundingClientRect(),c=canvas.getBoundingClientRect();
+      const panel=document.querySelector('.media-panel')!.getBoundingClientRect();
+      const landscape=panel.right<=c.left;
+      if(!venue.width||!venue.height)return false;
+      const dpr=venue.width/v.width;
+      const painted=venue.getContext('2d')!.getImageData(Math.floor(10*dpr),Math.floor((c.top-v.top+10)*dpr),1,1).data[3]===255;
+      const transparent=canvas.getContext('2d')!.getImageData(Math.floor(canvas.width*.3),Math.floor(canvas.height/c.height*4),1,1).data[3]===0;
+      return Math.abs(v.left-c.left)<.1&&Math.abs(v.width-c.width)<.1&&
+        Math.abs(v.top-(landscape?c.top:panel.top))<.1&&v.bottom>c.top+100&&painted&&transparent&&
+        getComputedStyle(document.querySelector('.media-panel')!).backgroundImage==='none';
+    })).toBe(true);
+  }
+});
+
+test('playing and tapping reuses the venue backdrop without repainting it every frame',async({page})=>{
+  await expect.poll(()=>page.locator('.concert-backdrop').evaluate((canvas:HTMLCanvasElement)=>canvas.width)).toBeGreaterThan(0);
+  await page.evaluate(async()=>{await document.fonts.ready;await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));});
+  await page.locator('.concert-backdrop').evaluate((canvas:HTMLCanvasElement)=>{
+    const ctx=canvas.getContext('2d')!,draw=ctx.drawImage.bind(ctx);
+    (window as any).venueRepaints=0;
+    ctx.drawImage=((...args:Parameters<typeof draw>)=>{(window as any).venueRepaints++;draw(...args);}) as typeof ctx.drawImage;
+  });
+  await seekPlay(page,17);
+  await page.locator('.lane-button').nth(2).click();
+  await page.locator('.lane-button').nth(3).click();
+  await page.evaluate(()=>new Promise<void>(resolve=>{let frames=0;const tick=()=>++frames===12?resolve():requestAnimationFrame(tick);requestAnimationFrame(tick);}));
+  expect(await page.evaluate(()=>(window as any).venueRepaints)).toBe(0);
+});

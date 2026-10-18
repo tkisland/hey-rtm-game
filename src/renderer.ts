@@ -33,7 +33,7 @@ export class Renderer {
     const rect = this.canvas.getBoundingClientRect();
     this.field = canvasGeometry(this.canvas);
     this.frameClip = new Path2D();
-    this.frameClip.roundRect(0, 0, rect.width, this.field.pads[0].y + this.field.padHeight / 2 + 14, 20);
+    this.frameClip.roundRect(0, 0, rect.width, this.field.pads[0].y + this.field.padHeight / 2 + 14, this.field.sharedVenue ? [0,0,20,20] : 20);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     this.canvas.width = Math.round(rect.width * dpr); this.canvas.height = Math.round(rect.height * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

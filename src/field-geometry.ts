@@ -3,7 +3,7 @@ import { WINDOWS } from './engine';
 export type HitZone = 'PERFECT' | 'GREAT' | 'GOOD';
 export interface Target { x: number; y: number; width: number; height: number }
 export interface FieldGeometry {
-  width: number; height: number; origin: number; cell: number; margin: number; centerSpace: number; stageSourceTop: number;
+  width: number; height: number; origin: number; cell: number; margin: number; centerSpace: number; sharedVenue: boolean;
   near: number; approach: number; padWidth: number; padHeight: number; targets: Target[]; pads: Target[];
 }
 export interface FieldPoint { x: number; y: number; width: number; scale: number }
@@ -26,7 +26,7 @@ export function fieldGeometry(width: number, height: number, stageHeight?: numbe
   const lateBottom = padY - padHeight / 2 - 16;
   const near = Math.max(origin, (lateBottom + (lateProgress - 1) * origin) / lateProgress);
   const approach = near - origin;
-  const field: FieldGeometry = { width, height, origin, cell, margin, centerSpace, stageSourceTop: stageHeight === undefined ? 0 : 120, near, approach, padWidth, padHeight, targets: [], pads: [] };
+  const field: FieldGeometry = { width, height, origin, cell, margin, centerSpace, sharedVenue: stageHeight !== undefined, near, approach, padWidth, padHeight, targets: [], pads: [] };
   field.targets = Array.from({ length: 6 }, (_, lane) => {
     const point = project(field, lane, 1);
     return { x: point.x, y: point.y, width: padWidth, height: 20 };
