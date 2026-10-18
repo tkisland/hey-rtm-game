@@ -5,14 +5,12 @@ import {GameEngine,playLane} from '../src/engine';
 import {laneAt} from '../src/chart';
 import {playableNotes} from '../src/note-display';
 import smg from '../src/charts/smg004.json';
-import {bundledChart} from '../src/bundled-charts';
-import {DEFAULT_SONG} from '../src/songs';
 
 const input=readFileSync(new URL('../charts/source/game-SMG004.mid',import.meta.url));
 const config=JSON.parse(readFileSync(new URL('../charts/source/game-SMG004.config.json',import.meta.url),'utf8'));
-it('ships the SMG004 MIDI with its tempo map, confirmed origin and all five note types',()=>{
+it('preserves the archived SMG004 MIDI with its tempo map, confirmed origin and all five note types',()=>{
   const chart=convertMidi(input,config);
-  expect(chart).toEqual(smg); expect(bundledChart(DEFAULT_SONG)).toEqual(chart);
+  expect(chart).toEqual(smg);
   expect(chart.startTime).toBe(7.65); expect(chart.beatOrigin).toBe(7.65);
   expect(chart.tempoChanges).toEqual([{time:18.626632844,bpm:192}]);
   expect(chart.notes).toHaveLength(530);
