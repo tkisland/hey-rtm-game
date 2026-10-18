@@ -1,23 +1,23 @@
 import { test, expect } from '@playwright/test';
 import { api, seekPlay, waitForVideoTime } from './mock-video';
 import { readFileSync } from 'node:fs';
-const smg = JSON.parse(readFileSync(new URL('../../src/charts/smg004.json', import.meta.url), 'utf8'));
+const smg = JSON.parse(readFileSync(new URL('../../src/charts/smg005.json', import.meta.url), 'utf8'));
 
 const draft = { videoId: 'pJDfWpZ7CI4', title: 'my draft', bpm: 120, startTime: 10, beatOrigin: 10, notes: [{ id: 1, time: 10, lane: 0, type: 'tap' }] };
 test.beforeEach(async ({ page }) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
 });
-test('the primary menu entry plays SMG004 at 7.65s, including its first yellow note', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('.song-meta')).toContainText('SMG004 · 166 → 192 BPM · 505 NOTES');
+test('the primary menu entry plays SMG005 at 7.65s, including its first yellow note', async ({ page }) => {
+  await page.goto('/'); await expect(page.locator('.song-meta')).toContainText('SMG005 · 166 → 192 BPM · 510 NOTES');
   await expect(page.locator('.song-play')).toHaveText('収録譜面で遊ぶ'); await page.locator('.song-play').click();
   await expect(page.locator('#restart')).toBeEnabled(); await expect(page.locator('#chart-source')).toHaveValue('bundled');
-  await expect(page.locator('#chart-info')).toContainText('BUNDLED CHART · 166 → 192 BPM · 7.65秒〜 · 505 NOTES');
+  await expect(page.locator('#chart-info')).toContainText('BUNDLED CHART · 166 → 192 BPM · 7.65秒〜 · 510 NOTES');
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBe(0);
   await seekPlay(page, 7.65); await page.keyboard.press('l');
   await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
   expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThan(0);
   await page.locator('#restart').click(); await expect(page.locator('#score')).toHaveText('0');
-  await expect(page.locator('#chart-info')).toContainText('505 NOTES');
+  await expect(page.locator('#chart-info')).toContainText('510 NOTES');
 });
 test('the shipped two-lane hold scores only after both endpoint releases', async ({ page }) => {
   await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
@@ -44,7 +44,7 @@ test('bundled, practice and saved charts coexist without changing existing draft
   await page.reload(); await expect(page.locator('#chart-source')).toHaveValue('test');
   await page.locator('#settings-toggle').click(); await page.locator('#chart-source').selectOption('custom');
   await expect(page.locator('#chart-info')).toContainText('EDITOR CHART · 120 BPM · 10.0秒〜 · 1 NOTES');
-  await page.locator('#chart-source').selectOption('bundled'); await expect(page.locator('#chart-info')).toContainText('505 NOTES');
+  await page.locator('#chart-source').selectOption('bundled'); await expect(page.locator('#chart-info')).toContainText('510 NOTES');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-editor-v1')!))).toEqual(draft);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-custom-chart-v1')!))).toEqual(draft);
 });
@@ -52,13 +52,13 @@ test('the editor loads a bundled copy explicitly, preserves undo and exports the
   await page.addInitScript(data => { if (!localStorage.getItem('hey-rhythm-editor-v1')) localStorage.setItem('hey-rhythm-editor-v1', JSON.stringify(data)); }, draft);
   await page.goto('/editor.html'); await expect(page.locator('#record-toggle')).toBeEnabled();
   await expect(page.locator('#note-count')).toHaveText('1 NOTES');
-  await page.locator('#load-bundled-chart').click(); await expect(page.locator('#note-count')).toHaveText('505 NOTES');
+  await page.locator('#load-bundled-chart').click(); await expect(page.locator('#note-count')).toHaveText('510 NOTES');
   await expect(page.locator('#tempo-info')).toContainText('166 → 192 BPM');
   await page.locator('#undo').click(); await expect(page.locator('#note-count')).toHaveText('1 NOTES');
-  await page.locator('#redo').click(); await expect(page.locator('#note-count')).toHaveText('505 NOTES');
+  await page.locator('#redo').click(); await expect(page.locator('#note-count')).toHaveText('510 NOTES');
   await expect(page.locator('#save-status')).toContainText('保存しました');
   const data = await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-editor-v1')!));
-  expect(data).toEqual(smg); expect(data.notes.filter((n: any) => n.type === 'hold')).toHaveLength(22);
+  expect(data).toEqual(smg); expect(data.notes.filter((n: any) => n.type === 'hold')).toHaveLength(21);
   const downloadEvent = page.waitForEvent('download'); await page.locator('#export-chart').click(); const download = await downloadEvent;
   const stream = await download.createReadStream(); const chunks = []; for await (const chunk of stream!) chunks.push(chunk);
   expect(JSON.parse(Buffer.concat(chunks).toString())).toEqual(smg);

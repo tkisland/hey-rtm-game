@@ -427,7 +427,7 @@ if (__ADMIN__) {
     chartSource.value = source;
     bpm!.disabled = source !== 'test'; startTime!.disabled = source !== 'test';
     element('chart-settings-help').textContent = source === 'test' ? 'BPM・開始時刻は次のリスタートから反映されます。' : source === 'bundled' ? '収録譜面のテンポと時刻を使用します。全体のずれは「ノーツ全体の位置」で調整できます。' : '編集譜面のBPM・時刻は「譜面編集」で変更できます。';
-    notice.textContent = source === 'bundled' ? '収録譜面 SMG003 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長オシです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
+    notice.textContent = source === 'bundled' ? '収録譜面 SMG005 · 動画7.65秒が譜面の先頭です。1.5拍以上のノーツは長オシです。' : source === 'custom' ? '編集譜面を読み込みました。MVを再生して試してください。「譜面編集」から調整して再びゲームで試せます。' : '仮譜面です。実際の楽曲のリズムとは一致しません。';
   }
   reflectChartSource();
   if (!customChart && new URLSearchParams(location.search).get('chart') === 'custom') notice.textContent = '編集譜面を読み込めませんでした。「譜面編集」でノーツを追加し「ゲームで試す」を押してください。仮譜面を表示しています。';
