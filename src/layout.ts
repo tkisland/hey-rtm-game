@@ -15,6 +15,7 @@ export function bindDockLayout(stage: HTMLElement, dock: HTMLElement): () => voi
     frame = requestAnimationFrame(() => {
       const stableHeight = viewportReference.getBoundingClientRect().height;
       root.classList.toggle('compact-viewport', stableHeight <= 680);
+      root.classList.toggle('short-concert', stableHeight <= 760);
       let naturalTop = 0;
       for (let node: HTMLElement | null = host; node; node = node.offsetParent as HTMLElement | null) naturalTop += node.offsetTop;
       const rect = host.getBoundingClientRect();
@@ -31,7 +32,7 @@ export function bindDockLayout(stage: HTMLElement, dock: HTMLElement): () => voi
   }
   window.addEventListener('resize', measure, { signal: controller.signal }); measure();
   return () => {
-    controller.abort(); observer.disconnect(); cancelAnimationFrame(frame); viewportReference.remove(); root.classList.remove('compact-viewport');
+    controller.abort(); observer.disconnect(); cancelAnimationFrame(frame); viewportReference.remove(); root.classList.remove('compact-viewport','short-concert');
     for (const name of ['--playfield-height', '--surface-height', '--surface-top', '--surface-left', '--surface-width']) root.style.removeProperty(name);
   };
 }

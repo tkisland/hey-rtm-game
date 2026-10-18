@@ -106,10 +106,10 @@ describe('video-only clock', () => {
     expect(clock.sample(10, S.PAUSED, 32)).toMatchObject({ seek: true, backwards: true });
     expect(clock.sample(11, S.PAUSED, 48).seek).toBe(true);
   });
-  it('skips elapsed notes after a suspended tab resumes', () => {
+  it('resynchronizes continuous playback after a suspended frame without skipping notes', () => {
     const clock = new VideoClock();
     clock.sample(12, S.PLAYING, 0);
-    expect(clock.sample(30, S.PLAYING, 18000).seek).toBe(true);
+    expect(clock.sample(30, S.PLAYING, 18000)).toMatchObject({seek:false,resync:true,time:30});
   });
 });
 it('validates corrupt settings, limits values and preserves step sizes', () => {

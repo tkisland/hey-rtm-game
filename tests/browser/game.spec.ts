@@ -81,7 +81,7 @@ test('independent simultaneous pointer inputs, settings persistence and high DPI
   await expect(page.locator('#offset')).toHaveValue('200');
   const dimensions = await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => ({ width: canvas.width, rect: canvas.getBoundingClientRect().width, dpr: Math.min(2,devicePixelRatio) }));
   expect(dimensions.width).toBe(Math.round(dimensions.rect * dimensions.dpr));
-  expect(await page.locator('.video-frame').evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(200);
+  expect(await page.locator('.media-panel .video-frame').evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(200);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
@@ -154,7 +154,7 @@ test('mobile dock remains reachable on small screens, resize and scroll', async 
       return rect.top >= 0 && rect.bottom <= innerHeight - 10 && rect.left >= 0 && rect.right <= innerWidth && rect.width >= 44 && rect.height >= 44;
     }))).toBe(true);
     const dock = (await page.locator('.controls-dock').boundingBox())!;
-    const video = (await page.locator('.video-frame').boundingBox())!;
+    const video = (await page.locator('.media-panel .video-frame').boundingBox())!;
     expect(video.y + video.height <= dock.y || video.x + video.width <= dock.x).toBe(true);
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect.poll(async () => page.locator('.lane-button').evaluateAll(buttons => buttons.every(button => {
@@ -241,7 +241,7 @@ test('mobile browser chrome height changes do not resize the runway or switch co
   // Emulate stable small-viewport height while the visible viewport changes as
   // the address bar opens/closes. An actual orientation change is covered above.
   await page.locator('.viewport-size-reference').evaluate((reference: HTMLElement) => { reference.style.height = '600px'; });
-  await expect(page.locator('html')).toHaveClass('compact-viewport');
+  await expect(page.locator('html')).toHaveClass(/\bcompact-viewport\b/);
   const geometry = () => page.locator('#game-canvas').evaluate(canvas => {
     const rect = canvas.getBoundingClientRect();
     return { top: rect.top, height: rect.height, line: rect.bottom - 25 };
@@ -252,7 +252,8 @@ test('mobile browser chrome height changes do not resize the runway or switch co
     await page.setViewportSize({ width: 390, height });
     await page.waitForTimeout(80);
     expect(await geometry()).toEqual(before);
-    await expect(page.locator('html')).toHaveClass('compact-viewport');
+    await expect(page.locator('html')).toHaveClass(/\bshort-concert\b/);
+    await expect(page.locator('html')).toHaveClass(/\bcompact-viewport\b/);
   }
 });
 
@@ -295,7 +296,7 @@ test('loss of video timestamp updates stops prediction and recovery resynchroniz
   expect(await page.locator('#game-canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())).toBe(frozen);
   await page.evaluate(() => {
     const video = (window as any).testVideo;
-    video.seekTo(13); video.liveClock = true;
+    video.seekTo(video.time+(performance.now()-video.anchor)/1000); video.liveClock = true;
   });
   await expect(page.locator('#player-status')).toContainText('プレイ中');
   await expect(page.locator('#game-notice')).toContainText('再同期');
