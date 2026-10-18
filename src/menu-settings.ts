@@ -1,6 +1,6 @@
 import { loadSettings, normalizePlayerSettings, saveSettings } from './settings';
 import type { Settings } from './settings';
-import { DEFAULT_SONG, songUrl } from './songs';
+import { createSongTimingPreview } from './song-timing-preview';
 import { createTimingPreview } from './timing-preview';
 
 /** The same shared player preferences used by the game and tutorial. */
@@ -11,8 +11,8 @@ export function mountMenuSettings(): () => void {
   dialog.setAttribute('aria-labelledby','menu-settings-title');
   dialog.innerHTML = `
     <div class="menu-settings-heading"><h2 id="menu-settings-title">設定</h2><button id="settings-close" class="text-button" type="button">閉じる</button></div>
-    <button id="song-calibrate" class="restart-button" type="button">① 曲にノーツを合わせる</button>
-    <p class="field-help">ノーツが曲より早い・遅い → 実際のMVで位置を調整。まずはこちら。</p>
+    <button id="song-calibrate" class="restart-button" type="button">① 動画とノーツを合わせる</button>
+    <p class="field-help">ノーツが曲より早い・遅い → 専用動画の光・音と番号付きノーツを合わせます。まずはこちら。</p>
     <button id="flow-calibrate" class="restart-button" type="button">② タップ判定を調整</button>
     <p class="field-help">曲とノーツは合うのに判定が早い・遅い → 10ノーツで入力補正を測定。ノーツ位置は変えません。</p>
     <label for="sound-volume">ノーツ音の音量 <output id="sound-volume-value">70%</output></label>
@@ -33,6 +33,7 @@ export function mountMenuSettings(): () => void {
     reflect();
     status.textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。ブラウザの保存設定を確認してください。';
   }
+  const songPreview = createSongTimingPreview({ pause() {}, settings: () => settings, apply: noteOffset => save({noteOffset}) });
   const preview = createTimingPreview({ pause() {}, settings: () => settings, apply: inputOffset => save({inputOffset}) });
   opener.addEventListener('click', () => {
     if (dialog.open) return;
@@ -44,7 +45,7 @@ export function mountMenuSettings(): () => void {
   dialog.querySelector('#settings-close')!.addEventListener('click', () => dialog.close(), {signal});
   dialog.addEventListener('close', () => { opener.setAttribute('aria-expanded','false'); opener.focus(); }, {signal});
   dialog.querySelector('#flow-calibrate')!.addEventListener('click', () => preview.open(), {signal});
-  dialog.querySelector('#song-calibrate')!.addEventListener('click', () => { location.href = songUrl(DEFAULT_SONG,'game') + '&timing=1'; }, {signal});
+  dialog.querySelector('#song-calibrate')!.addEventListener('click', () => songPreview.open(), {signal});
   volume.addEventListener('input', () => save({sound:true,soundVolume:volume.valueAsNumber}), {signal});
-  return () => { events.abort(); preview.destroy(); dialog.close(); dialog.remove(); };
+  return () => { events.abort(); preview.destroy(); songPreview.destroy(); dialog.close(); dialog.remove(); };
 }

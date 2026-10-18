@@ -36,6 +36,7 @@ const ERRORS: Record<number, string> = {
 };
 export function createYouTubePlayer(callbacks: {
   elementId?: string;
+  title?: string;
   keyboardTarget?: HTMLElement;
   ready(player: YouTubePlayer): void;
   state(state: number): void;
@@ -73,7 +74,7 @@ export function createYouTubePlayer(callbacks: {
           clearTimer();
           const iframe = frameContainer?.querySelector<HTMLIFrameElement>('iframe');
           if (iframe) {
-            iframe.title = `${song.artist} ${song.title} 公式MV`;
+            iframe.title = callbacks.title ?? `${song.artist} ${song.title} 公式MV`;
             iframe.referrerPolicy = 'strict-origin-when-cross-origin';
           }
           callbacks.ready(event.target);
@@ -94,7 +95,10 @@ export function createYouTubePlayer(callbacks: {
       },
     });
   };
-  window.onYouTubeIframeAPIReady = init;
+  // Main play and the calibration dialog may wait for the API concurrently.
+  const previousReady = window.onYouTubeIframeAPIReady;
+  const apiReady = () => { previousReady?.(); init(); };
+  window.onYouTubeIframeAPIReady = apiReady;
   if (window.YT?.Player) init();
   else {
     const script = document.createElement('script');
@@ -108,7 +112,7 @@ export function createYouTubePlayer(callbacks: {
     disposed = true;
     cancelAnimationFrame(focusFrame);
     clearTimer();
-    window.onYouTubeIframeAPIReady = undefined;
+    if (window.onYouTubeIframeAPIReady === apiReady) window.onYouTubeIframeAPIReady = previousReady;
     player?.destroy();
   };
 }

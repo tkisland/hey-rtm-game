@@ -389,7 +389,7 @@ soundVolume.addEventListener('input', changeSettings, { signal });
 inputOffset?.addEventListener('input', changeSettings, { signal });
 soundDelay?.addEventListener('input', changeSettings, { signal });
 const songTiming = createSongTimingPreview({
-  song, chart: activeChart, settings: () => settings,
+  settings: () => settings,
   pause() { sound.cancelPending(); player?.pauseVideo(); clock.reset(); },
   apply(noteOffset) { settings = {...settings, noteOffset}; changeSettings(); },
 });
