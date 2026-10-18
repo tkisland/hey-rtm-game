@@ -10,14 +10,24 @@ import { publishedChart } from './cloud-published';
 import type { Chart } from './chart';
 import { mountTutorial } from './tutorial';
 import { playableNotes } from './note-display';
+import {mountOnboarding} from './onboarding';
+import {loadOnboarding,updateOnboarding} from './onboarding-state';
 import { mountMenuSettings } from './menu-settings';
 
 const list = document.getElementById('song-list')!;
 const search = document.getElementById('song-search') as HTMLInputElement;
 const notice = document.getElementById('menu-notice')!;
 const listeners = new AbortController();
-const disposeTutorial = mountTutorial();
-const disposeSettings = mountMenuSettings();
+const menuSettings = mountMenuSettings();
+const disposeTutorial = mountTutorial(__ADMIN__ ? {} : {
+  onComplete() { if(!loadOnboarding().tutorial)updateOnboarding({tutorial:true}); },
+  continueLabel: () => loadOnboarding().timing ? '選曲に戻る' : 'タイミングをチェック',
+  onContinue() { if(!loadOnboarding().timing)menuSettings.openTiming(); },
+});
+const disposeOnboarding = __ADMIN__ ? () => {} : mountOnboarding({
+  tutorial() { document.getElementById('open-tutorial')!.click(); },
+  timing() { menuSettings.openTiming(); },
+});
 const online = new Map<string, Chart>();
 const savedChart = (song: Song) => loadChart(songStorageKey(EDITOR_KEY, song), true, song) ?? loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song);
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = ''): HTMLElementTagNameMap[K] {
@@ -76,4 +86,4 @@ if (!__ADMIN__) void Promise.all(SONGS.map(async song => {
   try { const published = await publishedChart(song); if (published) online.set(song.id, published.chart); }
   catch { /* The game reports a failed chart request without playing stale data. */ }
 })).then(() => { if (!listeners.signal.aborted) render(); });
-if (import.meta.hot) import.meta.hot.dispose(() => { listeners.abort(); disposeTutorial(); disposeSettings(); });
+if (import.meta.hot) import.meta.hot.dispose(() => { listeners.abort(); disposeOnboarding(); disposeTutorial(); menuSettings.destroy(); });

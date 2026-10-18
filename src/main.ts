@@ -8,6 +8,7 @@ import { bindDockLayout } from './layout';
 import { bindTargets } from './field-geometry';
 import { TapSound } from './sound';
 import { createCalibrationDialog } from './calibration-dialog';
+import {updateOnboarding} from './onboarding-state';
 import { createSongTimingPreview } from './song-timing-preview';
 import { compensateInput } from './timing';
 import { generateChart } from './chart';
@@ -372,13 +373,14 @@ function reflectSettings(): void {
   element('sound-volume-value').textContent = `${settings.soundVolume}%`;
   if (__ADMIN__) element('debug-panel').hidden = !settings.debug;
 }
-function changeSettings(): void {
+function changeSettings(): boolean {
   settings = normalizeGameSettings({ ...settings, offset: offset?.valueAsNumber ?? settings.offset, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle?.checked ?? true, soundVolume: soundVolume.valueAsNumber, inputOffset: inputOffset?.valueAsNumber ?? settings.inputOffset, soundDelay: soundDelay?.valueAsNumber ?? settings.soundDelay });
   reflectSettings();
   if (settings.sound && settings.soundVolume > 0 && state === PLAYER_STATE.PLAYING) void sound.unlock();
   const saved = saveSettings(settings, song);
   element('storage-status').textContent = saved ? '設定を保存しました。' : 'ブラウザへの保存ができません。このページ内では設定を使用できます。';
   if (__ADMIN__ && source === 'test' && (settings.bpm !== engine.chart.bpm || settings.startTime !== engine.chart.startTime)) notice.textContent = 'BPM・開始時刻の変更は「最初からやり直す」で反映されます。';
+  return saved;
 }
 offset?.addEventListener('input', changeSettings, { signal });
 bpm?.addEventListener('change', changeSettings, { signal });
@@ -391,7 +393,7 @@ soundDelay?.addEventListener('input', changeSettings, { signal });
 const songTiming = createSongTimingPreview({
   settings: () => settings,
   pause() { sound.cancelPending(); player?.pauseVideo(); clock.reset(); },
-  apply(noteOffset) { settings = {...settings, noteOffset}; changeSettings(); },
+  apply(noteOffset,checked) { settings = {...settings, noteOffset}; if(changeSettings()&&checked)updateOnboarding({timing:true}); },
 });
 element('song-calibrate').addEventListener('click', () => songTiming.open(), {signal});
 if (new URLSearchParams(location.search).get('timing') === '1') {

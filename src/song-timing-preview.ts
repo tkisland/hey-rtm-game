@@ -7,7 +7,7 @@ import { TIMING_REFERENCE, drawTimingReference } from './timing-reference';
 export function createSongTimingPreview(callbacks: {
   pause(): void;
   settings(): {noteOffset:number};
-  apply(noteOffset:number): void;
+  apply(noteOffset:number,checked:boolean): void;
 }) {
   const dialog=document.createElement('dialog');dialog.className='song-timing-preview';
   dialog.setAttribute('aria-labelledby','song-timing-title');
@@ -30,6 +30,7 @@ export function createSongTimingPreview(callbacks: {
   const canvas=dialog.querySelector('canvas')!,container=dialog.querySelector('.video-frame')!;
   const events=new AbortController(),signal=events.signal,clock=new VideoClock();
   let player:YouTubePlayer|null=null,disposePlayer=()=>{},frame=0,returnFocus:HTMLElement|null=null;
+  let checked = false;
   let seekTarget:number|null=null,seekDeadline=0,displayTime=0,resize:ResizeObserver|null=null;
   const signed=(n:number)=>`${n>0?'+':''}${n} ms`;
   function draw():void { drawTimingReference(canvas,displayTime,offset.valueAsNumber); }
@@ -43,6 +44,7 @@ export function createSongTimingPreview(callbacks: {
       const sample=clock.sample(player.getCurrentTime(),player.getPlayerState(),performance.now(),player.getPlaybackRate());
       if(seekTarget!==null&&(Math.abs(sample.rawTime-seekTarget)<.5||performance.now()>seekDeadline))seekTarget=null;
       const playing=sample.playing&&seekTarget===null;
+      if(playing&&sample.time>=6&&sample.time<16)checked=true;
       displayTime=sample.time;draw();
       const ended=player.getPlayerState()===PLAYER_STATE.ENDED;
       const text=sample.stale?'動画の時刻更新を待っています。':ended?'10回の合図が終了しました。「最初から」で再確認できます。':playing
@@ -69,7 +71,7 @@ export function createSongTimingPreview(callbacks: {
   },{signal}));
   start.addEventListener('click',play,{signal});
   back.addEventListener('click',()=>{seek(0);player?.playVideo();},{signal});
-  find('song-timing-apply').addEventListener('click',()=>{callbacks.apply(offset.valueAsNumber);dialog.close();},{signal});
+  find('song-timing-apply').addEventListener('click',()=>{callbacks.apply(offset.valueAsNumber,checked);dialog.close();},{signal});
   find('song-timing-close').addEventListener('click',()=>dialog.close(),{signal});
   dialog.addEventListener('close',()=>{cleanup();returnFocus?.focus({preventScroll:true});},{signal});
   dialog.addEventListener('cancel',cleanup,{signal});
@@ -80,7 +82,7 @@ export function createSongTimingPreview(callbacks: {
     get active(){return dialog.open;},
     open(){
       if(dialog.open)return;returnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
-      callbacks.pause();offset.value=String(callbacks.settings().noteOffset);seekTarget=null;displayTime=0;clock.reset();
+      callbacks.pause();checked=false;offset.value=String(callbacks.settings().noteOffset);seekTarget=null;displayTime=0;clock.reset();
       dialog.showModal();find('song-timing-title').focus({preventScroll:true});dialog.scrollTop=0;changed();
       resize=new ResizeObserver(draw);resize.observe(canvas);
       const mount=document.createElement('div');mount.id='song-timing-youtube';container.append(mount);
