@@ -3,16 +3,18 @@ import { WINDOWS } from './engine';
 export type HitZone = 'PERFECT' | 'GREAT' | 'GOOD';
 export interface Target { x: number; y: number; width: number; height: number }
 export interface FieldGeometry {
-  width: number; height: number; origin: number; cell: number; margin: number;
+  width: number; height: number; origin: number; cell: number; margin: number; centerSpace: number;
   near: number; approach: number; padWidth: number; padHeight: number; targets: Target[]; pads: Target[];
 }
 export interface FieldPoint { x: number; y: number; width: number; scale: number }
 export function fieldGeometry(width: number, height: number): FieldGeometry {
-  // Use six equal cells and distribute clearance across all five button gaps.
-  // The half-cell inset adds to this outer margin, keeping contacts away from edges.
+  // Six equal playable lanes plus an empty center lane for thumb clearance.
+  // On narrow screens, shrink only the empty lane to keep every button at least 44px.
   const margin = Math.max(0, Math.min(8, (width - 6 * 44) / 2));
-  const cell = (width - 2 * margin) / 6;
-  const padWidth = Math.min(72, Math.max(44, cell - 20));
+  const available = width - 2 * margin;
+  const centerSpace = Math.max(0, Math.min(available / 7, available - 6 * 44));
+  const cell = (available - centerSpace) / 6;
+  const padWidth = Math.min(80, Math.max(44, cell * .96));
   const padHeight = Math.min(74, Math.max(60, height * 0.15));
   const origin = Math.min(148, Math.max(28, (height - 240) * .28));
   // Lift the row toward resting thumbs; short fields retain their usable runway.
@@ -24,7 +26,7 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
   const lateBottom = padY - padHeight / 2 - 16;
   const near = Math.max(origin, (lateBottom + (lateProgress - 1) * origin) / lateProgress);
   const approach = near - origin;
-  const field: FieldGeometry = { width, height, origin, cell, margin, near, approach, padWidth, padHeight, targets: [], pads: [] };
+  const field: FieldGeometry = { width, height, origin, cell, margin, centerSpace, near, approach, padWidth, padHeight, targets: [], pads: [] };
   field.targets = Array.from({ length: 6 }, (_, lane) => {
     const point = project(field, lane, 1);
     return { x: point.x, y: point.y, width: padWidth, height: 20 };
@@ -33,9 +35,12 @@ export function fieldGeometry(width: number, height: number): FieldGeometry {
   return field;
 }
 /** Concert perspective changes horizontal width only; all lanes keep equal vertical speed. */
-export function project(field: FieldGeometry, lane: number, progress: number): FieldPoint {
+export function project(field: FieldGeometry, lane: number, progress: number, laneEdge = 0): FieldPoint {
   const scale = 0.62 + 0.38 * Math.min(1, Math.max(0, progress));
-  const targetX = field.margin + (lane + 0.5) * field.cell;
+  // Fractional lane centers remain continuous for cross-lane paths. Edges are
+  // offsets within a single lane, so the white/red surfaces never absorb the blank.
+  const split = Math.max(0, Math.min(1, lane - 2));
+  const targetX = field.margin + (lane + 0.5 + laneEdge) * field.cell + field.centerSpace * split;
   return { x: field.width / 2 + (targetX - field.width / 2) * scale,
     y: field.near + (progress - 1) * field.approach, width: field.padWidth * 0.86 * scale, scale };
 }
