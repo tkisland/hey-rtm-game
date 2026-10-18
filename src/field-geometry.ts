@@ -8,11 +8,11 @@ export interface FieldGeometry {
 }
 export interface FieldPoint { x: number; y: number; width: number; scale: number }
 export function fieldGeometry(width: number, height: number): FieldGeometry {
-  // Six equal playable lanes plus an empty center lane for thumb clearance.
+  // Six equal playable lanes; reserve 60% of the original empty center lane.
   // On narrow screens, shrink only the empty lane to keep every button at least 44px.
   const margin = Math.max(0, Math.min(8, (width - 6 * 44) / 2));
   const available = width - 2 * margin;
-  const centerSpace = Math.max(0, Math.min(available / 7, available - 6 * 44));
+  const centerSpace = .6 * Math.max(0, Math.min(available / 7, available - 6 * 44));
   const cell = (available - centerSpace) / 6;
   const padWidth = Math.min(80, Math.max(44, cell * .96));
   const padHeight = Math.min(74, Math.max(60, height * 0.15));
