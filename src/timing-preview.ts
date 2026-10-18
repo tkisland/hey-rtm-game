@@ -41,7 +41,7 @@ export function createTimingPreview(callbacks: Callbacks) {
       <p>上の横線が判定位置です。基準音はリズムの目安です。入力測定では音より横線への到達を優先してください。10ノーツの練習が終わると補正結果を表示します。「補正してもう一度」で補正後の判定を試せます。タップが足りない場合やばらつきが大きい場合は再挑戦してください。「補正を保存」するまで設定は変更しません。</p>
       <label>基準音・ノーツ音の音量<input id="timing-preview-volume" type="range" min="10" max="100" step="10" value="70" /></label>
       <label><input id="timing-preview-cymbal" type="checkbox" checked />ノーツ音を鳴らす</label>
-      <p>入力時は本番と同じノーツ音を鳴らします。この画面の音設定はゲームの設定を変更しません。測定値は画面表示と操作を含む目安です。曲とノーツそのものがずれる場合は「曲にノーツを合わせる」を使ってください。この測定で曲の補正値は変わりません。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
+      <p>入力時は本番と同じノーツ音を鳴らします。この画面の音設定はゲームの設定を変更しません。測定値は画面表示と操作を含む目安です。曲とノーツそのものがずれる場合は「① 動画とノーツを合わせる」を使ってください。この測定で曲の補正値は変わりません。Bluetoothのタップ音の遅れを短縮する機能ではありません。</p>
     </details>`;
   document.body.append(dialog);
   const find = <T extends HTMLElement>(id: string) => dialog.querySelector<T>(`#${id}`)!;

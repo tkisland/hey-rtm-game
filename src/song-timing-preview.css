@@ -2,7 +2,7 @@
 .song-timing-preview::backdrop { background:#080911df; }
 .song-timing-preview h2 { margin:0 0 8px; font-size:18px; }
 .song-timing-instructions { font-size:12px; line-height:1.7; }
-.song-timing-preview .video-frame { width:100%; height:200px; min-width:200px; min-height:200px; aspect-ratio:auto; margin:0; }
+.song-timing-preview .video-frame { width:100%; height:200px; min-width:200px; min-height:200px; aspect-ratio:auto; margin:0; border:0; outline:1px solid #ffffff12; outline-offset:-1px; }
 .song-timing-field { height:200px; border-radius:10px; overflow:hidden; background:#0e1120; }
 .song-timing-field canvas { width:100%; height:100%; display:block; }
 .song-timing-controls > label { display:flex; justify-content:space-between; gap:8px; font-size:12px; margin-top:8px; }
@@ -18,3 +18,13 @@
 .song-timing-preview .field-help { margin:4px 0 8px; font-size:10px; }
 #song-timing-apply { background:#684055; border-color:#ff9cba; }
 @media(min-width:700px) { .song-timing-preview[open] { display:grid; grid-template-columns:minmax(260px,1fr) minmax(280px,1fr); gap:8px 16px; } .song-timing-preview h2,.song-timing-instructions { grid-column:1 / -1; } .song-timing-transport { grid-column:1 / -1; } .song-timing-field { grid-column:2; grid-row:4 / 6; height:100%; min-height:360px; } .song-timing-media,.song-timing-controls { grid-column:1; } }
+
+@media(orientation:landscape) and (max-height:500px) and (min-width:700px) {
+  .song-timing-preview[open] { width:calc(100% - 16px); max-width:none; padding:8px; grid-template-columns:minmax(200px,1fr) minmax(180px,1fr) minmax(220px,1fr); gap:6px 8px; }
+  .song-timing-preview h2 { margin:0; font-size:16px; }
+  .song-timing-instructions { margin:0; font-size:10px; }
+  .song-timing-transport { grid-column:3; grid-row:3; margin:0; }
+  .song-timing-media { grid-column:1; grid-row:3 / 5; }
+  .song-timing-field { grid-column:2; grid-row:3 / 5; height:224px; min-height:0; }
+  .song-timing-controls { grid-column:3; grid-row:4; }
+}
