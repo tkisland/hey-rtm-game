@@ -21,10 +21,17 @@ describe('perspective timing windows and horizontal targets', () => {
   it('keeps full timing windows and accessible targets inside all supported screen sizes', () => {
     for (const width of [298, 370, 404, 678]) for (const height of [180, 224, 310, 480, 520, 588, 848]) for (const travel of [1, 2, 4]) {
       const field = fieldGeometry(width, height);
-      const centralGap = field.pads[3].x - field.pads[2].x - field.padWidth;
-      const sideGap = field.pads[1].x - field.pads[0].x - field.padWidth;
-      expect(centralGap - sideGap).toBeCloseTo(field.centerGap);
-      expect(centralGap).toBeGreaterThanOrEqual(18 - 1e-8);
+      const gap = field.pads[1].x - field.pads[0].x - field.padWidth;
+      expect(gap).toBeGreaterThanOrEqual(0);
+      if (width >= 370) expect(gap).toBeGreaterThanOrEqual(15);
+      for (let lane = 1; lane < 6; lane++) {
+        expect(field.pads[lane].width).toBe(field.pads[0].width);
+        expect(field.pads[lane].x - field.pads[lane - 1].x - field.padWidth).toBeCloseTo(gap);
+        for (const progress of [0, .5, 1]) {
+          expect(project(field, lane + .49, progress).x - project(field, lane - .49, progress).x)
+            .toBeCloseTo(project(field, .49, progress).x - project(field, -.49, progress).x);
+        }
+      }
       for (let lane = 0; lane < 6; lane++) {
         const target = field.targets[lane], pad = field.pads[lane];
         expect(pad.width).toBeGreaterThanOrEqual(44); expect(pad.height).toBeGreaterThanOrEqual(60);
