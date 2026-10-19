@@ -35,7 +35,7 @@ test('public play ignores old drafts and chart settings while retaining device p
   await expect(page.locator('#open-editor,#chart-source,#bpm,#start-time,#debug-toggle,#debug-panel')).toHaveCount(0);
   await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 510 NOTES');
   await page.locator('#settings-toggle').click();
-  await expect(page.locator('#travel')).toHaveCount(0);
+  await expect(page.locator('#travel')).toHaveValue('3.25');
   await expect(page.locator('#sound-toggle,#offset,#input-offset,#sound-delay,#auto-calibrate,#timing-reset,#sound-test')).toHaveCount(0);
   await expect(page.locator('#sound-volume')).toHaveValue('0');
   expect(await page.locator('#settings-panel').innerText()).not.toMatch(/編集|エディター|下書き|仮BPM|譜面開始|使用する譜面/);
@@ -48,8 +48,8 @@ test('public play ignores old drafts and chart settings while retaining device p
   expect(Number((await page.locator('#score').textContent())!.replaceAll(',', ''))).toBeGreaterThan(0);
   await page.locator('#restart').click(); await expect(page.locator('#score')).toHaveText('0');
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
-  await page.locator('#settings-toggle').click(); await expect(page.locator('#travel')).toHaveCount(0);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!).travel)).toBe(2.5);
+  await page.locator('#settings-toggle').click(); await expect(page.locator('#travel')).toHaveValue('3.25');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!).travel)).toBe(3.25);
   const stored = await page.evaluate(() => ['hey-rhythm-editor-v1','hey-rhythm-custom-chart-v1'].map(key => JSON.parse(localStorage.getItem(key)!)));
   expect(stored).toEqual([draft,draft]); expect(errors).toEqual([]);
 });

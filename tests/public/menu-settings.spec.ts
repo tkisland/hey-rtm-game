@@ -9,7 +9,7 @@ test.beforeEach(async ({page}) => {
 test('menu volume is shared with the tutorial and game, including mute and reload', async ({page}) => {
   await page.goto('/');await page.locator('#settings-toggle').click();
   const settings=page.locator('#settings-panel');await expect(settings).toBeVisible();
-  await expect(settings.locator('input')).toHaveCount(1);
+  await expect(settings.locator('input')).toHaveCount(2);
   await expect(settings.locator('button:not(#settings-close)')).toHaveCount(2);
   await settings.getByLabel('ノーツ音の音量').fill('35');
   await expect(page.locator('#sound-volume-value')).toHaveText('35%');
@@ -58,4 +58,28 @@ test('menu reports failed storage without trapping settings or calibration', asy
   await page.locator('#flow-calibrate').click();await page.locator('#timing-preview-plus').click();
   await page.locator('#timing-preview-apply').click();await expect(page.locator('#storage-status')).toContainText('ブラウザへの保存ができません');
   await page.locator('#settings-close').click();await expect(page.locator('#settings-toggle')).toBeFocused();
+});
+
+test('travel time persists between menu and game without changing calibration or note arrival', async ({page}) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('hey-rhythm-settings-v1')) localStorage.setItem('hey-rhythm-settings-v1', JSON.stringify({noteOffset:100,inputOffset:0,soundVolume:35}));
+  });
+  await page.goto('/');await page.locator('#settings-toggle').click();
+  await expect(page.locator('#travel')).toHaveValue('2.5');
+  await page.locator('#travel').fill('4');await expect(page.locator('#travel-value')).toHaveText('4秒');
+  await page.locator('#settings-close').click();await page.locator('.song-play').first().click();
+  await expect(page.locator('#restart')).toBeEnabled();await page.locator('#settings-toggle').click();
+  await expect(page.locator('#travel')).toHaveValue('4');await page.locator('#travel').fill('1.25');
+  await expect(page.locator('#travel-value')).toHaveText('1.25秒');
+  await page.reload();await expect(page.locator('#restart')).toBeEnabled();
+  await page.locator('#settings-toggle').click();await expect(page.locator('#travel')).toHaveValue('1.25');
+  expect(await page.evaluate(() => {
+    const {travel,noteOffset,inputOffset,soundVolume} = JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!);
+    return {travel,noteOffset,inputOffset,soundVolume};
+  })).toEqual({travel:1.25,noteOffset:100,inputOffset:0,soundVolume:35});
+  await page.locator('#settings-close').click();
+  await page.evaluate(() => { const video = (window as any).testVideo; video.seekTo(7.75); video.liveClock=false; video.playVideo(); });
+  await page.keyboard.press('l');await expect(page.locator('#judgement-5 .judgement-label')).toHaveText('PERFECT');
+  await expect(page.locator('#score')).toHaveText('1,000');
+  await page.goto('/');await page.locator('#settings-toggle').click();await expect(page.locator('#travel')).toHaveValue('1.25');
 });

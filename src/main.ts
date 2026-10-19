@@ -363,6 +363,7 @@ settingsToggle.addEventListener('click', () => showSettings(settingsPanel.hidden
 element('settings-close').addEventListener('click', () => showSettings(false), { signal });
 const offset = __ADMIN__ ? element<HTMLInputElement>('offset') : null;
 const soundToggle = __ADMIN__ ? element<HTMLInputElement>('sound-toggle') : null;
+const travel = element<HTMLInputElement>('travel');
 const soundVolume = element<HTMLInputElement>('sound-volume');
 const inputOffset = __ADMIN__ ? element<HTMLInputElement>('input-offset') : null;
 const soundDelay = __ADMIN__ ? element<HTMLInputElement>('sound-delay') : null;
@@ -385,12 +386,14 @@ function reflectSettings(): void {
   sound.enabled = settings.sound;
   sound.volume = settings.soundVolume;
   sound.delay = settings.soundDelay;
+  travel.value = String(settings.travel);
+  element('travel-value').textContent = `${settings.travel}秒`;
   soundVolume.value = String(settings.soundVolume);
   element('sound-volume-value').textContent = `${settings.soundVolume}%`;
   if (__ADMIN__) element('debug-panel').hidden = !settings.debug;
 }
 function changeSettings(): boolean {
-  settings = normalizeGameSettings({ ...settings, offset: offset?.valueAsNumber ?? settings.offset, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle?.checked ?? true, soundVolume: soundVolume.valueAsNumber, inputOffset: inputOffset?.valueAsNumber ?? settings.inputOffset, soundDelay: soundDelay?.valueAsNumber ?? settings.soundDelay });
+  settings = normalizeGameSettings({ ...settings, travel: travel.valueAsNumber, offset: offset?.valueAsNumber ?? settings.offset, bpm: bpm?.valueAsNumber ?? settings.bpm, startTime: startTime?.valueAsNumber ?? settings.startTime, debug: debug?.checked ?? settings.debug, sound: soundToggle?.checked ?? true, soundVolume: soundVolume.valueAsNumber, inputOffset: inputOffset?.valueAsNumber ?? settings.inputOffset, soundDelay: soundDelay?.valueAsNumber ?? settings.soundDelay });
   reflectSettings();
   if (settings.sound && settings.soundVolume > 0 && state === PLAYER_STATE.PLAYING) void sound.unlock();
   const saved = saveSettings(settings, song);
@@ -403,6 +406,7 @@ bpm?.addEventListener('change', changeSettings, { signal });
 startTime?.addEventListener('change', changeSettings, { signal });
 debug?.addEventListener('change', changeSettings, { signal });
 soundToggle?.addEventListener('change', changeSettings, { signal });
+travel.addEventListener('input', changeSettings, { signal });
 soundVolume.addEventListener('input', changeSettings, { signal });
 inputOffset?.addEventListener('input', changeSettings, { signal });
 soundDelay?.addEventListener('input', changeSettings, { signal });

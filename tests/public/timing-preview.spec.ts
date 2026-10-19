@@ -39,7 +39,7 @@ test('public flow calibration automatically applies stable taps to notes and jud
     OscillatorNode.prototype.start=function(when){(window as any).flowStarts.push(when);start.call(this,when);};
   });
   await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
-  await page.locator('#settings-toggle').click(); await expect(page.locator('#travel')).toHaveCount(0);
+  await page.locator('#settings-toggle').click(); await expect(page.locator('#travel')).toHaveValue('4');
   await page.locator('#flow-calibrate').click(); await page.locator('#timing-preview-start').click();
   await expect.poll(()=>page.evaluate(()=>(window as any).flowStarts.length)).toBe(14);
   const times=await page.evaluate(()=>(window as any).flowStarts as number[]);
@@ -77,6 +77,6 @@ test('public flow calibration automatically applies stable taps to notes and jud
   // Explicit manual confirmation remains available after an unsuccessful retry.
   await page.locator('#timing-preview-offset').dispatchEvent('input');
   await page.locator('#timing-preview-apply').click(); expect(await savedCorrection(page)).toBe(180);
-  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!).travel)).toBe(2.5);
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!).travel)).toBe(4);
   await expect(page.locator('#score')).toHaveText('0');
 });

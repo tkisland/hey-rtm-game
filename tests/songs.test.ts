@@ -20,17 +20,17 @@ it('public play retires hidden timing/audio switches while preserving calibratio
   storage();saveSettings({...loadSettings(),...legacy});
   expect(loadSettings()).toMatchObject(legacy); // Administrator tools retain their own controls.
 });
-it('fixes every song to a 2.5 second lead-in and migrates legacy fall times without losing correction', () => {
+it('shares selected lead-in across songs and reloads without losing correction', () => {
   const data = storage();
   expect(loadSettings().travel).toBe(2.5);
   for (const travel of [1, 2, 3.25, 4]) {
     data.set('hey-rhythm-settings-v1', JSON.stringify({ travel, inputOffset:80 }));
-    expect(loadSettings()).toMatchObject({ travel:2.5, noteOffset:80,inputOffset:0 });
-    expect(loadSettings(second)).toMatchObject({ travel:2.5, noteOffset:80,inputOffset:0 });
-    saveSettings({ ...loadSettings(), travel });
-    expect(JSON.parse(data.get('hey-rhythm-settings-v1')!).travel).toBe(2.5);
-    expect(loadSettings().travel).toBe(2.5);
-    expect(loadSettings(second).travel).toBe(2.5);
+    expect(loadSettings()).toMatchObject({ travel, noteOffset:80,inputOffset:0 });
+    expect(loadSettings(second)).toMatchObject({ travel, noteOffset:80,inputOffset:0 });
+    saveSettings({ ...loadSettings(second), travel }, second);
+    expect(JSON.parse(data.get('hey-rhythm-settings-v1')!).travel).toBe(travel);
+    expect(loadSettings().travel).toBe(travel);
+    expect(loadSettings(second).travel).toBe(travel);
   }
 });
 it('registers only real available content and resolves stable song URLs', () => {

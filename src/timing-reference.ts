@@ -8,12 +8,12 @@ export const TIMING_REFERENCE: Song = {
   videoId: 'SFqCNFPPqBE', bpm: 60, startTime: 6,
 };
 export const TIMING_CUES = Array.from({ length: 10 }, (_, i) => ({ number: i + 1, time: 6 + i }));
-export function referenceProgress(videoTime: number, cueTime: number, noteOffset: number): number {
-  return 1 + (compensateInput(videoTime, noteOffset) - cueTime) / NOTE_TRAVEL_SECONDS;
+export function referenceProgress(videoTime: number, cueTime: number, noteOffset: number, travel = NOTE_TRAVEL_SECONDS): number {
+  return 1 + (compensateInput(videoTime, noteOffset) - cueTime) / travel;
 }
 
 /** One numbered lane: compare its center with the line, without musical interpretation. */
-export function drawTimingReference(canvas: HTMLCanvasElement, videoTime: number, noteOffset: number): void {
+export function drawTimingReference(canvas: HTMLCanvasElement, videoTime: number, noteOffset: number, travel = NOTE_TRAVEL_SECONDS): void {
   const { width, height } = canvas.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
   if (!width || !height) return;
   if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
@@ -36,7 +36,7 @@ export function drawTimingReference(canvas: HTMLCanvasElement, videoTime: number
   ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#dbe3f5'; ctx.fillText('横線に重なる瞬間が正解', x, height - 13);
   for (const cue of TIMING_CUES) {
-    const progress = referenceProgress(videoTime, cue.time, noteOffset);
+    const progress = referenceProgress(videoTime, cue.time, noteOffset, travel);
     if (progress < 0 || progress > 1.1) continue;
     const y = top + distance * progress;
     ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);

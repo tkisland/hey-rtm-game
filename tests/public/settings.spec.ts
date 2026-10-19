@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { api } from '../browser/mock-video';
 
-test('offers song alignment, input calibration and note volume, migrates old mute and removes hidden timing shifts', async ({page}) => {
+test('offers travel time, song alignment, input calibration and note volume, migrates old mute and removes hidden timing shifts', async ({page}) => {
   await page.route('https://www.youtube.com/iframe_api',route=>route.fulfill({body:api}));
   await page.addInitScript(()=>{
     if(!localStorage.getItem('hey-rhythm-settings-v1')) localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({inputOffset:80,offset:300,soundDelay:300,sound:false,soundVolume:85}));
@@ -12,7 +12,7 @@ test('offers song alignment, input calibration and note volume, migrates old mut
   await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
   await page.locator('#settings-toggle').click(); const panel=page.locator('#settings-panel');
   await expect(panel.locator('button:not(#settings-close)')).toHaveCount(2);
-  await expect(panel.locator('input')).toHaveCount(1); await expect(panel.locator('select')).toHaveCount(0);
+  await expect(panel.locator('input')).toHaveCount(2); await expect(panel.locator('select')).toHaveCount(0);
   await expect(panel.getByRole('button',{name:'② タップ判定を調整',exact:true})).toBeVisible();
   await expect(panel.getByLabel('ノーツ音の音量')).toHaveValue('0');
   await expect(panel.locator('#offset,#input-offset,#sound-delay,#sound-toggle,#auto-calibrate,#timing-reset,#sound-test')).toHaveCount(0);
