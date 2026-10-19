@@ -6,7 +6,7 @@ import { TIMING_REFERENCE, drawTimingReference } from './timing-reference';
 
 export function createSongTimingPreview(callbacks: {
   pause(): void;
-  settings(): {noteOffset:number};
+  settings(): {noteOffset:number;travel?:number};
   apply(noteOffset:number,checked:boolean): void;
 }) {
   const dialog=document.createElement('dialog');dialog.className='song-timing-preview';
@@ -33,7 +33,7 @@ export function createSongTimingPreview(callbacks: {
   let checked = false;
   let seekTarget:number|null=null,seekDeadline=0,displayTime=0,resize:ResizeObserver|null=null;
   const signed=(n:number)=>`${n>0?'+':''}${n} ms`;
-  function draw():void { drawTimingReference(canvas,displayTime,offset.valueAsNumber); }
+  function draw():void { drawTimingReference(canvas,displayTime,offset.valueAsNumber,callbacks.settings().travel); }
   function changed():void { find('song-timing-offset-value').textContent=signed(offset.valueAsNumber);draw(); }
   function seek(time:number):void {
     if(!player)return;clock.reset();seekTarget=time;seekDeadline=performance.now()+5000;player.seekTo(time,true);

@@ -115,7 +115,7 @@ test('rehearses real moving notes, previews correction immediately and saves onl
   await expect(page.locator('#sound-delay')).toHaveValue('150');
   await expect(page.locator('#score')).toHaveText('1,000');
   expect(await page.evaluate(() => (window as any).testVideo.state)).toBe(2);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({ inputOffset:240, soundDelay:150, sound:false, soundVolume:0, travel:2.5 });
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({ inputOffset:240, soundDelay:150, sound:false, soundVolume:0, travel:3 });
   await expect.poll(() => page.evaluate(() => (window as any).previewContexts.at(-1).state)).toBe('closed');
   await page.goto('/editor.html'); await page.locator('.timing-settings summary').click();
   await expect(page.locator('#editor-input-offset')).toHaveValue('240');
@@ -133,10 +133,10 @@ test('automatically adjusts judgement without moving heads from original taps wi
     CanvasRenderingContext2D.prototype.roundRect=function(...args) { if(this.canvas===document.querySelector('.timing-field canvas')) (window as any).autoHeads.push({y:args[1]+args[3]/2});return round.apply(this,args); };
   });
   const times=await begin(page), lanes=[2,3,1,4,0,5];
-  // The saved 1s setting is ignored: a head appears exactly 2.5s before its corrected target.
-  await advance(page,times[4]-2.5-.01);
+  // The selected 1s travel also controls rehearsal appearance without shifting arrival.
+  await advance(page,times[4]-1-.01);
   expect(await page.evaluate(()=>(window as any).autoHeads.length)).toBe(0);
-  await advance(page,times[4]-2.5+.01);
+  await advance(page,times[4]-1+.01);
   expect(await page.evaluate(()=>(window as any).autoHeads.length)).toBeGreaterThan(0);
   for(let i=0;i<8;i++) {
     await advance(page,times[i+4]-.1); await tap(page,lanes[i%6],info.project.name==='mobile-touch');
@@ -151,7 +151,7 @@ test('automatically adjusts judgement without moving heads from original taps wi
   const aligned=await page.evaluate(async()=>{
     const {fieldGeometry}=await import('/src/field-geometry.ts');
     const rect=document.querySelector('.timing-field canvas')!.getBoundingClientRect();
-    return (window as any).autoHeads.some((head:any)=>Math.abs(head.y-(fieldGeometry(rect.width,rect.height).near-.1/2.5*fieldGeometry(rect.width,rect.height).approach))<.01);
+    return (window as any).autoHeads.some((head:any)=>Math.abs(head.y-(fieldGeometry(rect.width,rect.height).near-.1/1*fieldGeometry(rect.width,rect.height).approach))<.01);
   });
   expect(aligned).toBe(true);
   for(let i=8;i<10;i++) {
@@ -161,7 +161,7 @@ test('automatically adjusts judgement without moving heads from original taps wi
   }
   await expect(page.locator('#input-offset')).toHaveValue('300');
   await page.locator('#timing-preview-apply').click(); await expect(page.locator('#input-offset')).toHaveValue('-100');
-  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({inputOffset:-100,travel:2.5,sound:false,soundVolume:0,soundDelay:150});
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({inputOffset:-100,travel:1,sound:false,soundVolume:0,soundDelay:150});
   await expect(page.locator('#score')).toHaveText('0');
 });
 

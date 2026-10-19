@@ -100,7 +100,6 @@
           <div class="panel-heading"><h2>プレイ設定</h2><button id="settings-close" class="text-button">閉じる ×</button></div>
           <!-- admin:start --><label class="chart-choice">管理者用の試遊譜面<select id="chart-source"><option value="bundled">収録譜面</option><option value="test">動作確認用の仮譜面</option><option value="custom">管理者の下書き譜面</option></select></label><!-- admin:end -->
           <!-- admin:start -->
-          <p class="field-help">ノーツが現れてから判定ラインに届くまでは2.5秒で固定です。</p>
           <p class="field-help">通常のタップ・長オシの始点はノーツの中心で判定します。薄い帯がGOOD（±160ms）、中間がGREAT（±100ms）、濃い帯がPERFECT（±50ms）。</p>
           <p class="field-help">長オシ・オシ変の終点と、オシ変の持ち替えはゆったり判定：PERFECT ±100ms／GREAT ±180ms／GOOD ±250ms。</p>
           <p class="field-help">バーの厚さは曲全体で16分音符に合わせて統一しています。ハート付きのバーを押し、長い帯は二重線の終点で離します。連結線は同時オシ、横向きの矢印はオシ変の持ち替えタイミングです。</p>
@@ -123,6 +122,9 @@
           <p id="chart-settings-help" class="field-help">BPM・開始時刻は次のリスタートから反映されます。</p>
           <label class="check-label"><input id="sound-toggle" type="checkbox" checked /> タップ音</label>
           <!-- admin:end -->
+          <label for="travel">ノーツの表示時間 <output id="travel-value">2.5秒</output></label>
+          <input id="travel" type="range" min="1" max="4" step="0.25" value="2.5" aria-describedby="travel-help" />
+          <p id="travel-help" class="field-help">出現から判定ラインまでの時間です。長いほどゆっくり流れます。曲とのタイミングや判定の補正は変わりません。</p>
           <label for="sound-volume">ノーツ音の音量 <output id="sound-volume-value">70%</output></label>
           <input id="sound-volume" type="range" min="0" max="100" step="5" value="70" />
           <p id="sound-status" class="field-help">タップ時や長オシ中のノーツ音の音量です。0%で消音になります。</p>

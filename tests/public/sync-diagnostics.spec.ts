@@ -26,7 +26,7 @@ test('normal play loads no diagnostic overlay or diagnostic chunk and keeps sepa
   await expect(page.locator('.sync-diagnostics')).toHaveCount(0);
   expect(requests.some(url=>url.includes('sync-diagnostics'))).toBe(false);
   await page.locator('#settings-toggle').click();
-  await expect(page.locator('#settings-panel input')).toHaveCount(1);
+  await expect(page.locator('#settings-panel input')).toHaveCount(2);
   await expect(page.locator('#settings-panel button:not(#settings-close)')).toHaveCount(2);
 });
 for (const interval of [0, .25]) test(`logs slow API progression with ${interval}s updates and exports bounded local data`, async ({page}) => {

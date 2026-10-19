@@ -63,6 +63,7 @@ test('actual rendered centers at each perspective-band edge match the engine jud
     ctx.roundRect = function (...args) { heads.push({ x: args[0], y: args[1], w: args[2], h: args[3] }); return original.round(...args); };
     const results = [];
     try {
+      for (const travel of [1, 2.5, 4])
       for (const lane of [0, 2, 5])
         for (const offset of [-300, 0, 300])
           for (const [error, zone, expected] of [[-.16, 0, 'GOOD'], [-.1, 1, 'GREAT'], [-.05, 2, 'PERFECT'], [.05, 2, 'PERFECT'], [.1, 1, 'GREAT'], [.16, 0, 'GOOD']] as const) {
@@ -70,7 +71,7 @@ test('actual rendered centers at each perspective-band edge match the engine jud
             zones = [];
             heads = [];
             const time = 12 + offset / 1000 + error;
-            renderer.draw(engine.notes, time, 2, 0, { inputOffsetMs: offset, chart: engine.chart });
+            renderer.draw(engine.notes, time, travel, 0, { inputOffsetMs: offset, chart: engine.chart });
             const head = heads[0], band = zones[lane * 3 + zone], edge = error < 0 ? [band[0], band[1]] : [band[2], band[3]];
             const cx = head.x + head.w / 2, cy = head.y + head.h / 2;
             // Sample the coloured bar beside its white heart and outline.
@@ -85,7 +86,7 @@ test('actual rendered centers at each perspective-band edge match the engine jud
     }
     return results;
   });
-  expect(results).toHaveLength(54);
+  expect(results).toHaveLength(162);
   for (const r of results) {
     expect(r.cx).toBeCloseTo(r.x, 6);
     expect(r.cy).toBeCloseTo(r.y, 6);
@@ -94,7 +95,7 @@ test('actual rendered centers at each perspective-band edge match the engine jud
     expect(r.visible).toBe(true);
   }
 });
-test('targets and timing bands stay fixed when changing correction or loading a legacy speed', async ({ page }) => {
+test('correction preserves bands; travel time changes bands without moving targets', async ({ page }) => {
   await page.locator('#settings-toggle').click();
   await range(page, 'input-offset', '0');
   const normal = await bands(page, '#game-canvas');
@@ -104,13 +105,13 @@ test('targets and timing bands stay fixed when changing correction or loading a 
   await range(page, 'input-offset', '300');
   expect(await bands(page, '#game-canvas')).toEqual(normal);
   expect(await targets()).toEqual(before);
-  await expect(page.locator('#travel')).toHaveCount(0);
+  await expect(page.locator('#travel')).toHaveValue('2.5');
   await page.evaluate(() => {
     const key = 'hey-rhythm-settings-v1';
     localStorage.setItem(key,JSON.stringify({...JSON.parse(localStorage.getItem(key)!),travel:4}));
   });
   await page.reload(); await expect(page.locator('#restart')).toBeEnabled();
-  expect(await bands(page, '#game-canvas')).toEqual(normal);
+  expect(await bands(page, '#game-canvas')).not.toEqual(normal);
   expect(await targets()).toEqual(before);
 });
 test('editor preview uses the same horizontal targets and zero-correction bands', async ({ page }) => {

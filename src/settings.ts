@@ -13,8 +13,7 @@ function numeric(value: unknown, fallback: number, min: number, max: number, ste
 }
 export function normalizeSettings(value: Partial<Settings>): Settings {
   return {
-    // Ignore legacy fall-time preferences; every player now uses the same lead-in.
-    travel: NOTE_TRAVEL_SECONDS,
+    travel: numeric(value.travel, NOTE_TRAVEL_SECONDS, 1, 4, 0.25),
     offset: numeric(value.offset, 0, -300, 300, 10),
     bpm: numeric(value.bpm, 140, 80, 200, 1),
     startTime: numeric(value.startTime, 12, 0, 3600, 0.1),
@@ -28,7 +27,7 @@ export function normalizeSettings(value: Partial<Settings>): Settings {
     soundDelay: numeric(value.soundDelay, 0, 0, 300, 5),
   };
 }
-/** Public play exposes calibration and volume; retired controls cannot add hidden shifts. */
+/** Public play exposes travel time, calibration and volume; retired controls cannot add hidden shifts. */
 export function normalizePlayerSettings(value: Partial<Settings>): Settings {
   const settings = normalizeSettings(value);
   return { ...settings, offset: 0, soundDelay: 0, debug: false, sound: true,

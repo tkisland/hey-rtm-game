@@ -15,7 +15,7 @@ import { TapSound } from './sound';
 const INTERVAL = .9, WARMUP = 4, NOTES = 10;
 type Callbacks = {
   pause(): void;
-  settings(): { inputOffset: number };
+  settings(): { inputOffset: number; travel?: number };
   apply(offset: number): void;
 };
 
@@ -92,7 +92,7 @@ export function createTimingPreview(callbacks: Callbacks) {
   }
   function draw(now: number, time: number): void {
     if (!renderer) return;
-    renderer.draw(engine?.notes ?? [], time, NOTE_TRAVEL_SECONDS, now, { inputOffsetMs: 0, playing: audio?.state === 'running', chart: engine?.chart });
+    renderer.draw(engine?.notes ?? [], time, callbacks.settings().travel ?? NOTE_TRAVEL_SECONDS, now, { inputOffsetMs: 0, playing: audio?.state === 'running', chart: engine?.chart });
     labels.forEach((label, lane) => { if (now - hitTimes[lane] > 800) label.hidden = true; });
   }
   function report(message: string): void { feedback.textContent = message; }
