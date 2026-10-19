@@ -4,6 +4,8 @@ export interface YouTubePlayer {
   getCurrentTime(): number;
   getPlayerState(): number;
   getDuration(): number;
+  getVideoLoadedFraction?(): number;
+  getVideoUrl?(): string;
   getPlaybackRate(): number;
   getAvailablePlaybackRates(): number[];
   setPlaybackRate(rate: number): void;
@@ -11,6 +13,24 @@ export interface YouTubePlayer {
   playVideo(): void;
   pauseVideo(): void;
   destroy(): void;
+}
+export interface YouTubeMetadata {
+  videoDuration: number | null;
+  loadedFraction: number | null;
+  reportedVideoId: string | null;
+}
+/** Diagnostic observations only. These getters do not reliably identify advertisements. */
+export function readYouTubeMetadata(player: YouTubePlayer): YouTubeMetadata {
+  const number = (read:()=>unknown,max=Infinity):number|null => {
+    try { const value=read();return typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=max?value:null; }
+    catch { return null; }
+  };
+  let reportedVideoId:string|null=null;
+  try {
+    const value=player.getVideoUrl?.();
+    if(value){const url=new URL(value);reportedVideoId=url.searchParams.get('v')??(url.hostname==='youtu.be'?url.pathname.slice(1):null);}
+  } catch { /* Optional metadata must never stop playback. */ }
+  return {videoDuration:number(()=>player.getDuration()),loadedFraction:number(()=>player.getVideoLoadedFraction?.(),1),reportedVideoId};
 }
 interface PlayerEvent { target: YouTubePlayer; data: number }
 interface PlayerOptions {

@@ -6,3 +6,5 @@
 .sync-diagnostics dt,.sync-diagnostics dd { margin:0; min-width:0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
 .sync-diagnostics dd { text-align:right; color:#c2f098; }
 .sync-diagnostics button { min-height:44px; padding:9px 12px; border:1px solid #c49ff566; border-radius:8px; background:#30283f; color:inherit; font:inherit; }
+
+.sync-markers { display:flex; flex-wrap:wrap; gap:6px; }

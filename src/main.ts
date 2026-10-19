@@ -20,8 +20,8 @@ import { bindInput } from './input';
 import { Renderer } from './renderer';
 import { loadSettings, normalizePlayerSettings, normalizeSettings, saveSettings } from './settings';
 import { PLAYER_STATE, VideoClock, stateName } from './sync';
-import { createYouTubePlayer } from './youtube';
-import type { YouTubePlayer } from './youtube';
+import { createYouTubePlayer, readYouTubeMetadata } from './youtube';
+import type { YouTubePlayer, YouTubeMetadata } from './youtube';
 import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
 import type { Song } from './songs';
 import { publishedChart } from './cloud-published';
@@ -110,6 +110,7 @@ const restart = element<HTMLButtonElement>('restart');
 const settingsToggle = element<HTMLButtonElement>('settings-toggle');
 const settingsPanel = element('settings-panel');
 let player: YouTubePlayer | null = null;
+let diagnosticMetadata: YouTubeMetadata | undefined, nextMetadataAt = 0;
 let state = -2;
 let failed = false;
 let videoTime = 0;
@@ -250,6 +251,7 @@ function readTime(now: number): { time: number; playing: boolean } {
   }
 }
 function setState(next: number): void {
+  if(next!==state)nextMetadataAt=0;
   if (next !== PLAYER_STATE.PLAYING || clockStale) engine.cancelBoxGesture();
   sound.setPlaybackActive(next === PLAYER_STATE.PLAYING && !clockStale);
   if (next !== state && next === PLAYER_STATE.PLAYING) void sound.unlock();
@@ -333,6 +335,7 @@ const unbindInput = bindInput(buttons, hit, lanes => {
 
 restart.addEventListener('click', () => {
   if (!player || failed) return;
+  diagnostics?.mark('restart-request');
   sound.cancelPending();
   sound.setPlaybackActive(true);
   void sound.unlock();
@@ -504,7 +507,8 @@ function frame(now: number): void {
   if (controlStatus.textContent !== guidance) controlStatus.textContent = guidance;
   frames++;
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }
-  diagnostics?.record({ atMs:performance.now(), apiTime:apiVideoTime, clockTime:smoothedVideoTime,
+  if(diagnostics&&player&&now>=nextMetadataAt){diagnosticMetadata=readYouTubeMetadata(player);nextMetadataAt=now+250;}
+  diagnostics?.record({ ...diagnosticMetadata, atMs:performance.now(), apiTime:apiVideoTime, clockTime:smoothedVideoTime,
     judgementTime:compensateInput(sample.time,settings.inputOffset), playerState:state, reportedRate:videoRate, predictionRate,
     playing:sample.playing, stale:clockStale, seek:diagnosticsSeek, resync:diagnosticsResync,
     score:engine.score, judgedNotes:Object.values(engine.counts).reduce((sum,n)=>sum+n,0), skippedNotes:engine.skipped, totalNotes:engine.notes.length, inputOffsetMs:settings.inputOffset,
