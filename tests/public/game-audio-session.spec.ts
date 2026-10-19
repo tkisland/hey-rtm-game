@@ -32,9 +32,11 @@ for(const entry of ['game-button','youtube-player'] as const)test(`game output r
   if(entry==='game-button')await page.locator('#play-start').click();
   else await page.evaluate(()=>(window as any).testVideo.playVideo());
   for(let lane=0;lane<6;lane++){
+    await page.evaluate(()=>(window as any).gameAudio.rms=0);
     if(info.project.name==='mobile-touch')await page.locator('.lane-button').nth(lane).tap();
     else await page.keyboard.press(['s','d','f','j','k','l'][lane]);
     await expect.poll(()=>page.evaluate(()=>(window as any).gameAudio.starts)).toBe(lane+1);
+    await expect.poll(()=>page.evaluate(()=>(window as any).gameAudio.rms)).toBeGreaterThan(.005);
   }
   expect(await page.evaluate(()=>(window as any).gameAudio.created)).toEqual(['playback']);
   await expect.poll(()=>page.evaluate(()=>(window as any).gameAudio.rms)).toBeGreaterThan(.005);

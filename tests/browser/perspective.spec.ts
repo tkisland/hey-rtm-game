@@ -145,7 +145,7 @@ test('dense bars, hold heads and DD keep their proportions throughout flight and
 test('sparse, sixteenth, hold and slide heads share one thickness before and after a tempo change', async ({ page }) => {
   const frames = await page.locator('#game-canvas').evaluate(async (canvas: HTMLCanvasElement) => {
     const { Renderer } = await import('/src/renderer.ts'), { GameEngine } = await import('/src/engine.ts');
-    const { fieldGeometry, project } = await import('/src/field-geometry.ts');
+    const { canvasGeometry, project } = await import('/src/field-geometry.ts');
     const notes = [12, 19].flatMap((time, i) => [
       { id:i*10+1, type:'tap', lane:0, time },
       { id:i*10+2, type:'tap', lane:0, time:time+.078125 },
@@ -155,7 +155,7 @@ test('sparse, sixteenth, hold and slide heads share one thickness before and aft
     ]);
     const engine = new GameEngine({videoId:'pJDfWpZ7CI4',title:'uniform sizes',bpm:166,startTime:12,tempoChanges:[{time:18,bpm:192}],notes} as any);
     const renderer = new Renderer(canvas), ctx = canvas.getContext('2d')!, original = ctx.roundRect.bind(ctx);
-    const rect = canvas.getBoundingClientRect(), field = fieldGeometry(rect.width, rect.height);
+    const field = canvasGeometry(canvas);
     let heads: { y:number; width:number; height:number }[] = [];
     ctx.roundRect = function(x,y,w,h,r) { heads.push({y:y+h/2,width:w,height:h}); original(x,y,w,h,r); };
     try {

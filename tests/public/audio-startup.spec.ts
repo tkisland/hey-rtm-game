@@ -36,6 +36,12 @@ test('pending audio reports startup failure, recovers without restarting the vid
   const file=await downloaded,data=JSON.parse(await readFile((await file.path())!,'utf8'));
   expect(data.startupSamples.some((row:any)=>row.audio?.state==='suspended'&&row.audio.requested===3&&row.audio.started===0)).toBe(true);
   const audio=data.samples.at(-1).audio;expect(audio.state).toBe('running');expect(audio.requested).toBe(4);expect(audio.started).toBe(1);expect(audio.lateDrops).toBe(3);
+  expect(audio.firstInputs.map((input:any)=>input.result)).toEqual(['late-drop','late-drop','late-drop','started']);
+  expect(audio.firstInputs[0]).toMatchObject({id:1,lane:0,kind:'tap',state:'suspended',activated:true});
+  expect(audio.firstInputs[0].elapsedMs).toBeGreaterThan(80);
+  expect(audio.firstInputs[3].when).toBeGreaterThanOrEqual(0);
+  expect(audio.firstInputs[3].elapsedMs).toBeLessThan(80);
+  expect(audio.baseLatencyMs).toBeGreaterThanOrEqual(0);
 });
 
 test('trusted touch release retries audio activation even when pointerdown could not unlock',async({page},info)=>{

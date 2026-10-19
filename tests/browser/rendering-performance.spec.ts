@@ -38,7 +38,7 @@ test('high-density rendering caps pixels, reuses the fixed floor and refreshes i
   });
   expect(result.original).toEqual({width:740,height:960,scale:2,resizes:0});
   expect(result.cold).toBeGreaterThan(result.warm+5);
-  expect(result.warm).toBeLessThanOrEqual(2);expect(result.second).toBe(result.warm);
+  expect(result.warm).toBe(0);expect(result.second).toBe(result.warm);
   expect(result.width).toBe(800);expect(result.scale).toBe(2);
   expect(result.resizedCold).toBeGreaterThan(result.resizedWarm+5);
   expect(result.resizedWarm).toBe(result.warm);

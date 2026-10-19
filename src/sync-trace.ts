@@ -37,6 +37,7 @@ export interface SyncTraceRow extends SyncObservation {
   observedRate: number | null;
   maxFrameGapMs: number;
 }
+const copyAudio = (audio: SoundDiagnostics): SoundDiagnostics => ({...audio, ...(audio.firstInputs ? {firstInputs:audio.firstInputs.map(input=>({...input}))} : {})});
 export const SYNC_TRACE_LIMIT = 480;
 export const SYNC_STARTUP_MS = 60000;
 export const SYNC_STARTUP_LIMIT = 256;
@@ -78,10 +79,12 @@ export class SyncTrace {
     }
     this.maxFrameGap = Math.max(this.maxFrameGap, sample.frameGapMs);
     this.previous = sample;
-    const audioChanged = sample.audio?.state !== previous?.audio?.state || sample.audio?.lateDrops !== previous?.audio?.lateDrops || sample.audio?.blocked !== previous?.audio?.blocked;
+    const audioInputChanged = sample.audio?.firstInputs?.length !== previous?.audio?.firstInputs?.length ||
+      sample.audio?.firstInputs?.some((input,i)=>input.result !== previous?.audio?.firstInputs?.[i]?.result);
+    const audioChanged = audioInputChanged || sample.audio?.state !== previous?.audio?.state || sample.audio?.lateDrops !== previous?.audio?.lateDrops || sample.audio?.blocked !== previous?.audio?.blocked;
     const event = changed || metadataChanged || sample.seek || sample.resync || backwards || audioChanged;
     if (!event && sample.atMs - this.lastStoredAt < 250) return null;
-    const row: SyncTraceRow = { ...sample, ...(sample.audio ? {audio:{...sample.audio}} : {}), elapsedMs:sample.atMs - this.startedAt,
+    const row: SyncTraceRow = { ...sample, ...(sample.audio ? {audio:copyAudio(sample.audio)} : {}), elapsedMs:sample.atMs - this.startedAt,
       clockLeadMs:(sample.clockTime - sample.apiTime) * 1000,
       noteLeadMs:(sample.judgementTime - sample.apiTime) * 1000,
       apiUpdateAgeMs:sample.atMs - this.lastUpdateAt, observedRate:this.observedRate, maxFrameGapMs:this.maxFrameGap };
@@ -94,7 +97,7 @@ export class SyncTrace {
     this.rows.push(row); if (this.rows.length > SYNC_TRACE_LIMIT) this.rows.shift();
     return row;
   }
-  snapshot(): SyncTraceRow[] { return this.rows.map(row => ({...row,...(row.audio?{audio:{...row.audio}}:{})})); }
-  startupSnapshot(): SyncTraceRow[] { return this.startup.map(row=>({...row,...(row.audio?{audio:{...row.audio}}:{})})); }
-  eventSnapshot(): SyncTraceRow[] { return this.events.map(row=>({...row,...(row.audio?{audio:{...row.audio}}:{})})); }
+  snapshot(): SyncTraceRow[] { return this.rows.map(row => ({...row,...(row.audio?{audio:copyAudio(row.audio)}:{})})); }
+  startupSnapshot(): SyncTraceRow[] { return this.startup.map(row=>({...row,...(row.audio?{audio:copyAudio(row.audio)}:{})})); }
+  eventSnapshot(): SyncTraceRow[] { return this.events.map(row=>({...row,...(row.audio?{audio:copyAudio(row.audio)}:{})})); }
 }
