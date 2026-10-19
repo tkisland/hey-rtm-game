@@ -107,7 +107,7 @@ test('player controls remain reachable with clearance from the bottom on small s
   }
 });
 
-test('Biscuit Case plays the uploaded BSC001 chart at MIDI zero plus 3.03s', async ({page}) => {
+test('Biscuit Case plays the uploaded BSC001 chart at MIDI zero plus 2.95s', async ({page}) => {
   await page.goto('/');await expect(page.locator('#song-count')).toHaveText('2曲 / 全2曲');
   await page.locator('#song-search').fill('ビスケット');
   const card=page.locator('[data-song="biscuit-case"]');
@@ -116,7 +116,7 @@ test('Biscuit Case plays the uploaded BSC001 chart at MIDI zero plus 3.03s', asy
   await card.locator('.song-play').click();await expect(page.locator('#restart')).toBeEnabled();
   await expect(page.locator('#song-title')).toHaveText('ビスケットケース');
   expect(await page.evaluate(()=>(window as any).testVideo.options.videoId)).toBe('JUsGoi24rug');
-  await page.evaluate(()=>{const video=(window as any).testVideo;video.liveClock=false;video.seekTo(3.93);video.playVideo();});
+  await page.evaluate(()=>{const video=(window as any).testVideo;video.liveClock=false;video.seekTo(3.85);video.playVideo();});
   await page.keyboard.press('l');await expect(page.locator('#judgement-5 .judgement-label')).toHaveText('PERFECT');
   await expect(page.locator('#score')).toHaveText('1,000');
   await page.locator('#restart').click();await expect(page.locator('#score')).toHaveText('0');

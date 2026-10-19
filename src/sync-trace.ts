@@ -1,4 +1,6 @@
+import type { SoundDiagnostics } from './sound';
 export interface SyncObservation {
+  audio?:SoundDiagnostics;
   atMs: number;
   apiTime: number;
   clockTime: number;
@@ -76,9 +78,10 @@ export class SyncTrace {
     }
     this.maxFrameGap = Math.max(this.maxFrameGap, sample.frameGapMs);
     this.previous = sample;
-    const event = changed || metadataChanged || sample.seek || sample.resync || backwards;
+    const audioChanged = sample.audio?.state !== previous?.audio?.state || sample.audio?.lateDrops !== previous?.audio?.lateDrops || sample.audio?.blocked !== previous?.audio?.blocked;
+    const event = changed || metadataChanged || sample.seek || sample.resync || backwards || audioChanged;
     if (!event && sample.atMs - this.lastStoredAt < 250) return null;
-    const row: SyncTraceRow = { ...sample, elapsedMs:sample.atMs - this.startedAt,
+    const row: SyncTraceRow = { ...sample, ...(sample.audio ? {audio:{...sample.audio}} : {}), elapsedMs:sample.atMs - this.startedAt,
       clockLeadMs:(sample.clockTime - sample.apiTime) * 1000,
       noteLeadMs:(sample.judgementTime - sample.apiTime) * 1000,
       apiUpdateAgeMs:sample.atMs - this.lastUpdateAt, observedRate:this.observedRate, maxFrameGapMs:this.maxFrameGap };
@@ -91,7 +94,7 @@ export class SyncTrace {
     this.rows.push(row); if (this.rows.length > SYNC_TRACE_LIMIT) this.rows.shift();
     return row;
   }
-  snapshot(): SyncTraceRow[] { return this.rows.map(row => ({...row})); }
-  startupSnapshot(): SyncTraceRow[] { return this.startup.map(row=>({...row})); }
-  eventSnapshot(): SyncTraceRow[] { return this.events.map(row=>({...row})); }
+  snapshot(): SyncTraceRow[] { return this.rows.map(row => ({...row,...(row.audio?{audio:{...row.audio}}:{})})); }
+  startupSnapshot(): SyncTraceRow[] { return this.startup.map(row=>({...row,...(row.audio?{audio:{...row.audio}}:{})})); }
+  eventSnapshot(): SyncTraceRow[] { return this.events.map(row=>({...row,...(row.audio?{audio:{...row.audio}}:{})})); }
 }

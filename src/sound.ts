@@ -1,6 +1,7 @@
 export const TAP_DURATION = 0.24;
 export const MAX_LATE_TAP_MS = 80;
 export const BEAT_DURATION = .09;
+export interface SoundDiagnostics { enabled:boolean; volume:number; state:string; contextTime:number|null; requested:number; started:number; lateDrops:number; blocked:number; sessionType:string|null }
 type VoiceKind = 'tap' | 'box' | 'beat' | 'sweep';
 export const BOX_SWEEP_GAP = .014;
 let sweepSamples: Float32Array<ArrayBuffer> | null = null;
@@ -146,16 +147,45 @@ export class TapSound {
   private delayMs = 0;
   private generation = 0;
   private playbackActive = false;
+  private readinessTimer = 0;
+  private ready = false;
+  private requested = 0;
+  private started = 0;
+  private lateDrops = 0;
+  private blocked = 0;
+  private contextChanged = () => {
+    if (this.context?.state === 'running') {
+      clearTimeout(this.readinessTimer); this.readinessTimer = 0;
+      if (!this.ready && !this.disposed) this.onReady?.();
+      this.ready = true;
+    } else { this.ready = false; if (this.playbackActive) this.watchReadiness(); }
+  };
+  private watchReadiness(): void {
+    if (this.readinessTimer || this.context?.state === 'running') return;
+    this.readinessTimer = window.setTimeout(() => {
+      this.readinessTimer = 0;
+      if (!this.disposed && this.playbackActive && this.enabled && this.volume > 0 && !document.hidden && this.context?.state !== 'running') this.onUnavailable();
+    }, 1500);
+  }
+  /** Observations only: running/scheduled audio does not prove physical sound output. */
+  diagnostics(): SoundDiagnostics {
+    let sessionType:string|null = null;
+    try { sessionType = (navigator as Navigator & {audioSession?:{type:string}}).audioSession?.type ?? null; } catch { /* optional API */ }
+    return {enabled:this.enabled,volume:this.volume,state:this.context?.state ?? 'uninitialized',contextTime:this.context?.currentTime ?? null,requested:this.requested,started:this.started,lateDrops:this.lateDrops,blocked:this.blocked,sessionType};
+  }
   private outputWarmup: ConstantSourceNode | null = null;
   private visibilityChanged = () => { if (document.hidden) this.cancelPending(); };
   private activate = (event: Event) => { if (event.isTrusted && !document.hidden) void this.unlock(); };
   /** An optional context shares a reference clock; this instance closes it on destroy. */
-  constructor(private onUnavailable: () => void, context?: AudioContext) {
+  constructor(private onUnavailable: () => void, context?: AudioContext, private onReady?: () => void) {
     this.context = context ?? null;
     warmSamples();
     document.addEventListener('visibilitychange', this.visibilityChanged);
     document.addEventListener('pointerdown', this.activate, { capture: true, passive: true });
     document.addEventListener('keydown', this.activate, { capture: true });
+    // Touch activation can be granted at release, after pointerdown has already run.
+    document.addEventListener('pointerup', this.activate, { capture: true, passive: true });
+    document.addEventListener('touchend', this.activate, { capture: true, passive: true });
   }
 
   get enabled(): boolean { return this.active; }
@@ -273,8 +303,11 @@ export class TapSound {
       this.context ??= new AudioContextClass({ latencyHint: 'interactive' });
       if (!this.master) this.prepare(this.context);
       this.syncOutputWarmup();
-      if (this.context.state !== 'running') await this.context.resume();
-      return generation === this.generation && !this.disposed && this.context.state === 'running';
+      if (this.context.state !== 'running') { this.watchReadiness(); await this.context.resume(); }
+      this.contextChanged();
+      const ready = generation === this.generation && !this.disposed && this.context.state === 'running';
+      if (!ready && generation === this.generation && !this.disposed) this.onUnavailable();
+      return ready;
     } catch {
       if (generation === this.generation && !this.disposed) this.onUnavailable();
       return false;
@@ -290,6 +323,7 @@ export class TapSound {
   private playVoice(lane: number, kind: VoiceKind = 'tap'): void {
     if (!this.enabled || this.volume === 0 || this.disposed) return;
     try {
+      this.requested++;
       const requestedAt = performance.now(), delay = kind === 'beat' ? 0 : this.delayMs, generation = this.generation;
       // Construct/resume in the input gesture for Safari's audio activation rules.
       const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -301,17 +335,22 @@ export class TapSound {
       const remaining = () => Math.max(0, delay - (performance.now() - requestedAt)) / 1000;
       const playCurrent = () => {
         // Do not replay a backlog when an output device / suspended context starts late.
-        if (generation === this.generation && this.enabled && this.volume > 0 && !this.disposed && !document.hidden &&
-            context.state === 'running' && performance.now() - requestedAt <= delay + MAX_LATE_TAP_MS) this.click(context, lane, remaining(), kind);
+        if (generation !== this.generation || !this.enabled || this.volume === 0 || this.disposed || document.hidden) return;
+        this.contextChanged();
+        if (context.state !== 'running') { this.blocked++; this.onUnavailable(); return; }
+        if (performance.now() - requestedAt > delay + MAX_LATE_TAP_MS) { this.lateDrops++; return; }
+        this.click(context, lane, remaining(), kind);
       };
       if (context.state === 'running') playCurrent();
-      else void context.resume().then(() => {
-        playCurrent();
-      }).catch(() => { if (generation === this.generation && !this.disposed) this.onUnavailable(); });
+      else {
+        this.watchReadiness();
+        void context.resume().then(playCurrent).catch(() => { if (generation === this.generation && !this.disposed) { this.blocked++; this.onUnavailable(); } });
+      }
     } catch { this.onUnavailable(); }
   }
 
   private prepare(context: AudioContext): void {
+    context.addEventListener('statechange', this.contextChanged);
     const compressor = context.createDynamicsCompressor();
     compressor.threshold.value = -14;
     compressor.knee.value = 12;
@@ -354,14 +393,19 @@ export class TapSound {
     this.voices.set(source, when);
     source.onended = () => { source.disconnect(); this.voices.delete(source); };
     source.start(when);
+    this.started++;
   }
 
   destroy(): void {
     this.disposed = true;
+    clearTimeout(this.readinessTimer);
+    this.context?.removeEventListener('statechange', this.contextChanged);
     this.cancelPending();
     document.removeEventListener('visibilitychange', this.visibilityChanged);
     document.removeEventListener('pointerdown', this.activate, true);
     document.removeEventListener('keydown', this.activate, true);
+    document.removeEventListener('pointerup', this.activate, true);
+    document.removeEventListener('touchend', this.activate, true);
     this.voices.clear();
     if (this.context) void this.context.close().catch(() => {});
   }
