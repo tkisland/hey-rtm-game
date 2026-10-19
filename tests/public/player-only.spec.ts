@@ -16,7 +16,7 @@ test('public selection offers only the published chart and loads no video', asyn
   const requests:string[] = [];
   page.on('request', request => { if (request.url().includes('youtube.com')) requests.push(request.url()); });
   await page.goto('/?admin=1&mode=admin');
-  await expect(page.locator('.song-play')).toHaveText('プレイ');
+  await expect(page.locator('[data-song="super-mommy-girls"] .song-play')).toHaveText('プレイ');
   await expect(page.locator('[data-song="super-mommy-girls"] .song-meta')).toHaveText('6 LANES · 166 → 192 BPM · 510 NOTES');
   await expect(page.locator('.song-card').getByText('SUPER MOMMY GIRLS',{exact:true})).toHaveCount(1);
   expect((await page.locator('[data-song="super-mommy-girls"]').boundingBox())!.height).toBeLessThan(180);
@@ -25,7 +25,7 @@ test('public selection offers only the published chart and loads no video', asyn
   expect(requests).toEqual([]);
   await page.locator('#song-search').fill('missing'); await expect(page.locator('#song-empty')).toBeVisible();
   await page.locator('#song-search').fill('mommy'); await expect(page.locator('.song-card')).toHaveCount(2);
-  await page.locator('.song-play').click(); await expect(page.locator('#restart')).toBeEnabled();
+  await page.locator('[data-song="super-mommy-girls"] .song-play').click(); await expect(page.locator('#restart')).toBeEnabled();
   await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 510 NOTES');
 });
 
@@ -82,7 +82,7 @@ test('unknown songs return to selection before loading a player', async ({ page 
   page.on('request', request => { if (request.url().includes('youtube.com')) requests.push(request.url()); });
   await page.goto('/game.html?song=unknown&admin=1');
   await expect(page.locator('#menu-notice')).toContainText('見つかりません');
-  await expect(page.locator('.song-play')).toBeVisible(); expect(requests).toEqual([]);
+  await expect(page.locator('[data-song="super-mommy-girls"] .song-play')).toBeVisible(); expect(requests).toEqual([]);
 });
 test('the unconfigured administrator entry stays locked and does not load the editor', async ({ page }) => {
   const requests:string[]=[];page.on('request',request=>requests.push(request.url()));
@@ -107,17 +107,18 @@ test('player controls remain reachable with clearance from the bottom on small s
   }
 });
 
-test('Biscuit Case is searchable but cannot start before a chart is published', async ({page}) => {
-  const videos:string[]=[];page.on('request',request=>{if(request.url().includes('youtube.com'))videos.push(request.url());});
+test('Biscuit Case plays the uploaded BSC001 chart at MIDI zero plus 3.03s', async ({page}) => {
   await page.goto('/');await expect(page.locator('#song-count')).toHaveText('2曲 / 全2曲');
   await page.locator('#song-search').fill('ビスケット');
   const card=page.locator('[data-song="biscuit-case"]');
   await expect(card.locator('.song-name')).toHaveText('ビスケットケース');
-  await expect(card.locator('.song-meta')).toHaveText('譜面の準備中');
-  await expect(card.locator('.song-play,.song-edit')).toHaveCount(0);
-  await expect(card.locator('.song-unavailable')).toHaveText('準備中');
-  await page.goto('/game.html?song=biscuit-case');
-  await expect(page.locator('#menu-notice')).toContainText('この曲の譜面は準備中');
-  await expect(page.locator('[data-song="super-mommy-girls"] .song-play')).toBeVisible();
-  expect(videos).toEqual([]);
+  await expect(card.locator('.song-meta')).toHaveText('6 LANES · 200 → 205 → 200 → 205 → 203 → 205 → 200 BPM · 770 NOTES');
+  await card.locator('.song-play').click();await expect(page.locator('#restart')).toBeEnabled();
+  await expect(page.locator('#song-title')).toHaveText('ビスケットケース');
+  expect(await page.evaluate(()=>(window as any).testVideo.options.videoId)).toBe('JUsGoi24rug');
+  await page.evaluate(()=>{const video=(window as any).testVideo;video.liveClock=false;video.seekTo(3.93);video.playVideo();});
+  await page.keyboard.press('l');await expect(page.locator('#judgement-5 .judgement-label')).toHaveText('PERFECT');
+  await expect(page.locator('#score')).toHaveText('1,000');
+  await page.locator('#restart').click();await expect(page.locator('#score')).toHaveText('0');
+  await page.reload();await expect(page.locator('#chart-info')).toContainText('770 NOTES');
 });

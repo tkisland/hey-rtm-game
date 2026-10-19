@@ -1,6 +1,6 @@
 import type { Chart, ChartNote } from './chart';
 
-export interface MidiConfig { videoId: string; title: string; offsetSeconds: number; lanes: Record<number, number> }
+export interface MidiConfig { videoId: string; title: string; offsetSeconds: number; lanes: Record<number, number>; pitchAliases?: Record<number, number> }
 interface MidiNote { tick: number; endTick: number; pitch: number; channel: number; track: number }
 interface Tempo { tick: number; tempo: number; seconds: number; track?: number }
 export const MIDI_LANES = {38:0,39:0,40:1,41:2,43:3,45:4,47:5};
@@ -94,13 +94,58 @@ export function readMidi(buffer: Uint8Array) {
   return { ppq, tempos, secondsAt, notes: noteEvents.sort((a, b) => a.tick - b.tick || a.pitch - b.pitch || a.track - b.track) };
 }
 
+/** Pair touching segments in lane order. Separate channels/tracks can encode crossing paths. */
+function slideGroups(slides: MidiNote[]): MidiNote[][] {
+  const groups: MidiNote[][] = [];
+  for (let at = 0; at < slides.length;) {
+    const tick = slides[at].tick, batches = new Map<string,MidiNote[]>();
+    while (at < slides.length && slides[at].tick === tick) {
+      const note = slides[at++], key = `${note.track}:${note.channel}`;
+      const batch = batches.get(key) ?? []; batch.push(note); batches.set(key,batch);
+    }
+    for (const starts of batches.values()) {
+      starts.sort((a,b) => a.pitch-b.pitch);
+      if (starts.length > 6 || new Set(starts.map(note => note.pitch)).size !== starts.length) throw new Error('同時オシ変は各レーン1音ずつ指定してください。');
+      const ends = groups.filter(group => {
+        const last = group.at(-1)!;
+        return last.endTick === tick && last.track === starts[0].track && last.channel === starts[0].channel;
+      }).sort((a,b) => a.at(-1)!.pitch-b.at(-1)!.pitch);
+      if (ends.length > 6 || new Set(ends.map(group => group.at(-1)!.pitch)).size !== ends.length) throw new Error('同時オシ変の同じレーンに音符を重ねないでください。');
+      // Match as many continuations as possible, then minimize lane distance without crossing.
+      type Match = {pairs:[number,number][];cost:number};
+      const memo = new Map<string,Match>();
+      const match = (i:number,j:number):Match => {
+        if (i === ends.length || j === starts.length) return {pairs:[],cost:0};
+        const key = `${i}:${j}`, cached = memo.get(key); if (cached) return cached;
+        const candidates = [match(i+1,j),match(i,j+1)];
+        const distance = Math.abs(SLIDE_PITCHES.indexOf(ends[i].at(-1)!.pitch)-SLIDE_PITCHES.indexOf(starts[j].pitch));
+        const next = match(i+1,j+1); candidates.push({pairs:[[i,j],...next.pairs],cost:distance+next.cost});
+        candidates.sort((a,b) => b.pairs.length-a.pairs.length || a.cost-b.cost);
+        memo.set(key,candidates[0]); return candidates[0];
+      };
+      const pairs = match(0,0).pairs, continued = new Set<number>();
+      for (const [i,j] of pairs) { ends[i].push(starts[j]); continued.add(j); }
+      starts.forEach((note,j) => { if (!continued.has(j)) groups.push([note]); });
+    }
+  }
+  return groups;
+}
+
 /** Three disjoint pitch banks on one channel. Durations are ticks, never guessed from BPM. */
 export function convertMidi(buffer: Uint8Array, config: MidiConfig): Chart {
   const midi = readMidi(buffer);
+  // Explicit, one-step aliases preserve the original MIDI bytes and timing.
+  const aliases = new Map<number,number>();
+  for (const [key,target] of Object.entries(config.pitchAliases ?? {})) {
+    const source = Number(key);
+    if (!Number.isInteger(source) || source < 0 || source > 127 || !Number.isInteger(target) || target < 0 || target > 127) throw new Error('Invalid MIDI pitch alias');
+    aliases.set(source,target);
+  }
+  const sourceNotes = midi.notes.map(note => ({...note,pitch:aliases.get(note.pitch) ?? note.pitch}));
   if (midi.tempos.some(event => 60e6 / event.tempo < 40 || 60e6 / event.tempo > 300)) throw new Error('Chart BPM must be between 40 and 300');
   if (!Number.isFinite(config.offsetSeconds) || config.offsetSeconds < 0 || config.offsetSeconds > 7200) throw new Error('Invalid video offset');
   if (!config.lanes || !midi.notes.length || midi.notes.length > 5000) throw new Error('Supply a lane map and 1–5000 notes');
-  for (const pitch of [...new Set(midi.notes.map(note => note.pitch))]) {
+  for (const pitch of [...new Set(sourceNotes.map(note => note.pitch))]) {
     const lane = config.lanes[pitch];
     const special = BOX_PITCHES.includes(pitch) || SLIDE_PITCHES.includes(pitch) || pitch === DD_PITCH;
     if (special && lane !== undefined) throw new Error(`Reserved gimmick pitch cannot be in lane map: ${pitch}`);
@@ -109,14 +154,14 @@ export function convertMidi(buffer: Uint8Array, config: MidiConfig): Chart {
   const round = (value: number) => Number(value.toFixed(9));
   const videoTime = (tick: number) => round(midi.secondsAt(tick) + config.offsetSeconds);
   const notes: ChartNote[] = [];
-  for (const note of midi.notes) {
+  for (const note of sourceNotes) {
     if (BOX_PITCHES.includes(note.pitch) || SLIDE_PITCHES.includes(note.pitch)) continue;
     const base = {id:0, time:videoTime(note.tick), lane:config.lanes[note.pitch] ?? 2};
     if (note.pitch === DD_PITCH) notes.push({...base, type:'tap', gimmick:'dd'});
     else notes.push(note.endTick - note.tick >= 1.5 * midi.ppq ? {...base, type:'hold', endTime:videoTime(note.endTick)} : {...base, type:'tap'});
   }
   // Six tagged colours describe one box gesture, anchored at the first marker.
-  const box = midi.notes.filter(note => BOX_PITCHES.includes(note.pitch));
+  const box = sourceNotes.filter(note => BOX_PITCHES.includes(note.pitch));
   if (box.length % 6) throw new Error('箱オシは6音ずつ指定してください。');
   for (let i = 0; i < box.length; i += 6) {
     const group = box.slice(i, i + 6);
@@ -124,13 +169,8 @@ export function convertMidi(buffer: Uint8Array, config: MidiConfig): Chart {
     group.forEach(note => notes.push({id:0, time:videoTime(group[0].tick), lane:BOX_PITCHES.indexOf(note.pitch), type:'tap', gimmick:'box', boxId:i / 6 + 1}));
   }
   // Consecutive touching slide-bank notes describe one continuous gesture. A gap starts another.
-  const slides = midi.notes.filter(note => SLIDE_PITCHES.includes(note.pitch));
-  for (let i = 0; i < slides.length;) {
-    const group = [slides[i++]];
-    while (i < slides.length && slides[i].tick <= group.at(-1)!.endTick) {
-      if (slides[i].tick !== group.at(-1)!.endTick) throw new Error('オシ変の音符は重ねず、終端と次の始端をぴったりつないでください。');
-      group.push(slides[i++]);
-    }
+  const slides = sourceNotes.filter(note => SLIDE_PITCHES.includes(note.pitch));
+  for (const group of slideGroups(slides)) {
     if (group.length < 2 || group.length > 129) throw new Error('オシ変は2〜129音を隙間なくつないで指定してください。');
     const lanes = group.map(note => SLIDE_PITCHES.indexOf(note.pitch));
     if (lanes.some((lane, j) => j > 0 && lane === lanes[j - 1]) || group.some(note => videoTime(note.endTick) - videoTime(note.tick) < .03 - 1e-8)) throw new Error('オシ変は30ms以上の間隔で別の色へ移動してください。');

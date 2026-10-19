@@ -83,3 +83,32 @@ it('the shipped chart can be played through with all 22 holds and 32 chords scor
   expect(engine.finished).toBe(true); expect(engine.counts).toEqual({ PERFECT: 509, GREAT: 0, GOOD: 0, MISS: 0 });
   expect(engine.score).toBe(509000); expect(engine.combo).toBe(509);
 });
+
+function slideMidi(routes: {pitches:number[];channel:number}[]): Buffer {
+  const events = routes.flatMap(route => route.pitches.flatMap((pitch,i) => [
+    {tick:i*480,bytes:[0x90+route.channel,pitch,100],off:false},
+    {tick:(i+1)*480,bytes:[0x80+route.channel,pitch,0],off:true},
+  ])).sort((a,b) => a.tick-b.tick || Number(b.off)-Number(a.off));
+  let last = 0;
+  return midi([[...events.flatMap(event => { const bytes=[...vlq(event.tick-last),...event.bytes];last=event.tick;return bytes; }),...end]]);
+}
+it('preserves two simultaneous inward slide paths on one channel', () => {
+  const chart=convertMidi(slideMidi([{pitches:[62,64,65],channel:0},{pitches:[71,69,67],channel:0}]),config);
+  expect(chart.notes).toEqual([
+    {id:1,type:'hold',gimmick:'slide',time:7.65,endTime:9.15,lane:0,path:[{time:8.15,lane:1},{time:8.65,lane:2}]},
+    {id:2,type:'hold',gimmick:'slide',time:7.65,endTime:9.15,lane:5,path:[{time:8.15,lane:4},{time:8.65,lane:3}]},
+  ]);
+});
+it('keeps explicitly separated crossing paths by channel and rejects ambiguous same-channel crossings', () => {
+  const chart=convertMidi(slideMidi([{pitches:[62,71],channel:0},{pitches:[71,62],channel:1}]),config);
+  expect(chart.notes.map(note=>[note.lane,note.path])).toEqual([[0,[{time:8.15,lane:5}]],[5,[{time:8.15,lane:0}]]]);
+  expect(()=>convertMidi(slideMidi([{pitches:[62,71],channel:0},{pitches:[71,62],channel:0}]),config)).toThrow('オシ変');
+});
+
+it('uses explicit pitch aliases without changing source bytes or guessing unassigned notes', () => {
+  const bytes=slideMidi([{pitches:[62,63],channel:0}]),copy=Buffer.from(bytes);
+  expect(()=>convertMidi(bytes,config)).toThrow('Unmapped MIDI pitch: 63');
+  expect(convertMidi(bytes,{...config,pitchAliases:{63:65}}).notes[0]).toMatchObject({lane:0,path:[{time:8.15,lane:2}]});
+  expect(bytes).toEqual(copy);expect(readMidi(bytes).notes[1].pitch).toBe(63);
+  expect(()=>convertMidi(bytes,{...config,pitchAliases:{63:128}})).toThrow('Invalid MIDI pitch alias');
+});

@@ -16,13 +16,15 @@ export const DEFAULT_SONG: Song = {
 };
 export const BISCUIT_CASE: Song = {
   id: 'biscuit-case', title: 'ビスケットケース', artist: 'Hey!Mommy!',
-  // Uploaded MP3: opening tempo and first clear beat. Video alignment remains provisional.
-  videoId: 'JUsGoi24rug', bpm: 200, startTime: 3,
-  // Draft MP3 analysis: refine transition timestamps against the video in the editor.
-  tempoEstimated: true,
+  // MIDI tick zero is placed at video 3.03s; editor defaults use the authored tempo map.
+  videoId: 'JUsGoi24rug', bpm: 200, startTime: 3.03, chartId: 'bsc001',
   tempoChanges: [
-    {time:24.6,bpm:205}, {time:100.7,bpm:200}, {time:112.7,bpm:205},
-    {time:187.6,bpm:203}, {time:213.8,bpm:205}, {time:240,bpm:200},
+    {time:24.629375,bpm:205.000649169},
+    {time:100.727304754,bpm:200},
+    {time:112.727304754,bpm:205.000649169},
+    {time:188.824624754,bpm:203.000345101},
+    {time:213.652168754,bpm:205.000649169},
+    {time:235.91734215,bpm:200},
   ],
 };
 /** Register additional songs here; routing and storage use the stable ID. */
