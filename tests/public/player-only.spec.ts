@@ -17,14 +17,14 @@ test('public selection offers only the published chart and loads no video', asyn
   page.on('request', request => { if (request.url().includes('youtube.com')) requests.push(request.url()); });
   await page.goto('/?admin=1&mode=admin');
   await expect(page.locator('.song-play')).toHaveText('プレイ');
-  await expect(page.locator('.song-meta')).toHaveText('6 LANES · 166 → 192 BPM · 510 NOTES');
+  await expect(page.locator('[data-song="super-mommy-girls"] .song-meta')).toHaveText('6 LANES · 166 → 192 BPM · 510 NOTES');
   await expect(page.locator('.song-card').getByText('SUPER MOMMY GIRLS',{exact:true})).toHaveCount(1);
-  expect((await page.locator('.song-card').boundingBox())!.height).toBeLessThan(180);
+  expect((await page.locator('[data-song="super-mommy-girls"]').boundingBox())!.height).toBeLessThan(180);
   await expect(page.locator('.song-edit,.song-saved,.song-practice,.saved-summary,.admin-notice')).toHaveCount(0);
   expect(await page.locator('body').innerText()).not.toMatch(/エディター|編集|保存譜面|テスト譜面|SMG00[234]/);
   expect(requests).toEqual([]);
   await page.locator('#song-search').fill('missing'); await expect(page.locator('#song-empty')).toBeVisible();
-  await page.locator('#song-search').fill('mommy'); await expect(page.locator('.song-card')).toHaveCount(1);
+  await page.locator('#song-search').fill('mommy'); await expect(page.locator('.song-card')).toHaveCount(2);
   await page.locator('.song-play').click(); await expect(page.locator('#restart')).toBeEnabled();
   await expect(page.locator('#chart-info')).toHaveText('166 → 192 BPM · 510 NOTES');
 });
@@ -105,4 +105,19 @@ test('player controls remain reachable with clearance from the bottom on small s
     })).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
+});
+
+test('Biscuit Case is searchable but cannot start before a chart is published', async ({page}) => {
+  const videos:string[]=[];page.on('request',request=>{if(request.url().includes('youtube.com'))videos.push(request.url());});
+  await page.goto('/');await expect(page.locator('#song-count')).toHaveText('2曲 / 全2曲');
+  await page.locator('#song-search').fill('ビスケット');
+  const card=page.locator('[data-song="biscuit-case"]');
+  await expect(card.locator('.song-name')).toHaveText('ビスケットケース');
+  await expect(card.locator('.song-meta')).toHaveText('譜面の準備中');
+  await expect(card.locator('.song-play,.song-edit')).toHaveCount(0);
+  await expect(card.locator('.song-unavailable')).toHaveText('準備中');
+  await page.goto('/game.html?song=biscuit-case');
+  await expect(page.locator('#menu-notice')).toContainText('この曲の譜面は準備中');
+  await expect(page.locator('[data-song="super-mommy-girls"] .song-play')).toBeVisible();
+  expect(videos).toEqual([]);
 });

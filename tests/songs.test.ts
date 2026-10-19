@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { DEFAULT_SONG, findSong, SONGS, songStorageKey, songUrl } from '../src/songs';
+import { BISCUIT_CASE, DEFAULT_SONG, findSong, SONGS, songStorageKey, songUrl } from '../src/songs';
 import { generateChart } from '../src/chart';
 import { CUSTOM_CHART_KEY, EDITOR_KEY, emptyChart, loadChart, parseChart, storeChart } from '../src/editor-model';
 import { loadSettings, normalizePlayerSettings, saveSettings } from '../src/settings';
@@ -34,7 +34,7 @@ it('shares selected lead-in across songs and reloads without losing correction',
   }
 });
 it('registers only real available content and resolves stable song URLs', () => {
-  expect(SONGS).toEqual([DEFAULT_SONG]); expect(findSong(null)).toBe(DEFAULT_SONG);
+  expect(SONGS).toEqual([DEFAULT_SONG, BISCUIT_CASE]); expect(findSong(null)).toBe(DEFAULT_SONG);
   expect(findSong(DEFAULT_SONG.id)).toBe(DEFAULT_SONG); expect(findSong('unknown')).toBeUndefined();
   expect(songUrl(second, 'game', true)).toBe('./game.html?song=second-song&chart=custom');
   expect(songUrl(second, 'editor')).toBe('./editor.html?song=second-song');
@@ -70,4 +70,12 @@ it('handles broken per-song settings without losing shared input/audio preferenc
   const data = storage(); saveSettings({ ...loadSettings(), inputOffset: 100, soundVolume: 35 });
   data.set(songStorageKey('hey-rhythm-song-settings-v1', second), '{');
   expect(loadSettings(second)).toMatchObject({ bpm: 120, startTime: 8, offset: 0, inputOffset: 100, soundVolume: 35 });
+});
+
+it('registers Biscuit Case for chart preparation with separate storage and the supplied video', () => {
+  storage();
+  expect(findSong('biscuit-case')).toBe(BISCUIT_CASE);
+  expect(emptyChart(BISCUIT_CASE)).toMatchObject({videoId:'JUsGoi24rug',title:'ビスケットケース',bpm:200,beatOrigin:3,notes:[]});
+  expect(loadSettings(BISCUIT_CASE)).toMatchObject({bpm:200,startTime:3});
+  expect(songStorageKey(EDITOR_KEY,BISCUIT_CASE)).toBe('hey-rhythm-editor-v1:biscuit-case');
 });

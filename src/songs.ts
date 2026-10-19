@@ -11,8 +11,13 @@ export const DEFAULT_SONG: Song = {
   id: 'super-mommy-girls', title: 'SUPER MOMMY GIRLS', artist: 'Hey!Mommy!',
   videoId: 'pJDfWpZ7CI4', bpm: 140, startTime: 12, chartId: 'smg005',
 };
+export const BISCUIT_CASE: Song = {
+  id: 'biscuit-case', title: 'ビスケットケース', artist: 'Hey!Mommy!',
+  // Uploaded MP3: opening tempo and first clear beat. Video alignment remains provisional.
+  videoId: 'JUsGoi24rug', bpm: 200, startTime: 3,
+};
 /** Register additional songs here; routing and storage use the stable ID. */
-export const SONGS: readonly Song[] = [DEFAULT_SONG];
+export const SONGS: readonly Song[] = [DEFAULT_SONG, BISCUIT_CASE];
 export function findSong(id: string | null): Song | undefined {
   return id === null ? DEFAULT_SONG : SONGS.find(song => song.id === id);
 }
