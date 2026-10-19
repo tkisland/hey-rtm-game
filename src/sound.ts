@@ -1,3 +1,4 @@
+import { playbackSession } from './audio-session';
 export const TAP_DURATION = 0.24;
 export const MAX_LATE_TAP_MS = 80;
 export const BEAT_DURATION = .09;
@@ -147,6 +148,7 @@ export class TapSound {
   private delayMs = 0;
   private generation = 0;
   private playbackActive = false;
+  private session = playbackSession();
   private readinessTimer = 0;
   private ready = false;
   private requested = 0;
@@ -205,6 +207,7 @@ export class TapSound {
   /** Drop future clicks, active holds and delayed resumes; preserve one-shot sounds already playing. */
   cancelPending(): void {
     this.generation++;
+    if (!this.playbackActive || !this.enabled || !this.volume || this.disposed) this.session.release();
     this.stopOutputWarmup();
     for (const lane of this.holds.keys()) this.stopHold(lane);
     for (const [source, when] of this.voices) {
@@ -225,7 +228,9 @@ export class TapSound {
     if (!this.playbackActive || !this.enabled || !this.volume || this.disposed || document.hidden) {
       this.stopOutputWarmup(); return;
     }
-    if (!context || !this.master || this.outputWarmup) return;
+    if (!context || !this.master) return;
+    this.session.acquire();
+    if (this.outputWarmup) return;
     try {
       const source = context.createConstantSource();
       source.offset.value = 0; // Exact digital silence through the same compressor/output as taps.
@@ -298,6 +303,7 @@ export class TapSound {
     if (!this.enabled || this.volume === 0) return true;
     const generation = this.generation;
     try {
+      this.session.acquire();
       const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioContextClass) throw new Error('Audio unavailable');
       this.context ??= new AudioContextClass({ latencyHint: 'interactive' });
@@ -326,6 +332,7 @@ export class TapSound {
       this.requested++;
       const requestedAt = performance.now(), delay = kind === 'beat' ? 0 : this.delayMs, generation = this.generation;
       // Construct/resume in the input gesture for Safari's audio activation rules.
+      this.session.acquire();
       const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioContextClass) { this.onUnavailable(); return; }
       this.context ??= new AudioContextClass({ latencyHint: 'interactive' });
@@ -398,6 +405,7 @@ export class TapSound {
 
   destroy(): void {
     this.disposed = true;
+    this.session.release();
     clearTimeout(this.readinessTimer);
     this.context?.removeEventListener('statechange', this.contextChanged);
     this.cancelPending();
