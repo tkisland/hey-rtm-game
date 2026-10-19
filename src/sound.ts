@@ -2,7 +2,12 @@ import { playbackSession } from './audio-session';
 export const TAP_DURATION = 0.24;
 export const MAX_LATE_TAP_MS = 80;
 export const BEAT_DURATION = .09;
-export interface SoundDiagnostics { enabled:boolean; volume:number; state:string; contextTime:number|null; requested:number; started:number; lateDrops:number; blocked:number; sessionType:string|null }
+export interface SoundInputDiagnostic {
+  id:number; lane:number; kind:string; atMs:number; state:string; activated:boolean;
+  result:'pending'|'started'|'late-drop'|'cancelled'|'blocked'|'error';
+  elapsedMs:number; contextTime:number|null; when?:number;
+}
+export interface SoundDiagnostics { enabled:boolean; volume:number; state:string; contextTime:number|null; requested:number; started:number; lateDrops:number; blocked:number; sessionType:string|null; firstInputs?:SoundInputDiagnostic[]; baseLatencyMs?:number|null; outputLatencyMs?:number|null }
 type VoiceKind = 'tap' | 'box' | 'beat' | 'sweep';
 export const BOX_SWEEP_GAP = .014;
 let sweepSamples: Float32Array<ArrayBuffer> | null = null;
@@ -151,6 +156,7 @@ export class TapSound {
   private session = playbackSession();
   private readinessTimer = 0;
   private ready = false;
+  private firstInputs: SoundInputDiagnostic[] = [];
   private requested = 0;
   private started = 0;
   private lateDrops = 0;
@@ -173,13 +179,16 @@ export class TapSound {
   diagnostics(): SoundDiagnostics {
     let sessionType:string|null = null;
     try { sessionType = (navigator as Navigator & {audioSession?:{type:string}}).audioSession?.type ?? null; } catch { /* optional API */ }
-    return {enabled:this.enabled,volume:this.volume,state:this.context?.state ?? 'uninitialized',contextTime:this.context?.currentTime ?? null,requested:this.requested,started:this.started,lateDrops:this.lateDrops,blocked:this.blocked,sessionType};
+    return {enabled:this.enabled,volume:this.volume,state:this.context?.state ?? 'uninitialized',contextTime:this.context?.currentTime ?? null,requested:this.requested,started:this.started,lateDrops:this.lateDrops,blocked:this.blocked,sessionType,
+      ...(this.traceInputs ? {firstInputs:this.firstInputs.map(input=>({...input})),
+        baseLatencyMs:this.context && Number.isFinite(this.context.baseLatency) ? this.context.baseLatency * 1000 : null,
+        outputLatencyMs:this.context && Number.isFinite(this.context.outputLatency) ? this.context.outputLatency * 1000 : null} : {})};
   }
   private outputWarmup: ConstantSourceNode | null = null;
   private visibilityChanged = () => { if (document.hidden) this.cancelPending(); };
   private activate = (event: Event) => { if (event.isTrusted && !document.hidden) void this.unlock(); };
   /** An optional context shares a reference clock; this instance closes it on destroy. */
-  constructor(private onUnavailable: () => void, context?: AudioContext, private onReady?: () => void) {
+  constructor(private onUnavailable: () => void, context?: AudioContext, private onReady?: () => void, private traceInputs = false) {
     this.context = context ?? null;
     warmSamples();
     document.addEventListener('visibilitychange', this.visibilityChanged);
@@ -207,6 +216,7 @@ export class TapSound {
   /** Drop future clicks, active holds and delayed resumes; preserve one-shot sounds already playing. */
   cancelPending(): void {
     this.generation++;
+    for (const input of this.firstInputs) if (input.result === 'pending') this.finishInput(input, 'cancelled');
     if (!this.playbackActive || !this.enabled || !this.volume || this.disposed) this.session.release();
     this.stopOutputWarmup();
     for (const lane of this.holds.keys()) this.stopHold(lane);
@@ -328,13 +338,20 @@ export class TapSound {
   }
   private playVoice(lane: number, kind: VoiceKind = 'tap'): void {
     if (!this.enabled || this.volume === 0 || this.disposed) return;
+    let observation: SoundInputDiagnostic | undefined;
+    const requestedAt = performance.now();
     try {
       this.requested++;
-      const requestedAt = performance.now(), delay = kind === 'beat' ? 0 : this.delayMs, generation = this.generation;
+      if (this.traceInputs && this.firstInputs.length < 8) {
+        observation = {id:this.requested,lane,kind,atMs:requestedAt,state:this.context?.state ?? 'uninitialized',
+          activated:navigator.userActivation?.isActive ?? false,result:'pending',elapsedMs:0,contextTime:this.context?.currentTime ?? null};
+        this.firstInputs.push(observation);
+      }
+      const delay = kind === 'beat' ? 0 : this.delayMs, generation = this.generation;
       // Construct/resume in the input gesture for Safari's audio activation rules.
       this.session.acquire();
       const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) { this.onUnavailable(); return; }
+      if (!AudioContextClass) { this.finishInput(observation, 'error'); this.onUnavailable(); return; }
       this.context ??= new AudioContextClass({ latencyHint: 'interactive' });
       const context = this.context;
       if (!this.master) this.prepare(context);
@@ -342,20 +359,26 @@ export class TapSound {
       const remaining = () => Math.max(0, delay - (performance.now() - requestedAt)) / 1000;
       const playCurrent = () => {
         // Do not replay a backlog when an output device / suspended context starts late.
-        if (generation !== this.generation || !this.enabled || this.volume === 0 || this.disposed || document.hidden) return;
+        if (generation !== this.generation || !this.enabled || this.volume === 0 || this.disposed || document.hidden) { this.finishInput(observation, 'cancelled'); return; }
         this.contextChanged();
-        if (context.state !== 'running') { this.blocked++; this.onUnavailable(); return; }
-        if (performance.now() - requestedAt > delay + MAX_LATE_TAP_MS) { this.lateDrops++; return; }
-        this.click(context, lane, remaining(), kind);
+        if (context.state !== 'running') { this.finishInput(observation, 'blocked'); this.blocked++; this.onUnavailable(); return; }
+        if (performance.now() - requestedAt > delay + MAX_LATE_TAP_MS) { this.finishInput(observation, 'late-drop'); this.lateDrops++; return; }
+        const when = this.click(context, lane, remaining(), kind);
+        this.finishInput(observation, 'started', when);
       };
       if (context.state === 'running') playCurrent();
       else {
         this.watchReadiness();
-        void context.resume().then(playCurrent).catch(() => { if (generation === this.generation && !this.disposed) { this.blocked++; this.onUnavailable(); } });
+        void context.resume().then(playCurrent).catch(() => { if (generation === this.generation && !this.disposed) { this.finishInput(observation, 'error'); this.blocked++; this.onUnavailable(); } });
       }
-    } catch { this.onUnavailable(); }
+    } catch { this.finishInput(observation, 'error'); this.onUnavailable(); }
   }
 
+  private finishInput(input:SoundInputDiagnostic|undefined, result:SoundInputDiagnostic['result'], when?:number): void {
+    if (!input) return;
+    input.result = result; input.elapsedMs = performance.now() - input.atMs;
+    if (when !== undefined) input.when = when;
+  }
   private prepare(context: AudioContext): void {
     context.addEventListener('statechange', this.contextChanged);
     const compressor = context.createDynamicsCompressor();
@@ -379,7 +402,7 @@ export class TapSound {
     this.master.connect(compressor); compressor.connect(limiter); limiter.connect(context.destination);
   }
 
-  private click(context: AudioContext, lane: number, delay: number, kind: VoiceKind): void {
+  private click(context: AudioContext, lane: number, delay: number, kind: VoiceKind): number {
     lane = Number.isInteger(lane) && lane >= 0 && lane < 6 ? lane : 0;
     const buffers = kind === 'box' ? this.boxBuffers : kind === 'beat' ? this.beatBuffers : kind === 'sweep' ? this.sweepBuffers : this.buffers;
     if (!buffers[lane]) {
@@ -401,6 +424,7 @@ export class TapSound {
     source.onended = () => { source.disconnect(); this.voices.delete(source); };
     source.start(when);
     this.started++;
+    return when;
   }
 
   destroy(): void {

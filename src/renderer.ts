@@ -23,6 +23,9 @@ export class Renderer {
   private cachedNotes: PlayNote[] | null = null;
   private renderNotes: PlayNote[] = [];
   private chords: ChartNote[][] = [];
+  private rail: HTMLCanvasElement | null = null;
+  private bandTravel = 0;
+  private bands: ReturnType<typeof timingBands>[] = [];
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2Dを利用できません。別のブラウザをお試しください。');
@@ -32,6 +35,7 @@ export class Renderer {
   private resize(): void {
     const rect = this.canvas.getBoundingClientRect();
     this.field = canvasGeometry(this.canvas);
+    this.rail = null; this.bands = [];
     this.frameClip = new Path2D();
     this.frameClip.roundRect(0, 0, rect.width, this.field.pads[0].y + this.field.padHeight / 2 + 14, this.field.sharedVenue ? [0,0,20,20] : 20);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -120,6 +124,9 @@ export class Renderer {
     ctx.save();ctx.clip(this.frameClip);
     // The venue, console shade and fixed lane surfaces share one cached image.
     drawVenue(ctx,field);
+    if (!this.bands.length || this.bandTravel !== travel) {
+      this.bands = Array.from({length:6},(_,lane)=>timingBands(field,lane,travel)); this.bandTravel = travel;
+    }
     for (let lane = 0; lane < 6; lane++) {
       const color = LANE_COLORS[lane];
       // The stage floor meets the receiving line. Late judgement bands remain below it.
@@ -129,7 +136,7 @@ export class Renderer {
       const alpha = this.pressed.has(lane) ? 0.10 : Math.max(0, 1 - age / 220) * 0.20;
       if (alpha > 0) { ctx.globalAlpha = alpha; ctx.fillStyle = color; this.polygon(edges); ctx.globalAlpha = 1; }
       ctx.fillStyle = color+'80';
-      for (const band of timingBands(field, lane, travel)) {
+      for (const band of this.bands[lane]) {
         ctx.globalAlpha = band.kind === 'PERFECT' ? 0.12 : 0.08;
         this.ribbon(band.top, band.bottom);
       }
@@ -139,11 +146,7 @@ export class Renderer {
       ctx.beginPath(); ctx.moveTo(target.x - target.width / 2, target.y); ctx.lineTo(target.x + target.width / 2, target.y); ctx.stroke(); ctx.lineWidth = 1;
     }
     // A continuous receiving line joins the six receptors at exactly p=1.
-    const rail=ctx.createLinearGradient(0,0,w,0);
-    LANE_COLORS.forEach((color,lane)=>rail.addColorStop(lane/5,color));
-    ctx.save();ctx.strokeStyle=rail;ctx.lineWidth=2;ctx.shadowColor='#ffb6ed';ctx.shadowBlur=8;
-    ctx.beginPath();ctx.moveTo(field.margin,field.near);ctx.lineTo(w-field.margin,field.near);ctx.stroke();
-    ctx.shadowBlur=0;ctx.strokeStyle='#ffffffb3';ctx.lineWidth=1;ctx.stroke();ctx.restore();
+    this.drawRail();
     const responses = Array.from({length:6}, () => 0);
     for (const note of notes) if (note.state === 'pending') {
       const p = progressAt(note.time);
@@ -168,6 +171,7 @@ export class Renderer {
     const active = (note: ChartNote) => { const state = (note as PlayNote).state; return state === 'pending' || state === 'holding'; };
     // Connect actual heads only: a straight two-note link, or a smooth multi-note curve.
     for (const group of this.chords) {
+      if (group[0].time > judgeTime + travel || !group.some(active)) continue;
       const headProgress = (note: ChartNote) => (note as PlayNote).state === 'holding' ? 1 : progressAt(note.time);
       const visible = group.filter(note => active(note) && headProgress(note) >= 0 && headProgress(note) <= 1 + WINDOWS.GOOD / travel + 1e-8)
         .sort((a, b) => a.lane - b.lane)
@@ -271,6 +275,21 @@ export class Renderer {
     this.drawHitEffects(now);
     this.drawBoxEffects(now);
     ctx.restore();
+  }
+  /** Cache just the narrow glowing rail; its bitmap never grows with note density. */
+  private drawRail(): void {
+    const field = this.field, dpr = Math.min(2, window.devicePixelRatio || 1), height = 32;
+    if (!this.rail) {
+      const canvas = document.createElement('canvas'); canvas.width = this.canvas.width; canvas.height = height * dpr;
+      const ctx = canvas.getContext('2d')!; ctx.scale(dpr,dpr);
+      const gradient = ctx.createLinearGradient(0,0,field.width,0);
+      LANE_COLORS.forEach((color,lane)=>gradient.addColorStop(lane/5,color));
+      ctx.strokeStyle=gradient; ctx.lineWidth=2; ctx.shadowColor='#ffb6ed'; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.moveTo(field.margin,height/2); ctx.lineTo(field.width-field.margin,height/2); ctx.stroke();
+      ctx.shadowBlur=0; ctx.strokeStyle='#ffffffb3'; ctx.lineWidth=1; ctx.stroke();
+      this.rail=canvas;
+    }
+    this.ctx.drawImage(this.rail,0,field.near-height/2,field.width,height);
   }
   private drawBox(note:PlayNote,p:number,y:number,now:number):void {
     const ctx=this.ctx,field=this.field;

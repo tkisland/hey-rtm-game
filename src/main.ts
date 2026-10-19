@@ -87,6 +87,9 @@ const diagnostics = new URLSearchParams(location.search).get('sync') === '1'
 const renderer = new Renderer(element<HTMLCanvasElement>('game-canvas'));
 const score = element('score'), combo = element('combo'), maxCombo = element('max-combo');
 const judgements = Array.from({ length: 6 }, (_, lane) => element(`judgement-${lane}`));
+const judgementLabels = judgements.map(node => node.querySelector<HTMLElement>('.judgement-label')!);
+const judgementErrors = judgements.map(node => node.querySelector<HTMLElement>('.judgement-error')!);
+const scoreFormat = new Intl.NumberFormat('ja-JP');
 const judgementTimes = Array<number>(6).fill(-Infinity);
 const controlStatus = element('control-status');
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.lane-button')];
@@ -104,7 +107,7 @@ const sound = new TapSound(() => {
 }, undefined, () => {
   if (element('sound-status').textContent === soundWarning) element('sound-status').textContent = 'ノーツ音の準備ができました。';
   if (element('game-notice').textContent === soundWarning) element('game-notice').textContent = 'ノーツ音の準備ができました。';
-});
+}, Boolean(diagnostics));
 sound.enabled = settings.sound;
 sound.volume = settings.soundVolume;
 sound.delay = settings.soundDelay;
@@ -144,17 +147,19 @@ canvas.addEventListener('pointerdown', event => {
 }, { signal });
 
 function updateScore(): void {
-  const nextScore = engine.score.toLocaleString('ja-JP'), nextCombo = String(engine.combo), nextMax = `MAX ${engine.maxCombo}`;
+  const nextScore = scoreFormat.format(engine.score), nextCombo = String(engine.combo), nextMax = `MAX ${engine.maxCombo}`;
   if (score.textContent !== nextScore) score.textContent = nextScore;
   if (combo.textContent !== nextCombo) combo.textContent = nextCombo;
   if (maxCombo.textContent !== nextMax) maxCombo.textContent = nextMax;
 }
-function syncHoldSound(playing: boolean, now: number): void {
-  const lanes = new Set<number>();
-  if (playing) for (const note of engine.notes) {
-    if (note.state === 'holding' && renderer.pressed.has(playLane(note))) lanes.add(playLane(note));
+function syncHoldSound(playing: boolean, now: number): ReadonlySet<number> {
+  const holding = new Set<number>(), audible = new Set<number>();
+  for (const note of engine.notes) if (note.state === 'holding') {
+    const lane = playLane(note); holding.add(lane);
+    if (playing && renderer.pressed.has(lane)) audible.add(lane);
   }
-  sound.syncHolds(lanes, now);
+  sound.syncHolds(audible, now);
+  return holding;
 }
 const reducedFeedbackMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const feedbackAnimations: (Animation | undefined)[] = Array(6);
@@ -164,8 +169,8 @@ function showHit(hit: Hit, now: number): void {
   judgementTimes[feedbackLane] = now;
   feedback.hidden = false;
   feedback.dataset.kind = hit.judgement;
-  feedback.querySelector('.judgement-label')!.textContent = hit.boxComplete ? '箱オシ成功！' : hit.phase === 'move' ? 'オシ変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
-  feedback.querySelector('.judgement-error')!.textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
+  judgementLabels[feedbackLane].textContent = hit.boxComplete ? '箱オシ成功！' : hit.phase === 'move' ? 'オシ変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
+  judgementErrors[feedbackLane].textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
   feedbackAnimations[feedbackLane]?.cancel();
   if (!reducedFeedbackMotion.matches) feedbackAnimations[feedbackLane] = feedback.animate([{scale:'1.08',opacity:.8},{scale:'1',opacity:1}],{duration:180,easing:'ease-out'});
   if (hit.judgement !== 'MISS') {
@@ -202,7 +207,7 @@ function showResults(): void {
   resultShown = true;
   result.hidden = false;
   element('show-result').hidden = false;
-  element('result-score').textContent = engine.score.toLocaleString('ja-JP');
+  element('result-score').textContent = scoreFormat.format(engine.score);
   element('result-combo').textContent = `MAX COMBO ${engine.maxCombo}`;
   const counts = element('result-counts');
   counts.replaceChildren();
@@ -494,7 +499,7 @@ function frame(now: number): void {
     showHits(engine.advance(end + 1,renderer.pressed),now);
   }
   showResults();
-  syncHoldSound(sample.playing, now);
+  const holdingLanes = syncHoldSound(sample.playing, now);
   renderer.draw(engine.notes, sample.time, settings.travel, now, { inputOffsetMs: 0, playing: sample.playing, chart: engine.chart });
   if (failed) {
     if (stageHint.hidden) stageHint.hidden = false;
@@ -510,11 +515,11 @@ function frame(now: number): void {
     if (!hintDescription.hidden) hintDescription.hidden = true;
   }
   judgements.forEach((feedback, lane) => {
-    const holding = engine.notes.some(note => playLane(note) === lane && note.state === 'holding');
+    const holding = holdingLanes.has(lane);
     buttons[lane].classList.toggle('holding', holding);
     if (holding) {
       if (feedback.hidden) feedback.hidden = false;
-      if (feedback.querySelector('.judgement-label')!.textContent !== 'HOLD') feedback.querySelector('.judgement-label')!.textContent = 'HOLD';
+      if (judgementLabels[lane].textContent !== 'HOLD') judgementLabels[lane].textContent = 'HOLD';
     } else if (now - judgementTimes[lane] > 800 && !feedback.hidden) feedback.hidden = true;
   });
   const guidance = failed ? '動画を再生できません' : clockStale ? '動画時刻の更新待ち' : sample.playing

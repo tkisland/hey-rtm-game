@@ -67,3 +67,18 @@ it('retains audio startup and failure transitions between polls without exposing
   for(const rows of [trace.snapshot(),trace.startupSnapshot(),trace.eventSnapshot()])rows[0].audio!.requested=88;
   expect(trace.snapshot()[0].audio?.requested).toBe(3);expect(trace.startupSnapshot()[0].audio?.requested).toBe(3);expect(trace.eventSnapshot()[0].audio?.requested).toBe(3);
 });
+
+it('keeps bounded startup input details independent across samples and exported snapshots',()=>{
+  const trace=new SyncTrace();
+  const input={id:1,lane:0,kind:'tap',atMs:0,state:'suspended',activated:true,result:'pending' as const,elapsedMs:0,contextTime:0};
+  const audio={enabled:true,volume:70,state:'running',contextTime:0,requested:1,started:0,lateDrops:0,blocked:0,sessionType:'playback',firstInputs:[input]};
+  trace.record(sample({audio}));
+  expect(trace.record(sample({atMs:16,audio:{...audio,firstInputs:[{...input,result:'started',elapsedMs:16}]}}))).not.toBeNull();
+  input.elapsedMs=999;
+  for(const rows of [trace.snapshot(),trace.startupSnapshot(),trace.eventSnapshot()]){
+    expect(rows[0].audio!.firstInputs![0].elapsedMs).toBe(0);
+    rows[0].audio!.firstInputs![0].elapsedMs=888;
+  }
+  expect(trace.snapshot()[0].audio!.firstInputs![0].elapsedMs).toBe(0);
+  expect(trace.eventSnapshot()[1].audio!.firstInputs![0].result).toBe('started');
+});
