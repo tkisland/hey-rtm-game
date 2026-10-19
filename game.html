@@ -51,7 +51,7 @@
               <section class="song-heading" aria-label="楽曲情報">
           <div><p id="song-artist" class="eyebrow">OFFICIAL MV</p><h1 id="song-title">楽曲を読み込み中…</h1></div>
         </section>
-              <div class="media-controls"><button id="play-start" class="play-button" disabled>▶ 再生</button><button id="restart" class="replay-button" aria-label="最初からやり直す" title="最初からやり直す" disabled>↻</button></div>
+              <div class="media-controls"><button id="play-start" class="play-button" disabled>ゲームスタート</button><button id="restart" class="replay-button" aria-label="最初からやり直す" title="最初からやり直す" disabled>↻</button></div>
               <details class="playback-details"><summary>詳細 <span aria-hidden="true">⌄</span></summary><div class="playback-popover">
                 <div class="playback-info"><span class="status-dot" id="status-dot"></span><p id="player-status" role="status">YouTubeプレーヤーを読み込み中…</p><a href="https://www.youtube.com/watch?v=pJDfWpZ7CI4" target="_blank" rel="noopener">YouTube ↗</a></div>
                 <p id="chart-info">譜面を読み込み中…</p><p id="game-notice" class="game-notice" role="status">届くハートのバーを、同じ色のペンライトで受け止めよう。</p><button id="show-result" class="text-button" hidden>プレイ結果を見る</button>
@@ -62,9 +62,9 @@
           <section class="game" aria-label="6レーンリズムゲーム">
           <div class="stage"><div class="surface-field">
             <canvas id="game-canvas" data-stage-height="40" tabindex="0" aria-label="6レーンのノーツ。ボタンより上の横線が判定位置。下の同じ色のボタンで入力。薄い横線は拍の目安。薄い帯がGOOD、中間がGREAT、濃い帯がPERFECT。"></canvas>
-            <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LIVE STAGE</span><strong>動画の▶でライブをはじめよう</strong><span hidden></span></div>
+            <div class="stage-hint" id="stage-hint"><span class="hint-kicker">LIVE STAGE</span><strong>「ゲームスタート」を押してライブ開始！</strong><span hidden></span></div>
             <section class="controls-dock" aria-label="リズム操作エリア">
-              <p id="control-status">MVを再生してスタート</p>
+              <p id="control-status">上の「ゲームスタート」でライブ開始！</p>
               <div class="lane-buttons" aria-label="レーン入力">
                 <div class="lane-control"><i class="lane-receptor" aria-hidden="true"></i>
                   <output class="lane-judgement" id="judgement-0" aria-label="レーン1の直近の判定" hidden><strong class="judgement-label"></strong><span class="judgement-error"></span></output>

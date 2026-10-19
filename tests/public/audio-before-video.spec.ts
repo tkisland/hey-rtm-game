@@ -14,7 +14,7 @@ for(const diagnostic of [false,true])test(`cold iframe playback waits for note a
   await page.evaluate(()=>(window as any).testVideo.playVideo());
   await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(2);
   await expect(page.locator('#game-notice')).toContainText('ノーツ音の準備が必要');
-  await expect(page.locator('#stage-hint')).toContainText('ゲーム側の「▶ 再生」');
+  await expect(page.locator('#stage-hint')).toContainText('「ゲームスタート」を押してライブ開始！');
   await page.waitForTimeout(150);
   expect(await page.evaluate(()=>(window as any).testVideo.getCurrentTime())).toBeLessThan(.2);
   await page.evaluate(()=>(window as any).testVideo.playVideo());
