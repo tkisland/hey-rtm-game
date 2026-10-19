@@ -1,0 +1,67 @@
+{
+  "conditions": {
+    "browser": "Chromium",
+    "viewport": [
+      390,
+      844
+    ],
+    "devicePixelRatio": 3,
+    "canvasDprCap": 2,
+    "cpuThrottlingRate": 4,
+    "seconds": 3.6,
+    "notes": 120,
+    "input": "none; all MISS",
+    "video": "test-only iframe adapter",
+    "runs": 1
+  },
+  "before": {
+    "animations": 120,
+    "durations": {
+      "Layout": {
+        "count": 24,
+        "totalMs": 39.729,
+        "maxMs": 3.546
+      },
+      "UpdateLayoutTree": {
+        "count": 86,
+        "totalMs": 140.766,
+        "maxMs": 7.432
+      },
+      "Paint": {
+        "count": 157,
+        "totalMs": 37.634,
+        "maxMs": 3.231
+      },
+      "FunctionCall": {
+        "count": 122,
+        "totalMs": 608.023,
+        "maxMs": 30.387
+      }
+    }
+  },
+  "after": {
+    "animations": 0,
+    "durations": {
+      "Layout": {
+        "count": 6,
+        "totalMs": 13.501,
+        "maxMs": 3.652
+      },
+      "UpdateLayoutTree": {
+        "count": 6,
+        "totalMs": 8.198,
+        "maxMs": 2.14
+      },
+      "Paint": {
+        "count": 18,
+        "totalMs": 7.182,
+        "maxMs": 1.096
+      },
+      "FunctionCall": {
+        "count": 152,
+        "totalMs": 572.531,
+        "maxMs": 14.546
+      }
+    }
+  }
+}

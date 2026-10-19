@@ -149,11 +149,11 @@ canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse') canvas.focus({ preventScroll: true });
 }, { signal });
 
+let displayedScore = -1, displayedCombo = -1, displayedMaxCombo = -1;
 function updateScore(): void {
-  const nextScore = scoreFormat.format(engine.score), nextCombo = String(engine.combo), nextMax = `MAX ${engine.maxCombo}`;
-  if (score.textContent !== nextScore) score.textContent = nextScore;
-  if (combo.textContent !== nextCombo) combo.textContent = nextCombo;
-  if (maxCombo.textContent !== nextMax) maxCombo.textContent = nextMax;
+  if (displayedScore !== engine.score) { score.textContent = scoreFormat.format(engine.score); displayedScore = engine.score; }
+  if (displayedCombo !== engine.combo) { combo.textContent = String(engine.combo); displayedCombo = engine.combo; }
+  if (displayedMaxCombo !== engine.maxCombo) { maxCombo.textContent = `MAX ${engine.maxCombo}`; displayedMaxCombo = engine.maxCombo; }
 }
 function syncHoldSound(playing: boolean, now: number): ReadonlySet<number> {
   const holding = new Set<number>(), audible = new Set<number>();
@@ -170,12 +170,15 @@ function showHit(hit: Hit, now: number): void {
   if (hit.phase === 'sweep') { if (hit.judgement !== 'MISS') renderer.flash(hit.lane, now, hit.judgement); return; }
   const feedbackLane = hit.boxComplete ? 2 : hit.lane, feedback = judgements[feedbackLane];
   judgementTimes[feedbackLane] = now;
-  feedback.hidden = false;
-  feedback.dataset.kind = hit.judgement;
-  judgementLabels[feedbackLane].textContent = hit.boxComplete ? '箱オシ成功！' : hit.phase === 'move' ? 'オシ変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
-  judgementErrors[feedbackLane].textContent = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
-  feedbackAnimations[feedbackLane]?.cancel();
-  if (!reducedFeedbackMotion.matches) feedbackAnimations[feedbackLane] = feedback.animate([{scale:'1.08',opacity:.8},{scale:'1',opacity:1}],{duration:180,easing:'ease-out'});
+  if (feedback.hidden) feedback.hidden = false;
+  if (feedback.dataset.kind !== hit.judgement) feedback.dataset.kind = hit.judgement;
+  const label = hit.boxComplete ? '箱オシ成功！' : hit.phase === 'move' ? 'オシ変！' : hit.phase === 'start' ? 'HOLD' : hit.judgement;
+  const error = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
+  if (judgementLabels[feedbackLane].textContent !== label) judgementLabels[feedbackLane].textContent = label;
+  if (judgementErrors[feedbackLane].textContent !== error) judgementErrors[feedbackLane].textContent = error;
+  feedbackAnimations[feedbackLane]?.cancel(); feedbackAnimations[feedbackLane] = undefined;
+  // MISS keeps its label and timeout, without restarting an animation for every passed note.
+  if (hit.judgement !== 'MISS' && !reducedFeedbackMotion.matches) feedbackAnimations[feedbackLane] = feedback.animate([{scale:'1.08',opacity:.8},{scale:'1',opacity:1}],{duration:180,easing:'ease-out'});
   if (hit.judgement !== 'MISS') {
     renderer.flash(hit.lane, now, hit.judgement);
     if (hit.boxComplete && hit.boxId !== undefined) { sound.playBoxSweep(); renderer.completeBox(now, hit.boxId); }
@@ -484,7 +487,7 @@ if (__ADMIN__) {
   element('timing-reset').addEventListener('click', () => { inputOffset!.value = '0'; soundDelay!.value = '0'; changeSettings(); }, { signal });
   element('sound-test').addEventListener('click', () => sound.play(0), { signal });
 }
-reflectSettings(); updateChartInfo();
+reflectSettings(); updateChartInfo(); updateScore();
 if (__ADMIN__) {
   const chartSource = element<HTMLSelectElement>('chart-source');
   chartSource.querySelector<HTMLOptionElement>('option[value="custom"]')!.disabled = !customChart;
