@@ -141,8 +141,10 @@
           <div class="panel-heading"><div><p class="eyebrow">LIVE COMPLETE</p><h2>最高なLIVE！</h2></div><button id="result-close" class="text-button">閉じる ×</button></div>
           <div class="result-headline"><strong id="result-score">0</strong><span>SCORE</span><span id="result-combo"></span></div>
           <div id="result-counts" class="result-counts"></div><p id="result-accuracy" class="field-help"></p>
-          <p class="field-help">MVはそのまま再生されます。もう一度遊ぶならリスタート！</p>
-          <a href="./" class="restart-button">ほかの曲を選ぶ</a>
+          <div class="result-actions">
+            <button id="result-replay" class="restart-button" type="button">もういちど遊ぶ</button>
+            <a href="./" class="restart-button">ほかの曲を選ぶ</a>
+          </div>
         </section>
         <!-- admin:start -->
         <section id="debug-panel" class="panel debug-panel" aria-label="同期デバッグ" hidden><h2>SYNC MONITOR</h2><dl><dt>YouTube時刻</dt><dd id="debug-time">0.000 s</dd><dt>ゲーム時刻（補間＋オフセット）</dt><dd id="debug-game-time">0.000 s</dd><dt>補間状態</dt><dd id="debug-clock">停止</dd><dt>状態</dt><dd id="debug-state">LOADING</dd><dt>適用中BPM</dt><dd id="debug-bpm">140</dd><dt>オフセット</dt><dd id="debug-offset">0 ms</dd><dt>入力の遅れ補正</dt><dd id="debug-input-offset">0 ms</dd><dt>補正後の判定時刻</dt><dd id="debug-input-time">0.000 s</dd><dt>タップ音の追加遅延</dt><dd id="debug-sound-delay">0 ms</dd><dt>FPS</dt><dd id="debug-fps">—</dd><dt>直近の入力誤差</dt><dd id="debug-error">—</dd><dt>最後の判定</dt><dd id="debug-judgement">—</dd></dl></section>

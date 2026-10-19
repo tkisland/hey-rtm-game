@@ -341,7 +341,7 @@ const unbindInput = bindInput(buttons, hit, lanes => {
   showResults();
 }, () => (calibration.active || songTiming.active), {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id), slideDestination:lane => engine.nextSlideLane(lane)});
 
-restart.addEventListener('click', () => {
+function restartGame(): void {
   if (!player || failed) return;
   diagnostics?.mark('restart-request');
   sound.cancelPending();
@@ -354,7 +354,12 @@ restart.addEventListener('click', () => {
   notice.textContent = '再生が始まらない場合は、YouTubeプレーヤー内の再生ボタンを押してください。';
   try { player.seekTo(restartTarget, true); player.playVideo(); }
   catch { restartTarget = null; showError('リスタートできませんでした。プレーヤーを再読み込みしてください。'); }
-}, { signal });
+}
+restart.addEventListener('click', restartGame, {signal});
+element('result-replay').addEventListener('click', () => {
+  restartGame();
+  if (result.hidden) canvas.focus({preventScroll:true});
+}, {signal});
 element('play-start').addEventListener('click', () => {
   if (!player || failed) return;
   sound.setPlaybackActive(true);
