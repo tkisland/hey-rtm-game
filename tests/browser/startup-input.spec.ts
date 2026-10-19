@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 
 test('video starts at zero, resume keeps its position and restart returns to zero without moving notes', async ({ page }) => {
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBe(0);
-  await expect(page.locator('#chart-info')).toContainText('7.65秒〜 · 509 NOTES');
+  await expect(page.locator('#chart-info')).toContainText('7.65秒〜 · 510 NOTES');
   await page.locator('#play-start').click();
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(.5);
   await expect(page.locator('#score')).toHaveText('0');
@@ -17,7 +17,7 @@ test('video starts at zero, resume keeps its position and restart returns to zer
   const resumed = await page.evaluate(() => (window as any).testVideo.getCurrentTime()); expect(resumed).toBeGreaterThanOrEqual(3.4); expect(resumed).toBeLessThan(3.9);
   await page.locator('#restart').click();
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(.5);
-  await expect(page.locator('#chart-info')).toContainText('7.65秒〜 · 509 NOTES');
+  await expect(page.locator('#chart-info')).toContainText('7.65秒〜 · 510 NOTES');
 });
 
 test('the start button and all six pads stay reachable on small and landscape screens', async ({ page }, info) => {

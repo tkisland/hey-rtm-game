@@ -10,18 +10,18 @@ import bsc from '../src/charts/bsc001.json';
 
 const input=readFileSync(new URL('../charts/source/game-BSC001.mid',import.meta.url));
 const config=JSON.parse(readFileSync(new URL('../charts/source/game-BSC001.config.json',import.meta.url),'utf8'));
-it('ships the exact BSC001 conversion with authored tempo events, 3.03s MIDI origin and initial rest',()=>{
+it('ships the exact BSC001 conversion with authored tempo events, 2.95s MIDI origin and initial rest',()=>{
   const chart=convertMidi(input,config),midi=readMidi(input),notes=playableNotes(chart.notes);
   expect(chart).toEqual(bsc);expect(bundledChart(BISCUIT_CASE)).toEqual(chart);
-  expect(chart.beatOrigin).toBe(3.03);expect(chart.startTime).toBe(3.93);
+  expect(chart.beatOrigin).toBe(2.95);expect(chart.startTime).toBe(3.85);
   expect(midi.notes[0].tick).toBe(1440);expect(midi.ppq).toBe(480);expect(midi.notes).toHaveLength(800);
-  expect(chart.tempoChanges).toEqual(midi.tempos.slice(1).map(t=>({time:Number((t.seconds+3.03).toFixed(9)),bpm:Number((60e6/t.tempo).toFixed(9))})));
+  expect(chart.tempoChanges).toEqual(midi.tempos.slice(1).map(t=>({time:Number((t.seconds+2.95).toFixed(9)),bpm:Number((60e6/t.tempo).toFixed(9))})));
   expect(BISCUIT_CASE.tempoChanges).toEqual(chart.tempoChanges);expect(BISCUIT_CASE.tempoEstimated).not.toBe(true);
   expect(chart.notes).toHaveLength(795);expect(notes).toHaveLength(770);expect(chordGroups(notes)).toHaveLength(62);
   expect(notes.filter(n=>n.type==='tap'&&!n.gimmick)).toHaveLength(751);
   expect(notes.filter(n=>n.type==='hold'&&!n.gimmick)).toHaveLength(4);
   for(const [gimmick,count] of [['box',5],['dd',7],['slide',3]])expect(notes.filter(n=>n.gimmick===gimmick)).toHaveLength(count as number);
-  expect(Math.max(...notes.map(n=>n.type==='hold'?n.endTime:n.time))).toBe(263.49546715);
+  expect(Math.max(...notes.map(n=>n.type==='hold'?n.endTime:n.time))).toBe(263.41546715);
   expect(bundledChart(DEFAULT_SONG)!.videoId).toBe('pJDfWpZ7CI4');
   const copy=bundledChart(BISCUIT_CASE)!;copy.notes.length=0;
   expect(bundledChart(BISCUIT_CASE)!.notes).toHaveLength(795);
@@ -29,11 +29,11 @@ it('ships the exact BSC001 conversion with authored tempo events, 3.03s MIDI ori
 it('keeps original pitches while mapping 36 to pink and 63 to the white slide lane, with inclusive 1.5-beat holds',()=>{
   const midi=readMidi(input),chart=convertMidi(input,config);
   expect(midi.notes.filter(n=>n.pitch===36)).toHaveLength(1);expect(midi.notes.filter(n=>n.pitch===63)).toHaveLength(1);
-  expect(chart.notes.find(n=>n.time===79.946882754)).toMatchObject({type:'tap',lane:0});
-  expect(chart.notes.find(n=>n.time===212.469904754)).toMatchObject({gimmick:'slide',lane:1,path:[{time:213.061036754,lane:2}]});
-  expect(chart.notes.filter(n=>n.gimmick==='slide'&&n.time===259.89546715).map(n=>[n.lane,n.path?.map(p=>p.lane)])).toEqual([[0,[1,2]],[5,[4,3]]]);
+  expect(chart.notes.find(n=>n.time===79.866882754)).toMatchObject({type:'tap',lane:0});
+  expect(chart.notes.find(n=>n.time===212.389904754)).toMatchObject({gimmick:'slide',lane:1,path:[{time:212.981036754,lane:2}]});
+  expect(chart.notes.filter(n=>n.gimmick==='slide'&&n.time===259.81546715).map(n=>[n.lane,n.path?.map(p=>p.lane)])).toEqual([[0,[1,2]],[5,[4,3]]]);
   for(const raw of midi.notes.filter(n=>n.pitch<50)) {
-    const time=Number((midi.secondsAt(raw.tick)+3.03).toFixed(9));
+    const time=Number((midi.secondsAt(raw.tick)+2.95).toFixed(9));
     const note=chart.notes.find(n=>n.time===time&&n.lane===config.lanes[raw.pitch]&&!n.gimmick)!;
     expect(note).toBeDefined();expect(note.type).toBe(raw.endTick-raw.tick>=1.5*midi.ppq?'hold':'tap');
   }
@@ -63,4 +63,20 @@ it('plays the entire shipped chart with 770 perfect results including authored s
   }
   expect(engine.finished).toBe(true);expect(engine.counts).toEqual({PERFECT:770,GREAT:0,GOOD:0,MISS:0});
   expect(engine.score).toBe(770000);expect(engine.combo).toBe(770);
+});
+
+it('advances every authored timestamp by 80ms without changing notes or MIDI timing',()=>{
+  const previous=convertMidi(input,{...config,offsetSeconds:3.03}),current=convertMidi(input,config);
+  expect(current.beatOrigin).toBe(2.95);expect(current.notes).toHaveLength(previous.notes.length);
+  for(const [i,note] of current.notes.entries()) {
+    const old=previous.notes[i];expect(note.time-old.time).toBeCloseTo(-.08,8);
+    if(note.type==='hold'&&old.type==='hold')expect(note.endTime-old.endTime).toBeCloseTo(-.08,8);
+    for(const [j,point] of (note.path??[]).entries())expect(point.time-old.path![j].time).toBeCloseTo(-.08,8);
+    const identity=({time,endTime,path,...rest}:any)=>rest;
+    expect(identity(note)).toEqual(identity(old));
+  }
+  for(const [i,tempo] of current.tempoChanges!.entries()) {
+    expect(tempo.time-previous.tempoChanges![i].time).toBeCloseTo(-.08,8);
+    expect(tempo.bpm).toBe(previous.tempoChanges![i].bpm);
+  }
 });

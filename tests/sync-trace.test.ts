@@ -58,3 +58,12 @@ it('stores metadata transitions and short backwards reports between normal sampl
   for(let i=1;i<400;i++)trace.record(sample({atMs:i*32,apiTime:i%2?12:11.9,videoDuration:220,playerState:i%2?1:2}));
   expect(trace.eventSnapshot()).toHaveLength(128);expect(trace.startupSnapshot().length).toBeLessThanOrEqual(256);
 });
+it('retains audio startup and failure transitions between polls without exposing stored counter objects',()=>{
+  const trace=new SyncTrace(),audio={enabled:true,volume:70,state:'suspended',contextTime:0,requested:3,started:0,lateDrops:0,blocked:0,sessionType:null};
+  trace.record(sample({audio}));
+  trace.record(sample({atMs:16,audio:{...audio,state:'running',lateDrops:3}}));
+  expect(trace.eventSnapshot().map(row=>row.audio?.state)).toEqual(['suspended','running']);
+  audio.requested=99;
+  for(const rows of [trace.snapshot(),trace.startupSnapshot(),trace.eventSnapshot()])rows[0].audio!.requested=88;
+  expect(trace.snapshot()[0].audio?.requested).toBe(3);expect(trace.startupSnapshot()[0].audio?.requested).toBe(3);expect(trace.eventSnapshot()[0].audio?.requested).toBe(3);
+});

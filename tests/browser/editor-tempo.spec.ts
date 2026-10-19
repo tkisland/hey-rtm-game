@@ -13,9 +13,9 @@ test('new chart has the variable tempo grid; existing drafts require explicit ap
   await expect(page.locator('#tempo-info')).toContainText('200 → 205 → 200 → 205 → 203 → 205 → 200');
   await page.locator('#tempo-map summary').click();await expect(page.locator('.tempo-row')).toHaveCount(6);
   await expect(page.locator('#apply-song-tempo')).toHaveText('曲のテンポを適用');
-  const draft={videoId:'JUsGoi24rug',title:'saved draft',bpm:180,beatOrigin:4,startTime:24.01,notes:[
-    {id:1,time:24.01,lane:0,type:'tap',sourceTime:24.01},
-    {id:2,time:27.04,lane:1,type:'tap',sourceTime:27.04},
+  const draft={videoId:'JUsGoi24rug',title:'saved draft',bpm:180,beatOrigin:4,startTime:23.93,notes:[
+    {id:1,time:23.93,lane:0,type:'tap',sourceTime:23.93},
+    {id:2,time:26.96,lane:1,type:'tap',sourceTime:26.96},
   ]};
   await page.goto('/');
   await page.evaluate(draft=>localStorage.setItem('hey-rhythm-editor-v1:biscuit-case',JSON.stringify(draft)),draft);
@@ -25,8 +25,8 @@ test('new chart has the variable tempo grid; existing drafts require explicit ap
   await expect(page.locator('#save-status')).toContainText('保存しました');
   let data=await stored(page);expect(data.notes).toEqual(draft.notes);expect(data.tempoChanges).toHaveLength(6);
   await page.locator('#quantize').click();await expect(page.locator('#save-status')).toContainText('保存しました');
-  data=await stored(page);expect(data.notes[0].time).toBeCloseTo(24.03,9);expect(data.notes[1].time).toBeCloseTo(27.044611254167,9);
-  expect(data.notes.map((n:any)=>n.sourceTime)).toEqual([24.01,27.04]);
+  data=await stored(page);expect(data.notes[0].time).toBeCloseTo(23.95,9);expect(data.notes[1].time).toBeCloseTo(26.964611254167,9);
+  expect(data.notes.map((n:any)=>n.sourceTime)).toEqual([23.93,26.96]);
   await page.locator('#undo').click();await expect(page.locator('#save-status')).toContainText('保存しました');
   expect((await stored(page)).notes).toEqual(draft.notes);
   await page.reload();await expect(page.locator('#tempo-info')).toContainText('6箇所');

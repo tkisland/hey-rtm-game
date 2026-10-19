@@ -96,7 +96,15 @@ buttons.forEach((button, lane) => {
   button.parentElement!.style.setProperty('--lane', LANE_COLORS[lane]);
 });
 const unbindTargets = bindTargets(element<HTMLCanvasElement>('game-canvas'), buttons.map(button => button.parentElement!));
-const sound = new TapSound(() => { element('sound-status').textContent = 'タップ音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'; });
+const soundWarning = 'ノーツ音を有効にできません。「♫ 音声」を押して再試行してください。';
+const sound = new TapSound(() => {
+  const warning = soundWarning;
+  element('sound-status').textContent = warning;
+  if (state === PLAYER_STATE.PLAYING) element('game-notice').textContent = warning;
+}, undefined, () => {
+  if (element('sound-status').textContent === soundWarning) element('sound-status').textContent = 'ノーツ音の準備ができました。';
+  if (element('game-notice').textContent === soundWarning) element('game-notice').textContent = 'ノーツ音の準備ができました。';
+});
 sound.enabled = settings.sound;
 sound.volume = settings.soundVolume;
 sound.delay = settings.soundDelay;
@@ -512,7 +520,7 @@ function frame(now: number): void {
   frames++;
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }
   if(diagnostics&&player&&now>=nextMetadataAt){diagnosticMetadata=readYouTubeMetadata(player);nextMetadataAt=now+250;}
-  diagnostics?.record({ ...diagnosticMetadata, atMs:performance.now(), apiTime:apiVideoTime, clockTime:smoothedVideoTime,
+  diagnostics?.record({ audio:sound.diagnostics(), ...diagnosticMetadata, atMs:performance.now(), apiTime:apiVideoTime, clockTime:smoothedVideoTime,
     judgementTime:compensateInput(sample.time,settings.inputOffset), playerState:state, reportedRate:videoRate, predictionRate,
     playing:sample.playing, stale:clockStale, seek:diagnosticsSeek, resync:diagnosticsResync,
     score:engine.score, judgedNotes:Object.values(engine.counts).reduce((sum,n)=>sum+n,0), skippedNotes:engine.skipped, totalNotes:engine.notes.length, inputOffsetMs:settings.inputOffset,

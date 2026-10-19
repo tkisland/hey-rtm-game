@@ -106,7 +106,7 @@ test('registered Biscuit Case opens an empty administrator chart without touchin
   await page.goto('/');await page.locator('[data-song="biscuit-case"] .song-edit').click();
   await expect(page.locator('#record-toggle')).toBeEnabled();
   await expect(page.locator('#editor-bpm')).toHaveValue('200');
-  await expect(page.locator('#beat-origin')).toHaveValue('3.03');
+  await expect(page.locator('#beat-origin')).toHaveValue('2.95');
   await expect(page.locator('#note-count')).toHaveText('0 NOTES');
   expect(await page.evaluate(()=>(window as any).testVideo.options.videoId)).toBe('JUsGoi24rug');
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-editor-v1')!))).toEqual(firstChart);

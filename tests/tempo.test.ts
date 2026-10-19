@@ -65,14 +65,14 @@ it('seeds Biscuit Case quantization from the song map without sharing mutable te
   expect(chart.tempoChanges).toHaveLength(6);
   expect(parseChart(JSON.stringify(chart), false, BISCUIT_CASE)).toEqual(chart);
   const model = new EditorModel(chart);
-  model.add(24.01,0,true);
-  model.add(24.59,1,true,24.89);
-  model.add(27.04,2,true);
+  model.add(23.93,0,true);
+  model.add(24.51,1,true,24.81);
+  model.add(26.96,2,true);
   model.quantize(4,false,true);
-  expect(model.chart.notes[0].time).toBeCloseTo(24.03,9);
-  expect(model.chart.notes[1]).toMatchObject({sourceTime:24.59,sourceEndTime:24.89});
-  expect((model.chart.notes[1] as {endTime:number}).endTime).toBeCloseTo(24.922666754167,9);
-  expect(model.chart.notes[2].time).toBeCloseTo(27.044611254167,9);
+  expect(model.chart.notes[0].time).toBeCloseTo(23.95,9);
+  expect(model.chart.notes[1]).toMatchObject({sourceTime:24.51,sourceEndTime:24.81});
+  expect((model.chart.notes[1] as {endTime:number}).endTime).toBeCloseTo(24.842666754167,9);
+  expect(model.chart.notes[2].time).toBeCloseTo(26.964611254167,9);
   for (const [time,bpm] of [[10,200],[50,205.000649169],[105,200],[150,205.000649169],[200,203.000345101],[225,205.000649169],[250,200]]) {
     expect(bpmAt(chart,time)).toBe(bpm);
     const beats = beatsBetween(chart,time,time+1);
@@ -84,7 +84,7 @@ it('seeds Biscuit Case quantization from the song map without sharing mutable te
 });
 it('applying or editing a tempo map preserves note/source times, supports undo and rejects bad maps atomically', () => {
   const chart = {...emptyChart(BISCUIT_CASE),tempoChanges:[]};
-  const model = new EditorModel(chart);model.add(27.04,2,true,27.5);
+  const model = new EditorModel(chart);model.add(26.96,2,true,27.5);
   const notes = JSON.stringify(model.chart.notes);
   model.tempoMap(200,3,BISCUIT_CASE.tempoChanges!);
   expect(JSON.stringify(model.chart.notes)).toBe(notes);

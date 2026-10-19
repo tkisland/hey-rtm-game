@@ -75,7 +75,7 @@ it('handles broken per-song settings without losing shared input/audio preferenc
 it('registers Biscuit Case with authored chart metadata with separate storage and the supplied video', () => {
   storage();
   expect(findSong('biscuit-case')).toBe(BISCUIT_CASE);
-  expect(emptyChart(BISCUIT_CASE)).toMatchObject({videoId:'JUsGoi24rug',title:'ビスケットケース',bpm:200,beatOrigin:3.03,notes:[]});
-  expect(loadSettings(BISCUIT_CASE)).toMatchObject({bpm:200,startTime:3}); // Practice controls round to 0.1s; the editor/chart use the exact 3.03s origin.
+  expect(emptyChart(BISCUIT_CASE)).toMatchObject({videoId:'JUsGoi24rug',title:'ビスケットケース',bpm:200,beatOrigin:2.95,notes:[]});
+  expect(loadSettings(BISCUIT_CASE)).toMatchObject({bpm:200,startTime:3}); // Practice controls round to 0.1s; the editor/chart use the exact 2.95s origin.
   expect(songStorageKey(EDITOR_KEY,BISCUIT_CASE)).toBe('hey-rhythm-editor-v1:biscuit-case');
 });
