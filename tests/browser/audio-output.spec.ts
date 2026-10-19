@@ -54,7 +54,7 @@ test('output processes exact silence throughout the intro before the first eight
 test('unprepared native playback pauses, then a parent gesture prepares audio and resumes without seeking', async ({ page }) => {
   await page.evaluate(() => { const video = (window as any).testVideo; video.seekTo(3.4); video.playVideo(); });
   const button = page.locator('#play-start');
-  await expect(button).toBeEnabled(); await expect(button).toHaveText('▶ 再生');
+  await expect(button).toBeEnabled(); await expect(button).toHaveText('ゲームスタート');
   expect(await page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(2);
   await page.evaluate(() => {
     const video = (window as any).testVideo; video.seekTo = () => { throw new Error('Unexpected seek'); };

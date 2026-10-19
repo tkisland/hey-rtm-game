@@ -99,7 +99,7 @@ buttons.forEach((button, lane) => {
   button.parentElement!.style.setProperty('--lane', LANE_COLORS[lane]);
 });
 const unbindTargets = bindTargets(element<HTMLCanvasElement>('game-canvas'), buttons.map(button => button.parentElement!));
-const soundWarning = 'ノーツ音を有効にできません。「▶ 再生」で再試行してください。';
+const soundWarning = 'ノーツ音を有効にできません。「ゲームスタート」で再試行してください。';
 const sound = new TapSound(() => {
   const warning = soundWarning;
   element('sound-status').textContent = warning;
@@ -125,7 +125,7 @@ let diagnosticMetadata: YouTubeMetadata | undefined, nextMetadataAt = 0;
 let state = -2;
 let awaitingAudio = false, preparingPlayback = false, playRequest = 0;
 let audioPauseAt = -Infinity;
-const audioPrompt = 'ノーツ音の準備が必要です。ゲーム側の「▶ 再生」を押してライブをはじめてください。';
+const audioPrompt = 'ノーツ音の準備が必要です。ゲーム側の「ゲームスタート」を押してライブをはじめてください。';
 let failed = false;
 let videoTime = 0;
 let apiVideoTime = 0, videoRate = 1, predictionRate = 1, diagnosticsSeek = false, diagnosticsResync = false;
@@ -293,18 +293,18 @@ function setState(next: number): void {
   element('status-dot').classList.toggle('playing', next === PLAYER_STATE.PLAYING && !failed && !clockStale);
   const labels: Record<number, string> = {
     [-2]: 'YouTubeプレーヤーを読み込み中…',
-    [-1]: '動画の▶または「再生」でスタート',
+    [-1]: '「ゲームスタート」を押してライブ開始！',
     [0]: '動画の再生が終了しました',
     [1]: 'MVと同期してプレイ中',
     [2]: '一時停止中 · スコアは保持されます',
     [3]: '動画を読み込み中 · ノーツを停止しています',
-    [5]: '動画の▶または「再生」でスタート',
+    [5]: '「ゲームスタート」を押してライブ開始！',
   };
-  if (!failed) status.textContent = awaitingAudio ? 'ノーツ音の準備待ち ·「▶ 再生」で開始' : clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? '動画の▶または「再生」でスタート';
+  if (!failed) status.textContent = awaitingAudio ? 'ノーツ音の準備待ち ·「ゲームスタート」で開始' : clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? '「ゲームスタート」を押してライブ開始！';
   const playStart = element<HTMLButtonElement>('play-start');
   playStart.disabled = failed || next === -2;
-  playStart.textContent = awaitingAudio ? '▶ 再生' : next === PLAYER_STATE.PLAYING ? '♫ 音声' : next === PLAYER_STATE.PAUSED ? '▶ 再開' : '▶ 再生';
-  playStart.setAttribute('aria-label', next === PLAYER_STATE.PLAYING ? 'タップ音を有効にする' : '動画を再生・再開');
+  playStart.textContent = awaitingAudio ? 'ゲームスタート' : next === PLAYER_STATE.PLAYING ? '♫ 音声' : next === PLAYER_STATE.PAUSED ? 'ゲーム再開' : 'ゲームスタート';
+  playStart.setAttribute('aria-label', next === PLAYER_STATE.PLAYING ? 'ノーツ音を有効にする' : playStart.textContent!);
 }
 function showError(message: string): void {
   preparingPlayback = false; playRequest++;
@@ -537,7 +537,7 @@ function frame(now: number): void {
   } else {
     const hidden = sample.playing || resultShown;
     if (stageHint.hidden !== hidden) stageHint.hidden = hidden;
-    const hint = awaitingAudio ? 'ゲーム側の「▶ 再生」でライブをはじめよう' : clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? '最高なLIVE！' : '動画の▶でライブをはじめよう';
+    const hint = awaitingAudio ? '「ゲームスタート」を押してライブ開始！' : clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '「ゲーム再開」を押してライブ再開！' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? '最高なLIVE！' : '「ゲームスタート」を押してライブ開始！';
     if (hintTitle.textContent !== hint) hintTitle.textContent = hint;
     if (hintDescription.textContent) hintDescription.textContent = '';
     if (!hintDescription.hidden) hintDescription.hidden = true;
@@ -550,10 +550,10 @@ function frame(now: number): void {
       if (judgementLabels[lane].textContent !== 'HOLD') judgementLabels[lane].textContent = 'HOLD';
     } else if (now - judgementTimes[lane] > 800 && !feedback.hidden) feedback.hidden = true;
   });
-  const guidance = failed ? '動画を再生できません' : awaitingAudio ? 'ノーツ音の準備待ち · 上の「▶ 再生」で開始' : clockStale ? '動画時刻の更新待ち' : sample.playing
+  const guidance = failed ? '動画を再生できません' : awaitingAudio ? 'ノーツ音の準備待ち · 上の「ゲームスタート」で開始' : clockStale ? '動画時刻の更新待ち' : sample.playing
     ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
       ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : '上の横線でレスをキャッチ · S D F / J K L'
-    : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : 'MVを再生してスタート';
+    : state === PLAYER_STATE.PAUSED ? '「ゲーム再開」を押してライブ再開！' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : '上の「ゲームスタート」でライブ開始！';
   if (controlStatus.textContent !== guidance) controlStatus.textContent = guidance;
   frames++;
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }

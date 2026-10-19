@@ -9,10 +9,14 @@ test.beforeEach(async ({ page }) => {
 test('video starts at zero, resume keeps its position and restart returns to zero without moving notes', async ({ page }) => {
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBe(0);
   await expect(page.locator('#chart-info')).toContainText('7.65秒〜 · 510 NOTES');
+  await expect(page.getByRole('button',{name:'ゲームスタート',exact:true})).toBeEnabled();
+  await expect(page.locator('#stage-hint')).toContainText('「ゲームスタート」を押してライブ開始！');
   await page.locator('#play-start').click();
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(.5);
   await expect(page.locator('#score')).toHaveText('0');
   await page.evaluate(() => { const v = (window as any).testVideo; v.pauseVideo(); v.seekTo(3.4); });
+  await expect(page.getByRole('button',{name:'ゲーム再開',exact:true})).toBeEnabled();
+  await expect(page.locator('#stage-hint')).toContainText('「ゲーム再開」を押してライブ再開！');
   await page.locator('#play-start').click();
   const resumed = await page.evaluate(() => (window as any).testVideo.getCurrentTime()); expect(resumed).toBeGreaterThanOrEqual(3.4); expect(resumed).toBeLessThan(3.9);
   await page.locator('#restart').click();
@@ -32,6 +36,7 @@ test('the start button and all six pads stay reachable on small and landscape sc
         return r.top >= 0 && r.bottom <= innerHeight && (target === node || node.contains(target));
       });
     })).toBe(true);
+    expect(await page.locator('#play-start').evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
   }
   await page.locator('#play-start').click();
   expect(await page.evaluate(() => (window as any).testVideo.getPlayerState())).toBe(1);

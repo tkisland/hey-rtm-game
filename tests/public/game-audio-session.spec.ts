@@ -33,7 +33,7 @@ for(const entry of ['game-button','youtube-player'] as const)test(`game output r
   else {
     await page.evaluate(()=>(window as any).testVideo.playVideo());
     await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(2);
-    await expect(page.locator('#stage-hint')).toContainText('ゲーム側の「▶ 再生」');
+    await expect(page.locator('#stage-hint')).toContainText('「ゲームスタート」を押してライブ開始！');
     await page.locator('#play-start').click();
   }
   await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(1);
