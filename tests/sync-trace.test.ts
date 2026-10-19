@@ -37,3 +37,24 @@ it('bounds retained history and exports copies without modifying live samples', 
   const rows=trace.snapshot();expect(rows).toHaveLength(SYNC_TRACE_LIMIT);expect(rows[0].elapsedMs).toBe(30000);
   rows[0].apiTime=999;rows.pop();expect(trace.snapshot()).toHaveLength(SYNC_TRACE_LIMIT);expect(trace.snapshot()[0].apiTime).toBe(42);
 });
+it('retains the first playback minute even if the user waits before playing and saves at the end',()=>{
+  const trace=new SyncTrace();
+  for(let i=0;i<600;i++)trace.record(sample({atMs:i*250,playerState:5,playing:false,apiTime:0}));
+  for(let i=0;i<1000;i++)trace.record(sample({atMs:150000+i*250,apiTime:i*.25,videoDuration:i<60?15:220}));
+  const startup=trace.startupSnapshot(),events=trace.eventSnapshot();
+  expect(startup.some(row=>row.playerState===1&&row.apiTime===0)).toBe(true);
+  expect(startup.some(row=>row.videoDuration===15)).toBe(true);
+  expect(startup.some(row=>row.videoDuration===220)).toBe(true);
+  expect(startup.at(-1)!.atMs).toBeLessThanOrEqual(210000);
+  expect(startup.length).toBeLessThanOrEqual(256);
+  expect(trace.snapshot()[0].atMs).toBeGreaterThan(210000);
+  expect(events.some(row=>row.atMs===165000&&row.videoDuration===220)).toBe(true);
+  startup[0].apiTime=999;events[0].apiTime=999;
+  expect(trace.startupSnapshot()[0].apiTime).not.toBe(999);expect(trace.eventSnapshot()[0].apiTime).not.toBe(999);
+});
+it('stores metadata transitions and short backwards reports between normal sample intervals while bounding event history',()=>{
+  const trace=new SyncTrace();trace.record(sample({videoDuration:15,reportedVideoId:'ad-video'}));
+  expect(trace.record(sample({atMs:16,apiTime:0,videoDuration:220,reportedVideoId:'pJDfWpZ7CI4'}))).not.toBeNull();
+  for(let i=1;i<400;i++)trace.record(sample({atMs:i*32,apiTime:i%2?12:11.9,videoDuration:220,playerState:i%2?1:2}));
+  expect(trace.eventSnapshot()).toHaveLength(128);expect(trace.startupSnapshot().length).toBeLessThanOrEqual(256);
+});

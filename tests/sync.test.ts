@@ -4,6 +4,16 @@ import { GameEngine } from '../src/engine';
 import { generateChart } from '../src/chart';
 
 describe('video-anchored interpolation', () => {
+  // Synthetic API patterns, not claims about YouTube's undocumented ad behavior.
+  it.each(['ad-time','held-content-time','small-reset'].flatMap(mode=>[0,.25,.75].map(interval=>[mode,interval] as const)))('does not retain a clock lead after a simulated %s transition with %ss content updates', (mode,interval)=>{
+    const clock=new VideoClock(),duration=mode==='small-reset'?.3:15;
+    for(let frame=0;frame<duration*60;frame++)clock.sample(mode==='held-content-time'?0:frame/60,S.PLAYING,frame/60*1000);
+    for(let frame=0;frame<60*12;frame++){
+      const contentTime=frame/60,raw=interval?Math.floor((contentTime+1e-8)/interval)*interval:contentTime;
+      const sample=clock.sample(raw,S.PLAYING,(duration+contentTime)*1000);
+      if(contentTime>=7.65){expect(sample.playing).toBe(true);expect(sample.time-contentTime).toBeLessThan(.05);expect(sample.time).toBeGreaterThanOrEqual(contentTime-.05);}
+    }
+  });
   it('preserves score and judges elapsed notes after a long rendering frame during continuous playback', () => {
     const clock=new VideoClock(), chart=generateChart();
     chart.notes=[{id:1,time:12,lane:0,type:'tap'},{id:2,time:12.8,lane:1,type:'tap'}];
