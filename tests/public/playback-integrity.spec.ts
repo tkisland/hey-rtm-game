@@ -24,6 +24,18 @@ test('a full SMG005 play with repeated one-second rendering gaps retains the hit
   await expect(page.locator('#result-counts div').filter({hasText:'MISS'}).locator('strong')).toHaveText('509');
   await expect(page.locator('#result-accuracy')).toContainText('判定済み 510');
   await expect(page.locator('#result-accuracy')).toContainText('スキップ 0 / 全 510');
+  await page.evaluate(()=>(window as any).testVideo.setState(0));
+  await page.getByRole('button',{name:'もういちど遊ぶ',exact:true}).click();
+  await page.clock.runFor(32);
+  await expect(page.locator('#result')).not.toBeVisible();
+  await expect(page.locator('#show-result')).not.toBeVisible();
+  await expect(page.locator('#score')).toHaveText('0');
+  await expect(page.locator('#combo')).toHaveText('0');
+  await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getCurrentTime())).toBeLessThan(.1);
+  await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(1);
+  await page.clock.runFor(7618);
+  await page.keyboard.press('l');
+  await expect(page.locator('#score')).toHaveText('1,000');
 });
 
 test('normal 750ms iframe updates move visible notes on every rendered frame after learning the cadence',async({page})=>{
