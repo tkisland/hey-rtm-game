@@ -51,16 +51,19 @@ test('output processes exact silence throughout the intro before the first eight
   await page.evaluate(() => (window as any).testVideo.setState(0)); await count(page, 0);
 });
 
-test('native video playback leaves a parent gesture available to prepare audio without seeking or replaying', async ({ page }) => {
+test('unprepared native playback pauses, then a parent gesture prepares audio and resumes without seeking', async ({ page }) => {
   await page.evaluate(() => { const video = (window as any).testVideo; video.seekTo(3.4); video.playVideo(); });
   const button = page.locator('#play-start');
-  await expect(button).toBeEnabled(); await expect(button).toHaveText('♫ 音声');
+  await expect(button).toBeEnabled(); await expect(button).toHaveText('▶ 再生');
+  expect(await page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(2);
   await page.evaluate(() => {
     const video = (window as any).testVideo; video.seekTo = () => { throw new Error('Unexpected seek'); };
-    video.playVideo = () => { throw new Error('Unexpected play'); };
+    const play = video.playVideo.bind(video); (window as any).resumeCalls = 0;
+    video.playVideo = () => { (window as any).resumeCalls++; play(); };
   });
   await button.click(); await count(page, 1);
   const time = await page.evaluate(() => (window as any).testVideo.getCurrentTime());
+  expect(await page.evaluate(()=>(window as any).resumeCalls)).toBe(1);
   expect(time).toBeGreaterThanOrEqual(3.4); expect(time).toBeLessThan(4.5);
   expect(await page.evaluate(() => (window as any).tapSources.length)).toBe(0);
 });

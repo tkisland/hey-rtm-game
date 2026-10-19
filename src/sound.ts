@@ -156,6 +156,7 @@ export class TapSound {
   private session = playbackSession();
   private readinessTimer = 0;
   private ready = false;
+  private gestureSeen = false;
   private firstInputs: SoundInputDiagnostic[] = [];
   private requested = 0;
   private started = 0;
@@ -186,7 +187,11 @@ export class TapSound {
   }
   private outputWarmup: ConstantSourceNode | null = null;
   private visibilityChanged = () => { if (document.hidden) this.cancelPending(); };
-  private activate = (event: Event) => { if (event.isTrusted && !document.hidden) void this.unlock(); };
+  private activate = (event: Event) => {
+    if (event.isTrusted && !document.hidden) { this.gestureSeen = true; void this.unlock(); }
+  };
+  /** A parent-page gesture must prepare note audio before the MV starts. */
+  get readyForPlayback(): boolean { return !this.enabled || this.volume === 0 || this.gestureSeen && this.ready; }
   /** An optional context shares a reference clock; this instance closes it on destroy. */
   constructor(private onUnavailable: () => void, context?: AudioContext, private onReady?: () => void, private traceInputs = false) {
     this.context = context ?? null;

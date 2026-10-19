@@ -8,6 +8,7 @@ test.beforeEach(async({page})=>{
 test('migrates existing alignment, previews MV without scoring, and saves each correction independently',async({page})=>{
   await page.addInitScript(()=>{if(!localStorage.getItem('hey-rhythm-settings-v1'))localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({inputOffset:100}));});
   await page.goto('/game.html');await expect(page.locator('#restart')).toBeEnabled();
+  await page.locator('#play-start').click();
   await page.evaluate(()=>{const v=(window as any).testVideo;(window as any).mainVideo=v;v.liveClock=false;v.seekTo(7.75);v.playVideo();
     const c=document.getElementById('game-canvas')!;c.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyL',bubbles:true}));c.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyL',bubbles:true}));});
   await expect(page.locator('#score')).toHaveText('1,000');

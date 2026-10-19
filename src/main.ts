@@ -99,11 +99,11 @@ buttons.forEach((button, lane) => {
   button.parentElement!.style.setProperty('--lane', LANE_COLORS[lane]);
 });
 const unbindTargets = bindTargets(element<HTMLCanvasElement>('game-canvas'), buttons.map(button => button.parentElement!));
-const soundWarning = 'ノーツ音を有効にできません。「♫ 音声」を押して再試行してください。';
+const soundWarning = 'ノーツ音を有効にできません。「▶ 再生」で再試行してください。';
 const sound = new TapSound(() => {
   const warning = soundWarning;
   element('sound-status').textContent = warning;
-  if (state === PLAYER_STATE.PLAYING) element('game-notice').textContent = warning;
+  if (state === PLAYER_STATE.PLAYING || preparingPlayback || awaitingAudio) element('game-notice').textContent = warning;
 }, undefined, () => {
   if (element('sound-status').textContent === soundWarning) element('sound-status').textContent = 'ノーツ音の準備ができました。';
   if (element('game-notice').textContent === soundWarning) element('game-notice').textContent = 'ノーツ音の準備ができました。';
@@ -123,6 +123,9 @@ const settingsPanel = element('settings-panel');
 let player: YouTubePlayer | null = null;
 let diagnosticMetadata: YouTubeMetadata | undefined, nextMetadataAt = 0;
 let state = -2;
+let awaitingAudio = false, preparingPlayback = false, playRequest = 0;
+let audioPauseAt = -Infinity;
+const audioPrompt = 'ノーツ音の準備が必要です。ゲーム側の「▶ 再生」を押してライブをはじめてください。';
 let failed = false;
 let videoTime = 0;
 let apiVideoTime = 0, videoRate = 1, predictionRate = 1, diagnosticsSeek = false, diagnosticsResync = false;
@@ -224,7 +227,7 @@ function readTime(now: number): { time: number; playing: boolean } {
   try {
     // Also poll state: input cannot score during a state-event delivery delay.
     const observed = player.getPlayerState();
-    if (observed !== state) setState(observed);
+    if (observed !== state || observed === PLAYER_STATE.PLAYING && !sound.readyForPlayback) setState(observed);
     apiVideoTime = player.getCurrentTime(); videoRate = player.getPlaybackRate();
     const sample = clock.sample(apiVideoTime, state, now, videoRate);
     predictionRate = sample.predictionRate;
@@ -264,6 +267,20 @@ function readTime(now: number): { time: number; playing: boolean } {
   }
 }
 function setState(next: number): void {
+  if (next === PLAYER_STATE.PLAYING && !sound.readyForPlayback) {
+    awaitingAudio = true;
+    setState(PLAYER_STATE.PAUSED);
+    notice.textContent = audioPrompt;
+    if (player && performance.now() - audioPauseAt >= 250) {
+      audioPauseAt = performance.now();
+      try { player.pauseVideo(); } catch { showError('音声の準備のため動画を一時停止できませんでした。'); }
+    }
+    return;
+  }
+  if (next === PLAYER_STATE.PLAYING) {
+    if (awaitingAudio && notice.textContent === audioPrompt) notice.textContent = 'ノーツ音の準備ができました。';
+    awaitingAudio = false; audioPauseAt = -Infinity;
+  }
   if(next!==state)nextMetadataAt=0;
   if (next !== PLAYER_STATE.PLAYING || clockStale) engine.cancelBoxGesture();
   sound.setPlaybackActive(next === PLAYER_STATE.PLAYING && !clockStale);
@@ -280,13 +297,14 @@ function setState(next: number): void {
     [3]: '動画を読み込み中 · ノーツを停止しています',
     [5]: '動画の▶または「再生」でスタート',
   };
-  if (!failed) status.textContent = clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? '動画の▶または「再生」でスタート';
+  if (!failed) status.textContent = awaitingAudio ? 'ノーツ音の準備待ち ·「▶ 再生」で開始' : clockStale ? '再生時刻の更新待ち · ノーツを停止中' : labels[next] ?? '動画の▶または「再生」でスタート';
   const playStart = element<HTMLButtonElement>('play-start');
   playStart.disabled = failed || next === -2;
-  playStart.textContent = next === PLAYER_STATE.PLAYING ? '♫ 音声' : next === PLAYER_STATE.PAUSED ? '▶ 再開' : '▶ 再生';
+  playStart.textContent = awaitingAudio ? '▶ 再生' : next === PLAYER_STATE.PLAYING ? '♫ 音声' : next === PLAYER_STATE.PAUSED ? '▶ 再開' : '▶ 再生';
   playStart.setAttribute('aria-label', next === PLAYER_STATE.PLAYING ? 'タップ音を有効にする' : '動画を再生・再開');
 }
 function showError(message: string): void {
+  preparingPlayback = false; playRequest++;
   sound.setPlaybackActive(false);
   sound.cancelPending();
   failed = true;
@@ -346,12 +364,21 @@ const unbindInput = bindInput(buttons, hit, lanes => {
   showResults();
 }, () => (calibration.active || songTiming.active), {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id), slideDestination:lane => engine.nextSlideLane(lane)});
 
-function restartGame(): void {
+async function preparePlayback(): Promise<boolean> {
+  const request = ++playRequest;
+  preparingPlayback = true;
+  sound.setPlaybackActive(true);
+  const ready = await sound.unlock();
+  if (request !== playRequest || disposed || failed) return false;
+  preparingPlayback = false;
+  if (!ready) { sound.setPlaybackActive(false); notice.textContent = soundWarning; return false; }
+  return !(calibration.active || songTiming.active);
+}
+async function restartGame(): Promise<void> {
   if (!player || failed) return;
   diagnostics?.mark('restart-request');
   sound.cancelPending();
-  sound.setPlaybackActive(true);
-  void sound.unlock();
+  if (!await preparePlayback()) return;
   engine.reset(activeChart());
   clearResults(); updateChartInfo(); clock.reset();
   restartTarget = 0;
@@ -361,14 +388,12 @@ function restartGame(): void {
   catch { restartTarget = null; showError('リスタートできませんでした。プレーヤーを再読み込みしてください。'); }
 }
 restart.addEventListener('click', restartGame, {signal});
-element('result-replay').addEventListener('click', () => {
-  restartGame();
+element('result-replay').addEventListener('click', async () => {
+  await restartGame();
   if (result.hidden) canvas.focus({preventScroll:true});
 }, {signal});
-element('play-start').addEventListener('click', () => {
-  if (!player || failed) return;
-  sound.setPlaybackActive(true);
-  void sound.unlock();
+element('play-start').addEventListener('click', async () => {
+  if (!player || failed || !await preparePlayback()) return;
   if (state === PLAYER_STATE.PLAYING) return;
   try { player.playVideo(); }
   catch { sound.setPlaybackActive(false); notice.textContent = 'YouTubeプレーヤー内の再生ボタンを押してください。'; }
@@ -489,7 +514,7 @@ function frame(now: number): void {
   if (songTiming.active) { previousFrame = now; frameId = requestAnimationFrame(frame); return; }
   const sample = readTime(performance.now());
   if (!sample.playing) engine.cancelBoxGesture();
-  sound.setPlaybackActive(sample.playing);
+  sound.setPlaybackActive(sample.playing || preparingPlayback);
   if (sample.playing) {
     const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
     showHits(updates,now);
@@ -509,7 +534,7 @@ function frame(now: number): void {
   } else {
     const hidden = sample.playing || resultShown;
     if (stageHint.hidden !== hidden) stageHint.hidden = hidden;
-    const hint = clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? '最高なLIVE！' : '動画の▶でライブをはじめよう';
+    const hint = awaitingAudio ? 'ゲーム側の「▶ 再生」でライブをはじめよう' : clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? '最高なLIVE！' : '動画の▶でライブをはじめよう';
     if (hintTitle.textContent !== hint) hintTitle.textContent = hint;
     if (hintDescription.textContent) hintDescription.textContent = '';
     if (!hintDescription.hidden) hintDescription.hidden = true;
@@ -522,7 +547,7 @@ function frame(now: number): void {
       if (judgementLabels[lane].textContent !== 'HOLD') judgementLabels[lane].textContent = 'HOLD';
     } else if (now - judgementTimes[lane] > 800 && !feedback.hidden) feedback.hidden = true;
   });
-  const guidance = failed ? '動画を再生できません' : clockStale ? '動画時刻の更新待ち' : sample.playing
+  const guidance = failed ? '動画を再生できません' : awaitingAudio ? 'ノーツ音の準備待ち · 上の「▶ 再生」で開始' : clockStale ? '動画時刻の更新待ち' : sample.playing
     ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
       ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : '上の横線でレスをキャッチ · S D F / J K L'
     : state === PLAYER_STATE.PAUSED ? '一時停止中' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : 'MVを再生してスタート';
@@ -557,7 +582,7 @@ function frame(now: number): void {
 frameId = requestAnimationFrame(frame);
 function dispose(): void {
   if (disposed) return;
-  disposed = true;
+  disposed = true; playRequest++;
   cancelAnimationFrame(frameId);
   feedbackAnimations.forEach(animation => animation?.cancel());
   listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); songTiming.destroy(); diagnostics?.destroy(); unbindTargets(); unbindVenue(); unbindLayout();
