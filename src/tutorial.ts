@@ -54,19 +54,6 @@ export function mountTutorial(options: {onComplete?():void;onContinue?():void;co
   const hitTimes = Array<number>(6).fill(-Infinity);
   const elapsed = (now: number) => (now - began) / 1000;
   function updateScore(): void { el('tutorial-score').textContent = `${engine.score.toLocaleString('ja-JP')} 点 · COMBO ${engine.combo}`; }
-  // Safari supports a playback session for media sound, including when the ringer is muted.
-  // Request it only for an explicit sound action, and restore the previous session on exit.
-  const audioSession = (navigator as Navigator & {audioSession?: {type:string}}).audioSession;
-  let previousSessionType: string | null = null;
-  function playbackSession(): void {
-    if (!audioSession || previousSessionType !== null) return;
-    try { const previous = audioSession.type; audioSession.type = 'playback'; previousSessionType = previous; } catch { /* Optional browser API. */ }
-  }
-  function releaseSession(): void {
-    if (!audioSession || previousSessionType === null) return;
-    try { if (audioSession.type === 'playback') audioSession.type = previousSessionType; } catch { /* Optional browser API. */ }
-    previousSessionType = null;
-  }
   function audioState(message?: string): void {
     el('tutorial-volume-value').textContent = `${volume.value}%`;
     audioStatus.textContent = message ?? (!audioToggle.checked ? '音：OFF' : Number(volume.value) === 0 ? '音：OFF（音量0%）' : `音：ON · ${volume.value}%`);
@@ -78,10 +65,9 @@ export function mountTutorial(options: {onComplete?():void;onContinue?():void;co
     // Keep one output across reference beats, taps and retries, until the dialog closes.
     sound ??= new TapSound(unavailable);
     sound.volume = Number(volume.value); sound.delay = settings.soundDelay; sound.enabled = audioToggle.checked;
-    if (sound.enabled && sound.volume > 0) playbackSession(); else releaseSession();
     return sound;
   }
-  function stopAudio(): void { sound?.setPlaybackActive(false); sound?.cancelPending(); releaseSession(); }
+  function stopAudio(): void { sound?.setPlaybackActive(false); sound?.cancelPending(); }
   function destroyAudio(): void { stopAudio(); sound?.destroy(); sound = null; }
   function stopRun(): void {
     epoch++; cancelAnimationFrame(frame); frame = 0; phase = 'ready';

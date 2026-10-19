@@ -1,3 +1,4 @@
+import { playbackSession } from './audio-session';
 import './timing-preview.css';
 import './penlight.css';
 import { LANE_COLORS } from './colors';
@@ -73,9 +74,7 @@ export function createTimingPreview(callbacks: Callbacks) {
   let returnFocus: HTMLElement | null = null;
   let runBaseline = 0, manualDuringRun = false;
   const measured = new NoteTimingCalibration(), hitTimes = Array<number>(6).fill(-Infinity);
-  // iOS playback sessions allow explicit reference sound even with the ringer muted.
-  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-  let previousSession: string | null = null;
+  const session = playbackSession();
   function stop(): void {
     token++; preparing = false; clearTimeout(prepareTimer); cancelAnimationFrame(frame); frame = 0;
     unbind(); unbind = () => {};
@@ -83,10 +82,7 @@ export function createTimingPreview(callbacks: Callbacks) {
     master?.disconnect(); master = null;
     cymbal?.destroy(); cymbal = null;
     const oldAudio = audio; audio = null; void oldAudio?.close().catch(() => {});
-    if (session && previousSession !== null) {
-      try { if (session.type === 'playback') session.type = previousSession; } catch { /* optional API */ }
-      previousSession = null;
-    }
+    session.release();
     if (renderer) renderer.pressed = new Set();
     startButton.disabled = false;
   }
@@ -173,7 +169,7 @@ export function createTimingPreview(callbacks: Callbacks) {
       if (current === token) interrupted('音声の準備が完了しません。開始ボタンで再試行してください。');
     }, 5000);
     try {
-      if (session) { try { previousSession = session.type; session.type = 'playback'; } catch { previousSession = null; } }
+      session.acquire();
       const context = new AudioContext({ latencyHint: 'interactive' }); audio = context;
       cymbal = new TapSound(() => report('ノーツ音を再生できません。音量を確認し、開始ボタンで再試行してください。'), context);
       cymbal.volume = Number(volume.value); cymbal.enabled = cymbalToggle.checked;
