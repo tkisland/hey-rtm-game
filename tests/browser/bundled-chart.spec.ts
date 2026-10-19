@@ -8,8 +8,8 @@ test.beforeEach(async ({ page }) => {
   await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ body: api }));
 });
 test('the primary menu entry plays SMG005 at 7.65s, including its first yellow note', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('.song-meta')).toContainText('SMG005 · 166 → 192 BPM · 510 NOTES');
-  await expect(page.locator('.song-play')).toHaveText('収録譜面で遊ぶ'); await page.locator('.song-play').click();
+  await page.goto('/'); await expect(page.locator('[data-song="super-mommy-girls"] .song-meta')).toContainText('SMG005 · 166 → 192 BPM · 510 NOTES');
+  await expect(page.locator('[data-song="super-mommy-girls"] .song-play')).toHaveText('収録譜面で遊ぶ'); await page.locator('[data-song="super-mommy-girls"] .song-play').click();
   await expect(page.locator('#restart')).toBeEnabled(); await expect(page.locator('#chart-source')).toHaveValue('bundled');
   await expect(page.locator('#chart-info')).toContainText('BUNDLED CHART · 166 → 192 BPM · 7.65秒〜 · 510 NOTES');
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBe(0);

@@ -1,0 +1,43 @@
+{
+  "title": "ビスケットケース",
+  "videoId": "JUsGoi24rug",
+  "sourceSha256": "124a7f4a57d97af6002b741c61a14a18cb690228391958795d7a9d82b7ea48d3",
+  "timeBase": "decoded_uploaded_mp3_seconds",
+  "durationSeconds": 266.17034013605445,
+  "initialBpm": 200,
+  "mainBpm": 205,
+  "firstClearBeatSecondsApproximate": 3.0,
+  "videoAlignmentVerified": false,
+  "transitionTimesVerified": false,
+  "sectionsApproximate": [
+    {
+      "startSeconds": 0,
+      "bpm": 200
+    },
+    {
+      "startSeconds": 24.6,
+      "bpm": 205
+    },
+    {
+      "startSeconds": 100.7,
+      "bpm": 200
+    },
+    {
+      "startSeconds": 112.7,
+      "bpm": 205
+    },
+    {
+      "startSeconds": 187.6,
+      "bpm": 203
+    },
+    {
+      "startSeconds": 213.8,
+      "bpm": 205
+    },
+    {
+      "startSeconds": 240,
+      "bpm": 200
+    }
+  ],
+  "note": "Automatic analysis draft; section starts are approximate and must be checked against audio before creating a MIDI tempo track. The last slowdown is around 236–240 s. Beat/downbeat phase and YouTube alignment are unverified. No playable chart or MIDI tempo track is generated."
+}

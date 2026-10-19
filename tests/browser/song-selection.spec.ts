@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { api } from './mock-video';
 
-// A second catalog entry exists only in these tests, never in shipped content.
+// An extra test-only entry exercises storage and routing independently of the real catalog.
 const second = { id: 'second-song', title: 'Second test song', artist: 'Test artist', videoId: 'abcdefghijk', bpm: 120, startTime: 8 };
 const firstChart = { videoId: 'pJDfWpZ7CI4', title: 'SUPER MOMMY GIRLS', bpm: 140, beatOrigin: 12, startTime: 12, notes: [{ id: 1, time: 12, lane: 0, type: 'tap' }] };
 test.beforeEach(async ({ page }) => {
@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 
 test('menu searches registered songs and loads no video before choosing a song', async ({ page }) => {
   const requests: string[] = []; page.on('request', request => { if (request.url().includes('youtube.com')) requests.push(request.url()); });
-  await page.goto('/'); await expect(page.locator('.song-card')).toHaveCount(2);
+  await page.goto('/'); await expect(page.locator('.song-card')).toHaveCount(3);
   expect(requests).toEqual([]);
   for (const button of await page.locator('.song-saved').all()) await expect(button).toBeDisabled();
   const viewport = page.viewportSize()!;
@@ -72,7 +72,7 @@ test('old custom links still work, while unknown song IDs return to selection wi
   await expect(page.locator('#chart-source')).toHaveValue('custom'); await expect(page.locator('#chart-info')).toContainText('1 NOTES');
   const requests: string[] = []; page.on('request', request => { if (request.url().includes('youtube.com')) requests.push(request.url()); });
   await page.goto('/game.html?song=missing'); await expect(page.locator('#menu-notice')).toContainText('見つかりません');
-  expect(requests).toEqual([]); await expect(page.locator('.song-card')).toHaveCount(2);
+  expect(requests).toEqual([]); await expect(page.locator('.song-card')).toHaveCount(3);
   await page.goto('/editor.html?song=missing'); await expect(page.locator('#menu-notice')).toContainText('見つかりません'); expect(requests).toEqual([]);
 });
 
@@ -99,4 +99,15 @@ test('menu reports failed draft preparation without losing data and still offers
   await expect(page.locator('#menu-notice')).toContainText('保存できません');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-editor-v1')!))).toEqual(firstChart);
   await page.locator('[data-song="super-mommy-girls"] .song-play').click(); await expect(page.locator('#restart')).toBeEnabled();
+});
+
+test('registered Biscuit Case opens an empty administrator chart without touching the original draft', async ({page}) => {
+  await page.addInitScript(chart=>localStorage.setItem('hey-rhythm-editor-v1',JSON.stringify(chart)),firstChart);
+  await page.goto('/');await page.locator('[data-song="biscuit-case"] .song-edit').click();
+  await expect(page.locator('#record-toggle')).toBeEnabled();
+  await expect(page.locator('#editor-bpm')).toHaveValue('200');
+  await expect(page.locator('#beat-origin')).toHaveValue('3');
+  await expect(page.locator('#note-count')).toHaveText('0 NOTES');
+  expect(await page.evaluate(()=>(window as any).testVideo.options.videoId)).toBe('JUsGoi24rug');
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-editor-v1')!))).toEqual(firstChart);
 });
