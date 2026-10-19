@@ -17,7 +17,7 @@ export const DEFAULT_SONG: Song = {
 export const BISCUIT_CASE: Song = {
   id: 'biscuit-case', title: 'ビスケットケース', artist: 'Hey!Mommy!',
   // MIDI tick zero is placed at video 2.95s; editor defaults use the authored tempo map.
-  videoId: 'JUsGoi24rug', bpm: 200, startTime: 2.95, chartId: 'bsc001',
+  videoId: 'JUsGoi24rug', bpm: 200, startTime: 2.95, chartId: 'bsc002',
   tempoChanges: [
     {time:24.549375,bpm:205.000649169},
     {time:100.647304754,bpm:200},
