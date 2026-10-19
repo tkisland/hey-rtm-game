@@ -56,6 +56,11 @@ export class EditorModel {
     if (this.chart.tempoChanges?.some(change => change.time <= origin)) throw new Error('拍の基準は最初のテンポ変更より前にしてください。');
     return this.commit({ ...copyChart(this.chart), bpm, beatOrigin: origin });
   }
+  /** A tempo edit changes the grid only. Note/source times move only on explicit quantize. */
+  tempoMap(bpm: number, origin: number, changes: readonly {time:number;bpm:number}[]): boolean {
+    const chart = parseChart(JSON.stringify({...this.chart, bpm, beatOrigin:origin, tempoChanges:changes}), false, {...DEFAULT_SONG,videoId:this.chart.videoId});
+    return this.commit(chart);
+  }
   add(time: number, lane: number, recorded = false, endTime?: number): number {
     if (!finite(time, 0, MAX_TIME) || !Number.isInteger(lane) || lane < 0 || lane > 5) throw new Error('ノーツの秒数・レーンを確認してください。');
     if (this.chart.notes.length >= MAX_NOTES) throw new Error(`ノーツは最大${MAX_NOTES}個です。`);

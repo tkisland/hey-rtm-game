@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { beatsBetween, beatToTime, bpmAt, snapTime, tempoLabel, timeToBeat } from '../src/tempo';
 import { copyChart, EditorModel, emptyChart, parseChart } from '../src/editor-model';
 import { bundledChart } from '../src/bundled-charts';
-import { DEFAULT_SONG } from '../src/songs';
+import { BISCUIT_CASE, DEFAULT_SONG } from '../src/songs';
 import smg from '../src/charts/smg002.json';
 
 const chart = () => parseChart(JSON.stringify(smg), true);
@@ -58,4 +58,41 @@ it('accepts legacy charts and rejects malformed tempo tracks without changing ed
   for (const tempoChanges of [null, {}, [{ time: 18, bpm: 0 }], [{ time: 7.65, bpm: 192 }], [{ time: 18, bpm: 192 }, { time: 17, bpm: 166 }]]) expect(() => parseChart(JSON.stringify({ ...smg, tempoChanges }))).toThrow('テンポ');
   const model = new EditorModel(chart()), before = JSON.stringify(model.chart);
   expect(() => model.metadata(166, 20)).toThrow('拍の基準'); expect(JSON.stringify(model.chart)).toBe(before);
+});
+
+it('seeds Biscuit Case quantization from the song map without sharing mutable tempo state', () => {
+  const chart = emptyChart(BISCUIT_CASE), second = emptyChart(BISCUIT_CASE);
+  expect(chart.tempoChanges).toHaveLength(6);
+  expect(parseChart(JSON.stringify(chart), false, BISCUIT_CASE)).toEqual(chart);
+  const model = new EditorModel(chart);
+  model.add(24.01,0,true);
+  model.add(24.59,1,true,24.89);
+  model.add(27.04,2,true);
+  model.quantize(4,false,true);
+  expect(model.chart.notes[0].time).toBeCloseTo(24,9);
+  expect(model.chart.notes[1]).toMatchObject({time:24.6,sourceTime:24.59,sourceEndTime:24.89});
+  expect((model.chart.notes[1] as {endTime:number}).endTime).toBeCloseTo(24.892682926829,9);
+  expect(model.chart.notes[2].time).toBeCloseTo(27.014634146341,9);
+  for (const [time,bpm] of [[10,200],[50,205],[105,200],[150,205],[200,203],[225,205],[250,200]]) {
+    expect(bpmAt(chart,time)).toBe(bpm);
+    const beats = beatsBetween(chart,time,time+1);
+    expect(beats[1].time-beats[0].time).toBeCloseTo(60/bpm,9);
+  }
+  chart.tempoChanges![0].bpm = 240;
+  expect(second.tempoChanges![0].bpm).toBe(205);
+  expect(BISCUIT_CASE.tempoChanges![0].bpm).toBe(205);
+});
+it('applying or editing a tempo map preserves note/source times, supports undo and rejects bad maps atomically', () => {
+  const chart = {...emptyChart(BISCUIT_CASE),tempoChanges:[]};
+  const model = new EditorModel(chart);model.add(27.04,2,true,27.5);
+  const notes = JSON.stringify(model.chart.notes);
+  model.tempoMap(200,3,BISCUIT_CASE.tempoChanges!);
+  expect(JSON.stringify(model.chart.notes)).toBe(notes);
+  model.undo();expect(model.chart.tempoChanges).toEqual([]);
+  model.redo();expect(model.chart.tempoChanges).toHaveLength(6);
+  const before = JSON.stringify(model.chart);
+  for (const changes of [[{time:3,bpm:205}],[{time:10,bpm:301}],[{time:10,bpm:205},{time:9,bpm:200}],[{time:NaN,bpm:200}],Array.from({length:129},(_,i)=>({time:10+i,bpm:200}))]) {
+    expect(()=>model.tempoMap(200,3,changes)).toThrow();
+    expect(JSON.stringify(model.chart)).toBe(before);
+  }
 });

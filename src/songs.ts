@@ -6,6 +6,9 @@ export interface Song {
   bpm: number;
   startTime: number;
   chartId?: string;
+  /** Editor defaults only; saved/imported charts keep their own tempo maps. */
+  tempoChanges?: readonly { time: number; bpm: number }[];
+  tempoEstimated?: boolean;
 }
 export const DEFAULT_SONG: Song = {
   id: 'super-mommy-girls', title: 'SUPER MOMMY GIRLS', artist: 'Hey!Mommy!',
@@ -15,6 +18,12 @@ export const BISCUIT_CASE: Song = {
   id: 'biscuit-case', title: 'ビスケットケース', artist: 'Hey!Mommy!',
   // Uploaded MP3: opening tempo and first clear beat. Video alignment remains provisional.
   videoId: 'JUsGoi24rug', bpm: 200, startTime: 3,
+  // Draft MP3 analysis: refine transition timestamps against the video in the editor.
+  tempoEstimated: true,
+  tempoChanges: [
+    {time:24.6,bpm:205}, {time:100.7,bpm:200}, {time:112.7,bpm:205},
+    {time:187.6,bpm:203}, {time:213.8,bpm:205}, {time:240,bpm:200},
+  ],
 };
 /** Register additional songs here; routing and storage use the stable ID. */
 export const SONGS: readonly Song[] = [DEFAULT_SONG, BISCUIT_CASE];
