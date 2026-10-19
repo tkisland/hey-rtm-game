@@ -9,7 +9,7 @@ export const MIN_HOLD = 0.03;
 const MAX_JSON_BYTES = 1024 * 1024;
 
 export const copyChart = (chart: Chart): Chart => ({ ...chart, ...(chart.tempoChanges ? { tempoChanges: chart.tempoChanges.map(change => ({ ...change })) } : {}), notes: chart.notes.map(copyNote) });
-export const emptyChart = (song: Song = DEFAULT_SONG): Chart => ({ videoId: song.videoId, title: song.title, bpm: song.bpm, startTime: 0, beatOrigin: song.startTime, notes: [] });
+export const emptyChart = (song: Song = DEFAULT_SONG): Chart => ({ videoId: song.videoId, title: song.title, bpm: song.bpm, startTime: 0, beatOrigin: song.startTime, ...(song.tempoChanges ? {tempoChanges:song.tempoChanges.map(change => ({...change}))} : {}), notes: [] });
 export const finite = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 

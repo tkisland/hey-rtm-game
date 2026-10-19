@@ -25,7 +25,7 @@ import { songStorageKey, songUrl, songVideoUrl } from './songs';
 import type { Song } from './songs';
 import type { Chart } from './chart';
 import { bundledChart } from './bundled-charts';
-import { beatToTime, tempoLabel, timeToBeat } from './tempo';
+import { beatToTime, bpmAt, tempoLabel, timeToBeat } from './tempo';
 
 export interface EditorOptions { song: Song; initialChart?: Chart; online?: boolean; onChange?(): void; preview?(chart: Chart): Promise<void> | void }
 export interface EditorHandle { chart(): Chart; pause(): void; dispose(): void }
@@ -213,9 +213,37 @@ function refreshList(): void {
     body.append(row);
   }
 }
+function refreshTempo(): void {
+  const rows = el('tempo-rows'); rows.replaceChildren();
+  const changes = model.chart.tempoChanges ?? [];
+  for (const [index, change] of changes.entries()) {
+    const row = document.createElement('div'); row.className = 'tempo-row';
+    const values = (['time','bpm'] as const).map(key => {
+      const label = document.createElement('label'); label.textContent = key === 'time' ? '変更位置（秒）' : 'BPM';
+      const field = document.createElement('input'); field.type = 'number'; field.value = String(change[key]);
+      field.min = key === 'time' ? '0' : '40'; field.max = key === 'time' ? String(MAX_TIME) : '300'; field.step = key === 'time' ? '.001' : '.01';
+      field.setAttribute('aria-label', `テンポ変更${index+1}の${key === 'time' ? '秒数' : 'BPM'}`);
+      label.append(field); row.append(label); return field;
+    });
+    const update = () => edit(() => model.tempoMap(model.chart.bpm, model.chart.beatOrigin ?? model.chart.startTime,
+      changes.map((value,i) => i === index ? {time:values[0].valueAsNumber,bpm:values[1].valueAsNumber} : value)));
+    values.forEach(field => field.onchange = update);
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'edit-button'; remove.textContent = '削除';
+    remove.setAttribute('aria-label', `テンポ変更${index+1}を削除`);
+    remove.onclick = () => edit(() => model.tempoMap(model.chart.bpm, model.chart.beatOrigin ?? model.chart.startTime,changes.filter((_,i) => i !== index)));
+    row.append(remove); rows.append(row);
+  }
+  el('apply-song-tempo').hidden = !song.tempoChanges;
+  el('apply-song-tempo').textContent = song.tempoEstimated ? '曲の推定テンポを適用' : '曲のテンポを適用';
+  el('song-tempo-help').hidden = !song.tempoEstimated;
+  el('song-tempo-help').textContent = 'この曲の登録テンポは音源解析の推定値です。動画との頭合わせ・切り替え位置は要確認です。適用すると開始BPM・拍の基準・BPM変更を登録値へ置き換えます。MIDIや保存済みの独自設定を使う場合は適用不要です。';
+  el<HTMLButtonElement>('add-tempo-change').disabled = changes.length >= 128 || !player || failed;
+}
 function refresh(): void {
+  refreshTempo();
   input('editor-bpm').value = String(model.chart.bpm); input('beat-origin').value = String(model.chart.beatOrigin ?? model.chart.startTime);
-  el('tempo-info').textContent = model.chart.tempoChanges?.length ? `${tempoLabel(model.chart)} BPM · ${model.chart.tempoChanges.length}箇所のテンポ変更を拍グリッド・スナップ・クオンタイズに反映します。BPM欄は開始時点の値です。` : '開始時点のBPMと拍の基準を合わせてください。BPM140はテスト用の仮の値です。';
+  const estimated = song.tempoEstimated && model.chart.bpm === song.bpm && model.chart.beatOrigin === song.startTime && JSON.stringify(model.chart.tempoChanges) === JSON.stringify(song.tempoChanges);
+  el('tempo-info').textContent = model.chart.tempoChanges?.length ? `${tempoLabel(model.chart)} BPM · ${model.chart.tempoChanges.length}箇所のテンポ変更を拍グリッド・スナップ・クオンタイズに反映します。BPM欄は開始時点の値です。${estimated ? ' 音源解析の推定値です。動画との頭合わせ・切り替え位置を確認してください。' : ''}` : '開始時点のBPMと拍の基準を合わせてください。';
   el('note-count').textContent = `${playableNotes(model.chart.notes).length} NOTES`;
   el<HTMLButtonElement>('undo').disabled = !model.canUndo; el<HTMLButtonElement>('redo').disabled = !model.canRedo;
   el<HTMLButtonElement>('quantize').disabled = !model.chart.notes.length;
@@ -287,6 +315,7 @@ const disposePlayer = createYouTubePlayer({
     if (failed) return;
     player = instance; clock.reset();
     for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note', 'paste-now']) el<HTMLButtonElement>(id).disabled = false;
+    el<HTMLButtonElement>('add-tempo-change').disabled = (model.chart.tempoChanges?.length ?? 0) >= 128;
     reflectRate();
     el('player-status').textContent = 'MVの再生ボタンを押してください';
     refreshPreviewControls();
@@ -305,7 +334,7 @@ const disposePlayer = createYouTubePlayer({
     failed = true; playing = false; setArmed(false); stopPreview(false);
     el('player-error').hidden = false; el('player-error').textContent = `${text} JSONの読み込み・編集・保存は引き続き使えます。`;
     el('player-status').textContent = '動画を再生できません';
-    for (const id of ['record-toggle', 'set-origin', 'add-note', 'seek-note', 'paste-now', 'editor-playback-rate']) el<HTMLInputElement>(id).disabled = true;
+    for (const id of ['record-toggle', 'set-origin', 'add-tempo-change', 'add-note', 'seek-note', 'paste-now', 'editor-playback-rate']) el<HTMLInputElement>(id).disabled = true;
   },
 }, song);
 function reflectRate(rejected = false): void {
@@ -386,6 +415,17 @@ select('record-type').addEventListener('change', cancelCaptures, { signal });
 const metadata = () => edit(() => model.metadata(input('editor-bpm').valueAsNumber, input('beat-origin').valueAsNumber));
 input('editor-bpm').addEventListener('change', metadata, { signal }); input('beat-origin').addEventListener('change', metadata, { signal });
 on('set-origin', () => { readTime(); edit(() => model.metadata(model.chart.bpm, Math.round(time * 1000) / 1000)); });
+on('apply-song-tempo', () => {
+  if (!song.tempoChanges) return;
+  edit(() => { model.tempoMap(song.bpm,song.startTime,song.tempoChanges!); message('曲のテンポを適用しました。ノーツの時刻は保っています。「拍にそろえる」でクオンタイズできます。'); });
+});
+on('add-tempo-change', () => {
+  readTime();
+  const changes = model.chart.tempoChanges ?? [], origin = model.chart.beatOrigin ?? model.chart.startTime;
+  const at = Math.round(time*1000)/1000;
+  if (at <= origin) { message('拍の基準より後の位置へ移動してから追加してください。'); return; }
+  edit(() => model.tempoMap(model.chart.bpm,origin,[...changes,{time:at,bpm:bpmAt(model.chart,at)}].sort((a,b) => a.time-b.time)));
+});
 on('quantize', () => {
   if (select('quantize-target').value === 'selected' && !model.selectedNote) { message('先にノーツを選択してください。'); return; }
   edit(() => model.quantize(division(), select('quantize-target').value === 'selected', input('from-source').checked));

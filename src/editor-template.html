@@ -14,6 +14,15 @@
           <div class="editor-fields"><label>BPM<input id="editor-bpm" type="number" min="40" max="300" step="0.01" value="140" /></label><label>拍の基準（動画の秒数）<input id="beat-origin" type="number" min="0" max="7200" step="0.001" value="12" /></label></div>
           <button id="set-origin" class="edit-button" disabled>現在位置を拍の基準にする</button>
           <p id="tempo-info" class="field-help">開始時点のBPMと拍の基準を合わせてください。</p>
+          <details id="tempo-map" class="tempo-map">
+            <summary>途中のBPM変更</summary>
+            <p class="field-help">動画の秒数から新しいBPMへ切り替わります。拍グリッド・スナップ・クオンタイズに共通で反映し、変更時にノーツは動かしません。</p>
+            <p id="song-tempo-help" class="field-help" hidden></p>
+            <button id="apply-song-tempo" class="edit-button" type="button" hidden>曲のテンポを適用</button>
+            <div id="tempo-rows" class="tempo-rows"></div>
+            <button id="add-tempo-change" class="edit-button" type="button">現在位置にBPM変更を追加</button>
+            <p class="field-help">数値の変更は入力欄を離れると反映されます。開始BPMと拍の基準は上の欄で変更できます。「元に戻す」で取り消せます。</p>
+          </details>
           <div class="editor-fields"><label>クオンタイズ<select id="division"><option value="1">4分音符</option><option value="2">8分音符</option><option value="4" selected>16分音符</option></select></label><label>対象<select id="quantize-target"><option value="all">すべてのノーツ</option><option value="selected">選択したノーツ</option></select></label></div>
           <label class="editor-check"><input id="from-source" type="checkbox" checked /> 元の入力時刻からそろえる</label>
           <button id="quantize" class="edit-button primary">拍にそろえる</button>
