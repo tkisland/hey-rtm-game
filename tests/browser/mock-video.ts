@@ -31,6 +31,8 @@ window.YT = { Player: class {
 }};
 window.onYouTubeIframeAPIReady();`;
 export async function seekPlay(page: Page, time: number) {
+  // Ordinary seek tests use prepared audio. Cold iframe starts have dedicated coverage.
+  await page.keyboard.press('Shift');
   await page.evaluate(time => {
     const video = (window as any).testVideo;
     video.setState(2); video.seekTo(time);

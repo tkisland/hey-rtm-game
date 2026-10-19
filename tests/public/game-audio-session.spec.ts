@@ -30,7 +30,13 @@ for(const entry of ['game-button','youtube-player'] as const)test(`game output r
   await expect(page.locator('#play-start')).toBeEnabled();
   expect(await page.evaluate(()=>(window as any).gameAudio.type)).toBe('auto');
   if(entry==='game-button')await page.locator('#play-start').click();
-  else await page.evaluate(()=>(window as any).testVideo.playVideo());
+  else {
+    await page.evaluate(()=>(window as any).testVideo.playVideo());
+    await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(2);
+    await expect(page.locator('#stage-hint')).toContainText('ゲーム側の「▶ 再生」');
+    await page.locator('#play-start').click();
+  }
+  await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(1);
   for(let lane=0;lane<6;lane++){
     await page.evaluate(()=>(window as any).gameAudio.rms=0);
     if(info.project.name==='mobile-touch')await page.locator('.lane-button').nth(lane).tap();
