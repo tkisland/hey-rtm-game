@@ -178,9 +178,13 @@ function showHit(hit: Hit, now: number): void {
   const error = hit.judgement === 'MISS' ? '' : `${hit.errorMs >= 0 ? '+' : ''}${hit.errorMs.toFixed(0)} ms`;
   if (judgementLabels[feedbackLane].textContent !== label) judgementLabels[feedbackLane].textContent = label;
   if (judgementErrors[feedbackLane].textContent !== error) judgementErrors[feedbackLane].textContent = error;
-  feedbackAnimations[feedbackLane]?.cancel(); feedbackAnimations[feedbackLane] = undefined;
   // MISS keeps its label and timeout, without restarting an animation for every passed note.
-  if (hit.judgement !== 'MISS' && !reducedFeedbackMotion.matches) feedbackAnimations[feedbackLane] = feedback.animate([{scale:'1.08',opacity:.8},{scale:'1',opacity:1}],{duration:180,easing:'ease-out'});
+  if (hit.judgement !== 'MISS' && !reducedFeedbackMotion.matches) {
+    const animation = feedbackAnimations[feedbackLane];
+    // Six reusable effects avoid allocating/cancelling animations on every tap.
+    if (animation) { animation.currentTime = 0; animation.play(); }
+    else feedbackAnimations[feedbackLane] = feedback.animate([{scale:'1.08',opacity:.8},{scale:'1',opacity:1}],{duration:180,easing:'ease-out'});
+  } else feedbackAnimations[feedbackLane]?.cancel();
   if (hit.judgement !== 'MISS') {
     renderer.flash(hit.lane, now, hit.judgement);
     if (hit.boxComplete && hit.boxId !== undefined) { sound.playBoxSweep(); renderer.completeBox(now, hit.boxId); }
