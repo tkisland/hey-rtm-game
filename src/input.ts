@@ -9,12 +9,22 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number, ge
   const pointers = new Map<number, number>();
   const keys = new Set<number>();
   const nativeKeys = new Map<string, number>();
+  let gestureRects: DOMRect[] | null = null;
+  const invalidateRects = () => { gestureRects = null; };
+  // Finger jitter/swipes can deliver many moves between frames. Read geometry once
+  // per gesture rather than forcing layout after each pressed-state style change.
+  window.addEventListener('resize', invalidateRects, {signal});
+  window.addEventListener('scroll', invalidateRects, {signal,capture:true,passive:true});
+  window.visualViewport?.addEventListener('resize', invalidateRects, {signal});
+  window.visualViewport?.addEventListener('scroll', invalidateRects, {signal});
+  const geometryObserver = new ResizeObserver(invalidateRects);
+  buttons.forEach(button => geometryObserver.observe(button));
   const render = (reason: 'change' | 'cancel' = 'change') => {
     const active = new Set([...pointers.values(), ...keys, ...nativeKeys.values()]);
     buttons.forEach((button, lane) => button.classList.toggle('pressed', active.has(lane)));
     onPressed(active, reason);
   };
-  const releaseAll = () => { for (const id of pointers.keys()) options.onGestureEnd?.(`pointer:${id}`); options.onGestureEnd?.('keyboard'); pointers.clear(); keys.clear(); nativeKeys.clear(); render('cancel'); };
+  const releaseAll = () => { for (const id of pointers.keys()) options.onGestureEnd?.(`pointer:${id}`); options.onGestureEnd?.('keyboard'); pointers.clear(); keys.clear(); nativeKeys.clear(); invalidateRects(); render('cancel'); };
   buttons.forEach((button, lane) => {
     button.addEventListener('pointerdown', event => {
       if (blocked()) return;
@@ -23,6 +33,7 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number, ge
       // Touch focus can scroll the visual viewport on mobile Safari, even with preventScroll.
       if (event.pointerType === 'mouse') button.focus({ preventScroll: true });
       button.setPointerCapture(event.pointerId);
+      invalidateRects();
       pointers.set(event.pointerId, lane);
       render();
       onHit(lane, {id:`pointer:${event.pointerId}`});
@@ -31,7 +42,7 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number, ge
       if (!pointers.has(event.pointerId) || blocked()) return;
       // The gaps belong to the nearest lane too: sliding never has a dead strip.
       // Require the existing pad row, so dragging over settings cannot hit a lane.
-      const rects = buttons.map(button => button.getBoundingClientRect());
+      const rects = gestureRects ??= buttons.map(button => button.getBoundingClientRect());
       const first = rects[0], last = rects.at(-1);
       if (!first || !last || event.clientY < first.top || event.clientY > first.bottom) { options.onGestureEnd?.(`pointer:${event.pointerId}`); return; }
       let next = 0;
@@ -90,5 +101,5 @@ export function bindInput(buttons: HTMLButtonElement[], onHit: (lane: number, ge
   }, { signal });
   window.addEventListener('blur', releaseAll, { signal });
   document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); }, { signal });
-  return () => { controller.abort(); releaseAll(); };
+  return () => { controller.abort(); geometryObserver.disconnect(); releaseAll(); };
 }
