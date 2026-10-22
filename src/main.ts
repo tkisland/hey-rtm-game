@@ -133,6 +133,8 @@ let smoothedVideoTime = 0;
 let clockStale = false;
 let restartTarget: number | null = null;
 let restartDeadline = 0;
+let restartTimedOut = false;
+const restartMessage = () => restartTimedOut ? '先頭からの再生を確認できません。「↻」で再試行してください' : '動画を先頭に戻しています…';
 let lastInputError: number | null = null;
 let resultShown = false;
 let completionAt: number | null = null;
@@ -205,7 +207,7 @@ function clearResults(): void {
   updateScore();
 }
 function showResults(): void {
-  if (resultShown || !engine.finished) return;
+  if (restartTarget !== null || resultShown || !engine.finished) return;
   if (completionAt === null && state !== PLAYER_STATE.PLAYING && state !== PLAYER_STATE.ENDED) return;
   const now = performance.now();
   completionAt ??= now;
@@ -243,14 +245,19 @@ function readTime(now: number): { time: number; playing: boolean } {
     if (clockStale !== wasStale) { if (clockStale) sound.cancelPending(); setState(state); }
     const gameTime = sample.time - (settings.offset + settings.noteOffset) / 1000;
     if (restartTarget !== null) {
-      // seekTo is asynchronous; never process the old playhead during a restart.
-      if (Math.abs(videoTime - restartTarget) <= 0.5) { restartTarget = null; clock.reset(); }
-      else if (now > restartDeadline) {
-        restartTarget = null;
-        engine.seek(compensateInput(gameTime, settings.inputOffset), true);
-        clearResults();
-        notice.textContent = '指定位置へのシークが完了しませんでした。動画を確認して、もう一度リスタートしてください。';
-      } else return { time: gameTime, playing: false };
+      // Time and state arrive independently from the iframe. An old ENDED state
+      // must not finish the fresh chart, even if the seek already reports zero.
+      if (sample.playing && Math.abs(videoTime - restartTarget) <= 0.5) {
+        restartTarget = null; restartTimedOut = false; clock.reset();
+        notice.textContent = '最初からライブ開始！';
+        return {time:gameTime,playing:!(calibration.active || songTiming.active)};
+      }
+      if (!restartTimedOut && now > restartDeadline) {
+        restartTimedOut = true;
+        notice.textContent = restartMessage();
+      }
+      // A timeout still preserves pending notes; a retry or late seek can recover.
+      return {time:gameTime,playing:false};
     }
     // Completed sessions keep their score and result until an explicit restart.
     // YouTube may reset its playhead or deliver a final discontinuity after ENDED.
@@ -385,8 +392,8 @@ async function restartGame(): Promise<void> {
   engine.reset(activeChart());
   clearResults(); updateChartInfo(); clock.reset();
   restartTarget = 0;
-  restartDeadline = performance.now() + 5000;
-  notice.textContent = '再生が始まらない場合は、YouTubeプレーヤー内の再生ボタンを押してください。';
+  restartDeadline = performance.now() + 5000; restartTimedOut = false;
+  notice.textContent = restartMessage();
   try { player.seekTo(restartTarget, true); player.playVideo(); }
   catch { restartTarget = null; showError('リスタートできませんでした。プレーヤーを再読み込みしてください。'); }
 }
@@ -521,7 +528,7 @@ function frame(now: number): void {
   if (sample.playing) {
     const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
     showHits(updates,now);
-  } else if (state === PLAYER_STATE.ENDED && !engine.finished) {
+  } else if (restartTarget === null && state === PLAYER_STATE.ENDED && !engine.finished) {
     const end = Math.max(sample.time,...engine.notes.map(note => note.type === 'hold' ? note.endTime : note.time));
     // Close any remaining judgement windows when playback has actually ended.
     showHits(engine.advance(end + 1,renderer.pressed),now);
@@ -537,7 +544,7 @@ function frame(now: number): void {
   } else {
     const hidden = sample.playing || resultShown;
     if (stageHint.hidden !== hidden) stageHint.hidden = hidden;
-    const hint = awaitingAudio ? '「ゲームスタート」を押してライブ開始！' : clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '「ゲーム再開」を押してライブ再開！' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? '最高なLIVE！' : '「ゲームスタート」を押してライブ開始！';
+    const hint = awaitingAudio ? '「ゲームスタート」を押してライブ開始！' : restartTarget !== null ? restartMessage() : clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '「ゲーム再開」を押してライブ再開！' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? '最高なLIVE！' : '「ゲームスタート」を押してライブ開始！';
     if (hintTitle.textContent !== hint) hintTitle.textContent = hint;
     if (hintDescription.textContent) hintDescription.textContent = '';
     if (!hintDescription.hidden) hintDescription.hidden = true;
@@ -550,7 +557,7 @@ function frame(now: number): void {
       if (judgementLabels[lane].textContent !== 'HOLD') judgementLabels[lane].textContent = 'HOLD';
     } else if (now - judgementTimes[lane] > 800 && !feedback.hidden) feedback.hidden = true;
   });
-  const guidance = failed ? '動画を再生できません' : awaitingAudio ? 'ノーツ音の準備待ち · 上の「ゲームスタート」で開始' : clockStale ? '動画時刻の更新待ち' : sample.playing
+  const guidance = failed ? '動画を再生できません' : awaitingAudio ? 'ノーツ音の準備待ち · 上の「ゲームスタート」で開始' : restartTarget !== null ? restartMessage() : clockStale ? '動画時刻の更新待ち' : sample.playing
     ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
       ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : '上の横線でレスをキャッチ · S D F / J K L'
     : state === PLAYER_STATE.PAUSED ? '「ゲーム再開」を押してライブ再開！' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : '上の「ゲームスタート」でライブ開始！';
