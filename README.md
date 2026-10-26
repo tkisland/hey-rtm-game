@@ -31,7 +31,7 @@ npm run preview
 
 `dist/` 内の **index.html・game.html・admin.html・assets/・.vite/をまとめて** 既存サーバーへアップロードしてください。`editor.html`という単独のローカル編集ページは出力しません。オンラインの編集UIは管理者の本人確認・権限確認後に読み込みます。権限の強制はFirestoreのサーバー側ルールで行います。`scripts/check-public-build.mjs`は一般向けページの初期読込に編集UIが混入していないこと、編集UIが管理者画面へ遅延ロードされること、旧編集ページ・未参照ファイル・テスト用設定の混入がないことを検査します。
 
-配信ディレクトリは継ぎ足しではなく成果物全体で置き換えます。GitHub Pagesのワークフローは`dist/`全体を配信します。`base: './'`のためサブディレクトリにも設置でき、URL末尾を`/`としてHTTPSで配信します。Node.jsは公開先に不要です。
+FTPで`dist/`の中身を公開ディレクトリへ配置します。assetsを先に、HTMLを最後に転送します。旧assetsや将来のAPIを巻き込む一括削除は行いません。`base: './'`のためサブディレクトリにも設置でき、URL末尾を`/`としてHTTPSで配信します。Node.jsは公開先に不要です。
 
 - `file://` でHTMLを開かず、HTTP(S)サーバーを使用してください。
 - IFrame APIの`origin`は実際の`location.origin`を設定します。Refererを遮断する`no-referrer` / `same-origin`ヘッダーを設定しないでください。HTMLとiframeは`strict-origin-when-cross-origin`を使用しますが、公開サーバーやブラウザ拡張の設定も確認してください。
@@ -39,19 +39,13 @@ npm run preview
 - YouTube標準のプレーヤーのクリック・タッチ操作を維持します。`disablekb: 1`でプレーヤー側のキーボードショートカットを無効にし、Fでの全画面化やJ/K/Lでの動画操作を防ぎます。動画の上にゲームUIを重ねません。プレーヤーの高さは最低200pxです。
 - 埋め込み拒否・通信障害・Referer不足（153等）は画面に表示し、ゲームを停止します。公式動画へのリンクも常に表示します。
 
-## GitHub Pagesでの公開
+## さくらのレンタルサーバーでの公開
 
-公開URLは https://tkisland.github.io/hey-rtm-game/ です。
+移行先URLは **https://hey.jpn.org/rhythm/** です。さくらのレンタルサーバー・スタンダードの独自ドメイン配下へ、FTPでビルド済みファイルを配置します。
 
-**リポジトリ直下の開発用`index.html`をそのまま配信すると、TypeScriptを実行できず、CSS・Canvas・YouTubeも読み込まれません。公開にはビルド済みの`dist/`を使います。**
+**開発用HTMLをそのまま配信すると、文字だけ表示される原因になります。** `.github/workflows/build-site.yml`の **Build site for Sakura FTP** がテスト・ビルドを実行し、アップロード用成果物 **rhythm-site** を作成します。ZIPを展開した中身を、ドメインの公開フォルダー内の`rhythm`へ転送します。マージだけでは本番へ公開されません。
 
-`.github/workflows/deploy-pages.yml`が、`main`へのpush時に`npm ci` → `npm test` → `npm run build`を実行し、`dist/`だけをGitHub Pagesへデプロイします。PRではテスト・ビルドを実行し、公開は行いません。
-
-1. リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定します（「Deploy from a branch」でリポジトリ直下を配信しないでください）。
-2. 公開ワークフローを含む変更を`main`へマージします。
-3. **Actions → Build and deploy GitHub Pages** の`build`・`deploy`が成功したら、公開URLを再読み込みします。手動の再公開は同ワークフローの **Run workflow** から行えます。
-
-UIがプレーンな文字だけでYouTubeも空欄の場合、配信HTMLに`/src/…ts`が残っていないか確認してください。正しい公開HTMLは`./assets/…js`と`./assets/…css`を読み込みます。CSS・JSの両方がHTTP 200で取得できることを確認し、古いページが残る場合はキャッシュを消して再読み込みしてください。
+初回のディレクトリ作成、Firebaseのドメイン追加、ZIP取得、FTPの配置順序、公開確認、元へ戻す手順は[さくらへのFTP公開手順](docs/sakura-deployment.md)にまとめています。GitHub Pagesへの自動更新は停止しますが、以前の公開ページは移行確認まで残ります。
 
 ## 選曲メニューと曲の追加
 
@@ -169,7 +163,7 @@ APIは間欠的に更新されるため、更新の間に「補間−API」が�
 
 ## 共有画像（OGP）
 
-選曲画面とゲーム画面のHTMLにOpen GraphとXの大型カード設定を置いています。共有時のタイトル・説明・画像には「テスト版」を明記しています。画像は `public/ogp-test-v1.png`（1200×630px）で、ビルド時に公開先の `/hey-rtm-game/ogp-test-v1.png` へコピーされます。メタデータはJavaScriptを実行しなくても取得でき、画像URLとページURLはGitHub Pagesの絶対HTTPS URLです。配信先を変更する場合は両HTMLのURLも更新してください。
+選曲画面とゲーム画面のHTMLにOpen GraphとXの大型カード設定を置いています。共有時のタイトル・説明・画像には「テスト版」を明記しています。画像は `public/ogp-test-v1.png`（1200×630px）で、ビルド時に公開先の `/rhythm/ogp-test-v1.png` へコピーされます。メタデータはJavaScriptを実行しなくても取得でき、画像URLとページURLは `https://hey.jpn.org/rhythm/` 配下の絶対HTTPS URLです。配信先を変更する場合は両HTMLのURLも更新してください。
 
 画像を差し替える際はファイル名のバージョンも上げて両HTMLの参照を更新すると、共有先で以前の画像がキャッシュされる影響を減らせます。XやLINE上の実際のカード表示は各サービスの取得・キャッシュ更新後に反映されます。
 

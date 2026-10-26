@@ -1,4 +1,4 @@
-name: Build and deploy GitHub Pages
+name: Build site for Sakura FTP
 
 on:
   push:
@@ -36,26 +36,15 @@ jobs:
         run: npm run build
         env:
           VITE_FIREBASE_CONFIG: ${{ vars.FIREBASE_WEB_CONFIG }}
-      - name: Upload built site
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
+      - name: Install browser for subdirectory checks
+        run: npx playwright install --with-deps chromium
+      - name: Check FTP output under /rhythm/
+        run: npm run test:sakura
+      - name: Upload FTP site package
+        uses: actions/upload-artifact@v4
         with:
+          name: rhythm-site
           path: dist
-
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy built site
-        id: deployment
-        uses: actions/deploy-pages@v4
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
