@@ -8,14 +8,14 @@
 
 1. [Firebaseコンソール](https://console.firebase.google.com/)を開き、管理するGoogleアカウントでログインします。
 2. 「プロジェクトを作成」を選び、名前を入力します。Google Analyticsは今回の機能には不要です。
-3. 作成後のプロジェクト概要で「Web（</>）」からアプリを登録します。Firebase Hostingの設定は不要です。公開サイトは引き続きGitHub Pagesを使用します。
+3. 作成後のプロジェクト概要で「Web（</>）」からアプリを登録します。Firebase Hostingの設定は不要です。公開サイトはさくらのレンタルサーバーの https://hey.jpn.org/rhythm/ を使用します。
 4. 表示された`firebaseConfig`を控えます。使用するのは`apiKey`・`authDomain`・`projectId`・`appId`です。これらはブラウザへ配信するWebアプリ用の公開設定です。Googleのパスワードやサービスアカウントの秘密鍵は使用しません。
 
 ## 2. Googleログインを有効にする
 
 1. Firebaseの「構築 → Authentication」で利用を開始します。
 2. 「ログイン方法」で「Google」を有効にし、サポートメールを選んで保存します。
-3. Authenticationの「設定 → 承認済みドメイン」に`tkisland.github.io`を追加します。`https://`や`/hey-rtm-game/`は付けません。
+3. Authenticationの「設定 → 承認済みドメイン」に`hey.jpn.org`を追加します。`https://`や`/rhythm/`は付けません。
 
 ## 3. データベースと権限ルールを設定する
 
@@ -41,7 +41,7 @@
 }
 ```
 
-4. 保存して、この機能の導入PRを`main`にマージすると自動でサイトが更新されます。マージ済みの場合は「Actions → Build and deploy GitHub Pages → Run workflow」で再公開します。
+4. 保存して、変更を`main`にマージするか「Actions → Build site for Sakura FTP → Run workflow」でビルドします。成功した実行のArtifactsから`rhythm-site`をダウンロードし、[FTP公開手順](sakura-deployment.md)に従って展開した中身をアップロードします。マージ・ビルドだけでは公開サイトは更新されません。
 
 設定のJSON化や登録をCodexへ依頼する場合は、Webアプリの`firebaseConfig`を伝えてください。秘密鍵やGoogleのパスワードは送らないでください。
 
@@ -72,7 +72,7 @@ Googleでログインできることと、譜面を編集できることは別�
 
 - 「管理者ログインは準備中」：Webアプリの設定がまだ公開ビルドへ反映されていません。GitHubの変数と再公開を確認します。
 - 「編集権限がありません」：ログインしたアカウントのIDと`admins`のドキュメントID、`enabled`がbooleanのtrueであることを確認します。
-- 「ログイン用ドメインが未登録」：Authenticationの承認済みドメインへ`tkisland.github.io`を登録します。
+- 「ログイン用ドメインが未登録」：Authenticationの承認済みドメインへ`hey.jpn.org`を登録します。
 - Googleの画面を開けない：ブラウザのポップアップ制限や、Googleのログイン用通信が許可されているかを確認します。
 
 実際のGoogleログイン、設定した公開サイトからの保存・公開、別の未登録アカウントによる拒否は、初回設定後に確認してください。
