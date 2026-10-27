@@ -162,7 +162,7 @@ function rh_entry(array $row): array {
 function rh_submit(PDO $db, array $data): array {
     $token=$data['token'] ?? null;$name=$data['name'] ?? null;
     if (!is_string($token) || !preg_match('/^[a-f0-9]{64}$/D',$token)) rh_error(400,'invalid_token','このプレイの登録情報を確認できません。');
-    if (!is_string($name) || !preg_match('/^[a-zA-Z0-9]{5,6}$/D',$name)) rh_error(422,'invalid_name','名前は半角英数字5〜6文字で入力してください。');
+    if (!is_string($name) || !preg_match('/^[a-zA-Z0-9]{3,6}$/D',$name)) rh_error(422,'invalid_name','名前は半角英数字3〜6文字で入力してください。');
     $name=strtoupper($name);$tokenHash=hash('sha256',$token);
     $db->beginTransaction();
     try {

@@ -34,7 +34,7 @@ export function mountResultRanking(songId:string,difficulty:Difficulty,json:stri
   form.addEventListener('submit',event=>{
     event.preventDefault();if(busy || submitted || !result || !token || invalid)return;
     const name=normalizeRankingName(input.value);
-    if(!name){status.textContent='名前は半角英数字5〜6文字で入力してください。';input.focus();return;}
+    if(!name){status.textContent='名前は半角英数字3〜6文字で入力してください。';input.focus();return;}
     const current=generation,playResult=result,playToken=token;input.value=name;busy=true;button.disabled=true;input.disabled=true;
     status.textContent='登録しています…';
     void submitRanking(playToken,name,playResult).then(async response=>{
@@ -61,7 +61,7 @@ export function mountResultRanking(songId:string,difficulty:Difficulty,json:stri
       await preparation;
       if(!alive || current!==generation)return;
       form.hidden=!token || !!invalid;
-      status.textContent=preparationError || invalid || '英数字5〜6文字の名前で登録できます。';
+      status.textContent=preparationError || invalid || '英数字3〜6文字の名前で登録できます。';
       if(token){try{await refresh(current);}catch(error){if(alive && current===generation)status.textContent=errorText(error);}}
     },
     destroy(){alive=false;generation++;controller.abort();},

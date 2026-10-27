@@ -3,9 +3,9 @@ import {normalizeRankingName,rankingBoard,chartHash} from '../src/ranking-api';
 import {GameEngine} from '../src/engine';
 import {DEFAULT_SONG} from '../src/songs';
 
-it('normalizes only five or six ASCII alphanumeric characters, without treating a name as an account',()=>{
-  expect(normalizeRankingName('abc12')).toBe('ABC12');expect(normalizeRankingName('ABC123')).toBe('ABC123');
-  for(const value of ['ABCD','ABCDEFG','ＡＢＣ１２','あいうえお','AB CD',"AB'CD",'ABC12\n'])expect(normalizeRankingName(value)).toBeNull();
+it('normalizes only three to six ASCII alphanumeric characters, without treating a name as an account',()=>{
+  expect(normalizeRankingName('abc')).toBe('ABC');expect(normalizeRankingName('ab12')).toBe('AB12');expect(normalizeRankingName('abc12')).toBe('ABC12');expect(normalizeRankingName('ABC123')).toBe('ABC123');
+  for(const value of ['','AB','ABCDEFG','ＡＢＣ１２','あいうえお','AB CD',"AB'CD",'ABC12\n'])expect(normalizeRankingName(value)).toBeNull();
 });
 it('hashes the exact authoritative JSON and separates changed content',async()=>{
   expect(await chartHash('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');

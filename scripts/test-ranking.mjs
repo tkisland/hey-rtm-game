@@ -105,7 +105,7 @@ try {
   const early=(await api('start',board)).token;
   await api('submit',{token:early,name:'ABCDE',...perfect},422);
   const token=await start();
-  for(const name of ['ABCD','ABCDEFG','あいうえお','AB<DE',"A'BCD"] )await api('submit',{token,name,...perfect},422);
+  for(const name of ['AB','ABCDEFG','あいうえお','AB<DE',"A'BCD"] )await api('submit',{token,name,...perfect},422);
   await api('submit',{token,name:'ABCDE',...perfect,score:9000},422);
   await api('submit',{token,name:'ABCDE',...perfect,results:perfect.results.slice(1)},422);
   await api('submit',{token,name:'ABCDE',...perfect,results:perfect.results.map((item,i)=>i===1?perfect.results[0]:item)},422);
@@ -117,6 +117,8 @@ try {
   assert.equal((await api('submit',{token:await start(),name:'LOWER',...miss})).rank,3);
   const list=await api('leaderboard',board);assert.deepEqual(list.entries.map(item=>[item.name,item.score]),[['ABC12',8000],['ABC12',8000],['LOWER',6000]]);
   const easy={...board,difficulty:'easy'};await start(easy);assert.deepEqual((await api('leaderboard',easy)).entries,[]);
+  assert.equal((await api('submit',{token:await start(easy),name:'ab3',...perfect})).entry.name,'AB3');
+  assert.equal((await api('submit',{token:await start(easy),name:'ABCD',...perfect})).entry.name,'ABCD');
   const updated=JSON.stringify({...chart,title:'New chart release'});catalog.songs['ranking-test'].charts.normal=updated;putCatalog();
   const nextBoard={...board,chartHash:hash(updated)};await start(nextBoard);assert.deepEqual((await api('leaderboard',nextBoard)).entries,[]);
   assert.equal((await api('leaderboard',board)).entries.length,3);

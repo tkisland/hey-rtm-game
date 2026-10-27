@@ -29,7 +29,7 @@ export async function loadRanking(board:RankingBoard):Promise<RankingEntry[]> {r
 export async function submitRanking(token:string,name:string,result:RankingResult):Promise<{entry:RankingEntry;rank:number}> {
   return request('submit',{token,name,...result},true);
 }
-export function normalizeRankingName(value:string):string|null {return /^[a-zA-Z0-9]{5,6}$/.test(value)?value.toUpperCase():null;}
+export function normalizeRankingName(value:string):string|null {return /^[a-zA-Z0-9]{3,6}$/.test(value)?value.toUpperCase():null;}
 export function renderRanking(list:HTMLOListElement,entries:RankingEntry[],highlight?:string):void {
   list.replaceChildren();
   const format=new Intl.NumberFormat('ja-JP');
