@@ -7,7 +7,7 @@ function files(directory) {
     return entry.isDirectory() ? files(path) : [path];
   });
 }
-const output = files('dist'), pages = ['index.html','game.html','admin.html'];
+const output = files('dist'), pages = ['index.html','game.html','admin.html','rankings.html'];
 for (const page of pages) if (!output.includes(join('dist', page))) throw new Error(`Missing public page: ${page}`);
 if (output.includes(join('dist','editor.html'))) throw new Error('Admin asset in public output: standalone local editor');
 const manifest = JSON.parse(readFileSync('dist/.vite/manifest.json','utf8'));
@@ -37,6 +37,7 @@ for (const page of pages) for (const key of graph(page,true)) {
 for (const path of output) {
   if (/\.(?:html|js)$/.test(path) && readFileSync(path,'utf8').includes('demo-hey-rtm')) throw new Error('Emulator configuration must not be published.');
   const relative = path.slice('dist'.length+1).replaceAll('\\','/');
+  if (/(?:^|\/)(?:config(?:\.example)?\.php|schema\.sql|\.env(?:\..*)?)$/.test(relative)) throw new Error(`Private server setup file in public output: ${relative}`);
   if (/\.(?:html|js|css)$/.test(path) && !referenced.has(relative)) throw new Error(`Admin asset in public output or unreferenced file: ${relative}`);
 }
 console.log('Public output verified: player pages contain no editing controls; online editor loads separately after administrator authentication.');

@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
     build: {
       manifest: true,
       outDir: admin ? 'dist-admin' : 'dist',
-      rollupOptions: { input: admin ? { menu: 'index.html', game: 'game.html', editor: 'editor.html', admin: 'admin.html' } : { menu: 'index.html', game: 'game.html', admin: 'admin.html' } },
+      rollupOptions: { input: admin ? { menu: 'index.html', game: 'game.html', editor: 'editor.html', admin: 'admin.html', rankings:'rankings.html' } : { menu: 'index.html', game: 'game.html', admin: 'admin.html', rankings:'rankings.html' } },
     },
   };
 });

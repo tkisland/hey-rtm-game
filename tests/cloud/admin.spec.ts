@@ -114,6 +114,7 @@ test('refuses stale saves and removes the editor when its administrator role is 
   await secondContext.close();
 });
 test('previews a saved draft without publishing and rejects anonymous preview access',async ({page,browser})=>{
+  const rankingRequests:string[]=[];page.on('request',request=>{if(request.url().includes('/api/ranking.php'))rankingRequests.push(request.url());});
   await page.addInitScript(()=>localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({sound:false})));
   await signIn(page);await importChart(page);
   await page.locator('#try-game').click();await expect(page).toHaveURL(/game.html.*preview=1/);await expect(page.locator('#chart-info')).toContainText('3 NOTES');
@@ -121,6 +122,7 @@ test('previews a saved draft without publishing and rejects anonymous preview ac
   await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(15);video.playVideo();video.setState(0);});
   await expect(page.locator('#result')).toBeVisible();
   await expect(page.locator('#result-share')).not.toBeVisible();
+  await expect(page.locator('#result-ranking')).not.toBeVisible();expect(rankingRequests).toEqual([]);
   await expect(page.locator('#result-share')).not.toHaveAttribute('href',/.+/);
   const publicContext=await browser.newContext(),publicPage=await publicContext.newPage();
   await publicPage.goto('http://127.0.0.1:4184/game.html?preview=1');await expect(publicPage).toHaveURL(/admin.html/);await expect(publicPage.locator('#google-login')).toBeEnabled();

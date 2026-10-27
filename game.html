@@ -147,6 +147,16 @@
             <a id="result-share" class="restart-button result-share" target="_blank" rel="noopener noreferrer" aria-label="プレイ結果をXで共有（新しいタブで開く）" hidden>Xで共有 ↗</a>
             <a href="./" class="restart-button">ほかの曲を選ぶ</a>
           </div>
+          <section id="result-ranking" class="ranking-section" aria-labelledby="ranking-title" hidden>
+            <h3 id="ranking-title">ランキング · 上位20件</h3>
+            <form id="ranking-form" class="ranking-form" novalidate>
+              <label for="ranking-name">登録名（半角英数字5〜6文字）<input id="ranking-name" name="name" type="text" minlength="5" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" /></label>
+              <button id="ranking-submit" class="restart-button" type="submit">登録する</button>
+            </form>
+            <p id="ranking-status" class="ranking-status" role="status"></p>
+            <ol id="ranking-entries" class="ranking-entries" aria-label="この譜面のランキング"></ol>
+            <p class="ranking-note">ログイン不要。同じ名前でも別のプレイ記録になります。</p>
+          </section>
         </section>
         <!-- admin:start -->
         <section id="debug-panel" class="panel debug-panel" aria-label="同期デバッグ" hidden><h2>SYNC MONITOR</h2><dl><dt>YouTube時刻</dt><dd id="debug-time">0.000 s</dd><dt>ゲーム時刻（補間＋オフセット）</dt><dd id="debug-game-time">0.000 s</dd><dt>補間状態</dt><dd id="debug-clock">停止</dd><dt>状態</dt><dd id="debug-state">LOADING</dd><dt>適用中BPM</dt><dd id="debug-bpm">140</dd><dt>オフセット</dt><dd id="debug-offset">0 ms</dd><dt>入力の遅れ補正</dt><dd id="debug-input-offset">0 ms</dd><dt>補正後の判定時刻</dt><dd id="debug-input-time">0.000 s</dd><dt>タップ音の追加遅延</dt><dd id="debug-sound-delay">0 ms</dd><dt>FPS</dt><dd id="debug-fps">—</dd><dt>直近の入力誤差</dt><dd id="debug-error">—</dd><dt>最後の判定</dt><dd id="debug-judgement">—</dd></dl></section>

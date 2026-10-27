@@ -6,6 +6,7 @@
 .site-story { margin:0 0 12px; color:#e4bde4; font-size:clamp(12px,2.6vw,15px); line-height:1.8; overflow-wrap:anywhere; }
 .menu-heading { padding:12px 0 16px; }
 .menu-actions { display:flex; align-items:center; gap:8px; }
+.menu-actions a { display:inline-flex; align-items:center; text-decoration:none; }
 .menu-settings { width:min(480px,calc(100% - 24px)); max-height:calc(100svh - 24px); overflow:auto; padding:18px; border:1px solid #bda7f766; border-radius:12px; background:#191827; color:#f6f5ff; }
 .menu-settings::backdrop { background:#080911d9; }
 .menu-settings-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }

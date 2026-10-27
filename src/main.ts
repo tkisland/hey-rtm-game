@@ -27,6 +27,7 @@ import type { Song } from './songs';
 import {findDifficulty,difficultyLabel} from './difficulties';
 import type {Difficulty} from './difficulties';
 import {resultShareUrl} from './result-share';
+import {mountResultRanking} from './ranking-result';
 import { publishedChart } from './cloud-published';
 import type { CloudChart } from './cloud-schema';
 import { bundledChart } from './bundled-charts';
@@ -121,6 +122,7 @@ sound.delay = settings.soundDelay;
 const unbindLayout = bindDockLayout(document.querySelector('.stage')!, document.querySelector('.controls-dock')!);
 const unbindVenue = bindConcertVenue(element<HTMLCanvasElement>('game-canvas'), document.querySelector('.media-panel')!, document.querySelector('.live-layout')!);
 const result = element('result'), stageHint = element('stage-hint');
+const ranking = !__ADMIN__ && !previewUid ? mountResultRanking(song.id,difficulty,online?.json ?? JSON.stringify(bundled!)) : null;
 const hintTitle = stageHint.querySelector('strong')!;
 const hintDescription = stageHint.querySelector<HTMLElement>('span:last-child')!;
 const status = element('player-status'), notice = element('game-notice');
@@ -209,6 +211,7 @@ function clearResults(): void {
   resultShown = false;
   completionAt = null;
   result.hidden = true;
+  ranking?.clear();
   const share = element<HTMLAnchorElement>('result-share');
   share.hidden = true; share.removeAttribute('href');
   element('show-result').hidden = true;
@@ -243,6 +246,7 @@ function showResults(): void {
     item.append(label, value); counts.append(item);
   }
   element('result-accuracy').textContent = `得点率 ${engine.accuracy.toFixed(1)}%（判定済みノーツのみ） · 判定済み ${Object.values(engine.counts).reduce((sum,n)=>sum+n,0)} · シークでスキップ ${engine.skipped} / 全 ${engine.notes.length} ノーツ`;
+  void ranking?.show({score:engine.score,maxCombo:engine.maxCombo,results:engine.rankingJudgements()},engine.skipped===0 && videoRate===1);
 }
 function readTime(now: number): { time: number; playing: boolean } {
   if (!player || failed) return { time: smoothedVideoTime - (settings.offset + settings.noteOffset) / 1000, playing: false };
@@ -279,6 +283,7 @@ function readTime(now: number): { time: number; playing: boolean } {
     // Completed sessions keep their score and result until an explicit restart.
     // YouTube may reset its playhead or deliver a final discontinuity after ENDED.
     if (sample.seek && !engine.finished && state !== PLAYER_STATE.ENDED) {
+      ranking?.invalidate('シークしたプレイは登録できません。最初からプレイして記録に挑戦しよう！');
       sound.cancelPending();
       engine.seek(compensateInput(gameTime, settings.inputOffset), sample.backwards);
       clearResults();
@@ -287,6 +292,7 @@ function readTime(now: number): { time: number; playing: boolean } {
     if (sample.resync && !engine.finished && state !== PLAYER_STATE.ENDED) {
       notice.textContent = '動画時刻を再同期しました。得点・判定数は保持しています。';
     }
+    if(sample.playing && videoRate!==1 && !engine.finished)ranking?.invalidate('再生速度を変更したプレイは登録できません。通常速度でプレイしてください。');
     return { time: gameTime, playing: sample.playing && !(calibration.active || songTiming.active) };
   } catch {
     showError('プレーヤーの再生時刻を取得できません。ページを再読み込みしてください。');
@@ -407,6 +413,7 @@ async function restartGame(): Promise<void> {
   sound.cancelPending();
   if (!await preparePlayback()) return;
   engine.reset(activeChart());
+  ranking?.restart();
   clearResults(); updateChartInfo(); clock.reset();
   restartTarget = 0;
   restartDeadline = performance.now() + 5000; restartTimedOut = false;
@@ -612,7 +619,7 @@ function dispose(): void {
   disposed = true; playRequest++;
   cancelAnimationFrame(frameId);
   feedbackAnimations.forEach(animation => animation?.cancel());
-  listeners.abort(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); songTiming.destroy(); diagnostics?.destroy(); unbindTargets(); unbindVenue(); unbindLayout();
+  listeners.abort(); ranking?.destroy(); unbindInput(); renderer.destroy(); disposePlayer(); sound.destroy(); calibration.destroy(); songTiming.destroy(); diagnostics?.destroy(); unbindTargets(); unbindVenue(); unbindLayout();
 }
 let stopAccess = () => {};
 if (previewUid) {
