@@ -36,6 +36,9 @@ try {
   docker(['create','--name',php,'--network',network,'-p','127.0.0.1:4194:8080','-e','RHYTHM_CONFIG_PATH=/private/config.php','hey-rhythm-ranking-test']);
   docker(['cp','dist',`${php}:/app/rhythm`]);docker(['cp',temporary,`${php}:/private`]);
   const catalog=JSON.parse(readFileSync('dist/api/catalog.json','utf8'));
+  // The deployed catalog keeps its real public configuration; only this test copy
+  // disables remote reads so CI never contacts a production Firebase project.
+  catalog.firebase=null;
   const chart={videoId:'abcdefghijk',title:'Contract test',bpm:120,startTime:0,notes:[
     {id:1,type:'tap',lane:0,time:1},{id:2,type:'tap',lane:1,time:1},
     {id:3,type:'hold',lane:2,time:1.5,endTime:2.5},{id:4,type:'tap',lane:3,time:2},
