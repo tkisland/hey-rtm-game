@@ -1,3 +1,5 @@
+import { DEFAULT_DIFFICULTY } from './difficulties';
+import type { Difficulty } from './difficulties';
 export interface Song {
   id: string;
   title: string;
@@ -6,6 +8,7 @@ export interface Song {
   bpm: number;
   startTime: number;
   chartId?: string;
+  charts?: Partial<Record<Difficulty,string>>;
   /** Editor defaults only; saved/imported charts keep their own tempo maps. */
   tempoChanges?: readonly { time: number; bpm: number }[];
   tempoEstimated?: boolean;
@@ -32,13 +35,15 @@ export const SONGS: readonly Song[] = [DEFAULT_SONG, BISCUIT_CASE];
 export function findSong(id: string | null): Song | undefined {
   return id === null ? DEFAULT_SONG : SONGS.find(song => song.id === id);
 }
-export function songUrl(song: Song, page: 'game' | 'editor', chart: boolean | 'test' | 'bundled' = false): string {
+export function songUrl(song: Song, page: 'game' | 'editor', chart: boolean | 'test' | 'bundled' = false, difficulty: Difficulty = DEFAULT_DIFFICULTY): string {
   const query = new URLSearchParams({ song: song.id });
+  if (difficulty !== DEFAULT_DIFFICULTY) query.set('difficulty',difficulty);
   if (chart && page === 'game') query.set('chart', chart === true ? 'custom' : chart);
   return `./${page}.html?${query}`;
 }
-export function songStorageKey(base: string, song: Song): string {
+export function songStorageKey(base: string, song: Song, difficulty: Difficulty = DEFAULT_DIFFICULTY): string {
   // Keep existing data for the original song without migration writes.
-  return song.id === DEFAULT_SONG.id ? base : `${base}:${song.id}`;
+  const key = song.id === DEFAULT_SONG.id ? base : `${base}:${song.id}`;
+  return difficulty === DEFAULT_DIFFICULTY ? key : `${key}:${difficulty}`;
 }
 export function songVideoUrl(song: Song): string { return `https://www.youtube.com/watch?v=${song.videoId}`; }

@@ -24,6 +24,8 @@ import { createYouTubePlayer, readYouTubeMetadata } from './youtube';
 import type { YouTubePlayer, YouTubeMetadata } from './youtube';
 import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
 import type { Song } from './songs';
+import {findDifficulty,difficultyLabel} from './difficulties';
+import type {Difficulty} from './difficulties';
 import { publishedChart } from './cloud-published';
 import type { CloudChart } from './cloud-schema';
 import { bundledChart } from './bundled-charts';
@@ -35,15 +37,17 @@ function element<T extends HTMLElement = HTMLElement>(id: string): T {
   return node as T;
 }
 const song = findSong(new URLSearchParams(location.search).get('song'));
+const difficulty = findDifficulty(new URLSearchParams(location.search).get('difficulty'));
 // Invalid links return to selection before creating a player or reading chart data.
 if (!song) location.replace('./?missing-song=1');
-else void startGame(song).catch(() => {
+else if (!difficulty) location.replace('./?missing-difficulty=1');
+else void startGame(song,difficulty).catch(() => {
   element('player-error').hidden = false;
   element('player-error').textContent = '譜面を読み込めませんでした。接続を確認し、ページを再読み込みしてください。';
   element('player-status').textContent = '譜面の読み込みに失敗しました';
   element('stage-hint').querySelector('strong')!.textContent = '譜面を読み込めませんでした';
 });
-async function startGame(song: Song): Promise<void> {
+async function startGame(song: Song, difficulty:Difficulty): Promise<void> {
 let online: CloudChart | null = null, previewUid: string | null = null;
 if (!__ADMIN__) {
   element('player-status').textContent = '譜面を読み込んでいます…';
@@ -51,23 +55,25 @@ if (!__ADMIN__) {
     try {
       const { requireCloudAdmin } = await import('./cloud-auth');
       const user = await requireCloudAdmin(), { readDraft } = await import('./cloud-store');
-      online = await readDraft(song, user);
+      online = await readDraft(song, user, difficulty);
       if (!online || !online.chart.notes.length) throw new Error('No preview notes');
       previewUid = user.uid;
-    } catch { location.replace(`./admin.html?song=${encodeURIComponent(song.id)}`); return; }
-  } else online = await publishedChart(song);
+    } catch { location.replace(`./admin.html?song=${encodeURIComponent(song.id)}&difficulty=${difficulty}`); return; }
+  } else online = await publishedChart(song,difficulty);
 }
-const bundled = bundledChart(song);
+const bundled = bundledChart(song,difficulty);
 if (!__ADMIN__ && !online && !bundled) { location.replace('./?unavailable-song=1'); return; }
 document.title = `HEY! RHYTHM! — ${song.title}`;
 element('song-title').textContent = song.title;
-element('stage-song-title').textContent = song.title;
+element('stage-song-title').textContent = `${song.title} · ${difficultyLabel(difficulty)}`;
+element('song-difficulty').textContent = difficultyLabel(difficulty);
+element('result-difficulty').textContent = difficultyLabel(difficulty);
 element('song-artist').textContent = `${song.artist} / OFFICIAL MV`;
-if (__ADMIN__) element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'editor');
+if (__ADMIN__) element<HTMLAnchorElement>('open-editor').href = songUrl(song, 'editor',false,difficulty);
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
 const normalizeGameSettings = __ADMIN__ ? normalizeSettings : normalizePlayerSettings;
 let settings = normalizeGameSettings(loadSettings(song));
-const customChart = __ADMIN__ ? loadChart(songStorageKey(CUSTOM_CHART_KEY, song), true, song) : null;
+const customChart = __ADMIN__ ? loadChart(songStorageKey(CUSTOM_CHART_KEY, song, difficulty), true, song) : null;
 const requested = new URLSearchParams(location.search).get('chart');
 type Source = 'bundled' | 'custom' | 'test';
 let source: Source = __ADMIN__ ? requested === 'test' ? 'test' : requested === 'custom' ? customChart ? 'custom' : 'test' : bundled ? 'bundled' : 'test' : 'bundled';
@@ -77,7 +83,7 @@ if (!__ADMIN__ && requested !== null) {
 }
 const engine = new GameEngine(activeChart());
 if (previewUid) {
-  const back = document.createElement('a'); back.href = `./admin.html?song=${encodeURIComponent(song.id)}`;
+  const back = document.createElement('a'); back.href = `./admin.html?song=${encodeURIComponent(song.id)}&difficulty=${difficulty}`;
   back.className = 'editor-link'; back.textContent = '管理画面'; back.setAttribute('aria-label', '管理画面へ戻る');
   document.querySelector('.header-actions')!.prepend(back);
 }

@@ -76,3 +76,23 @@ it('rejects stale publications and immediately denies a revoked administrator', 
   await assertFails(setDoc(doc(db,'draftCharts','song'),draft('owner',3)));
   await assertFails(setDoc(doc(db,'publishedCharts','song'),{...draft(),draftRevision:2}));
 });
+it('isolates easy and hard drafts and only publishes the saved matching difficulty', async()=>{
+  const db=google(),easy={...draft(),schemaVersion:2,difficulty:'easy'},hard={...draft(),schemaVersion:2,difficulty:'hard',json:'{"notes":[2]}'};
+  const ref=(collectionName:string,level:string)=>doc(db,collectionName,'song','difficulties',level);
+  await assertSucceeds(setDoc(doc(db,'draftCharts','song'),draft()));
+  await assertSucceeds(setDoc(ref('draftCharts','easy'),easy));
+  await assertSucceeds(setDoc(ref('draftCharts','hard'),hard));
+  await assertFails(setDoc(ref('draftCharts','normal'),{...easy,difficulty:'normal'}));
+  await assertFails(setDoc(ref('draftCharts','easy'),{...easy,revision:2,difficulty:'hard'}));
+  await assertFails(setDoc(ref('publishedCharts','hard'),{...easy,draftRevision:1}));
+  await assertSucceeds(setDoc(ref('publishedCharts','easy'),{...easy,draftRevision:1}));
+  await assertFails(setDoc(ref('publishedCharts','hard'),{...hard,draftRevision:1,json:easy.json}));
+  await assertSucceeds(setDoc(ref('publishedCharts','hard'),{...hard,draftRevision:1}));
+  const anonymous=env.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(anonymous,'publishedCharts','song','difficulties','easy')));
+  await assertFails(getDoc(doc(anonymous,'draftCharts','song','difficulties','easy')));
+  await assertFails(setDoc(doc(anonymous,'publishedCharts','song','difficulties','easy'),{...easy,revision:2,draftRevision:1}));
+  await assertFails(getDocs(collection(anonymous,'publishedCharts','song','difficulties')));
+  await assertFails(setDoc(ref('draftCharts','easy'),{...easy,revision:2,extra:'unsupported'}));
+  expect((await getDoc(doc(db,'draftCharts','song'))).data()?.revision).toBe(1);
+});
