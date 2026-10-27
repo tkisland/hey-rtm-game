@@ -9,9 +9,9 @@ service cloud.firestore {
       return googleUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
         && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true;
     }
-    function validChart(id) {
+    function validChart(id, version) {
       let d = request.resource.data;
-      return d.schemaVersion == 1 && d.songId == id && d.videoId is string && d.videoId.size() == 11
+      return d.schemaVersion == version && d.songId == id && d.videoId is string && d.videoId.size() == 11
         && d.json is string && d.json.size() <= 800000
         && d.noteCount is int && d.noteCount >= 0 && d.noteCount <= 5000
         && d.revision is int && d.revision >= 1
@@ -31,6 +31,21 @@ service cloud.firestore {
         && request.resource.data.json == draft.json && request.resource.data.videoId == draft.videoId
         && request.resource.data.noteCount == draft.noteCount;
     }
+    function difficultyKeys(published) {
+      let common = ['schemaVersion','songId','videoId','json','noteCount','revision','updatedBy','updatedAt','difficulty'];
+      let keys = published ? common.concat(['draftRevision']) : common;
+      return request.resource.data.keys().hasAll(keys) && request.resource.data.keys().hasOnly(keys);
+    }
+    function validDifficulty(song, difficulty, published) {
+      return difficulty in ['easy','hard'] && request.resource.data.difficulty == difficulty
+        && validChart(song, 2) && difficultyKeys(published);
+    }
+    function savedDifficultyDraft(song, difficulty) {
+      let draft = getAfter(/databases/$(database)/documents/draftCharts/$(song)/difficulties/$(difficulty)).data;
+      return request.resource.data.noteCount > 0 && request.resource.data.draftRevision == draft.revision
+        && draft.difficulty == difficulty && request.resource.data.json == draft.json
+        && request.resource.data.videoId == draft.videoId && request.resource.data.noteCount == draft.noteCount;
+    }
     match /admins/{uid} {
       allow get: if googleUser() && request.auth.uid == uid;
       allow list, create, update, delete: if false;
@@ -38,14 +53,26 @@ service cloud.firestore {
     match /draftCharts/{song} {
       allow get: if admin();
       allow list, delete: if false;
-      allow create: if admin() && validChart(song) && draftKeys() && request.resource.data.revision == 1;
-      allow update: if admin() && validChart(song) && draftKeys() && request.resource.data.revision == resource.data.revision + 1;
+      allow create: if admin() && validChart(song, 1) && draftKeys() && request.resource.data.revision == 1;
+      allow update: if admin() && validChart(song, 1) && draftKeys() && request.resource.data.revision == resource.data.revision + 1;
+      match /difficulties/{difficulty} {
+        allow get: if admin();
+        allow list, delete: if false;
+        allow create: if admin() && validDifficulty(song, difficulty, false) && request.resource.data.revision == 1;
+        allow update: if admin() && validDifficulty(song, difficulty, false) && request.resource.data.revision == resource.data.revision + 1;
+      }
     }
     match /publishedCharts/{song} {
       allow get: if true;
       allow list, delete: if false;
-      allow create: if admin() && validChart(song) && publishedKeys() && savedDraft(song) && request.resource.data.revision == 1;
-      allow update: if admin() && validChart(song) && publishedKeys() && savedDraft(song) && request.resource.data.revision == resource.data.revision + 1;
+      allow create: if admin() && validChart(song, 1) && publishedKeys() && savedDraft(song) && request.resource.data.revision == 1;
+      allow update: if admin() && validChart(song, 1) && publishedKeys() && savedDraft(song) && request.resource.data.revision == resource.data.revision + 1;
+      match /difficulties/{difficulty} {
+        allow get: if difficulty in ['easy','hard'];
+        allow list, delete: if false;
+        allow create: if admin() && validDifficulty(song, difficulty, true) && savedDifficultyDraft(song,difficulty) && request.resource.data.revision == 1;
+        allow update: if admin() && validDifficulty(song, difficulty, true) && savedDifficultyDraft(song,difficulty) && request.resource.data.revision == resource.data.revision + 1;
+      }
     }
   }
 }

@@ -23,11 +23,13 @@ import { createYouTubePlayer } from './youtube';
 import type { YouTubePlayer } from './youtube';
 import { songStorageKey, songUrl, songVideoUrl } from './songs';
 import type { Song } from './songs';
+import {DEFAULT_DIFFICULTY,difficultyLabel} from './difficulties';
+import type {Difficulty} from './difficulties';
 import type { Chart } from './chart';
 import { bundledChart } from './bundled-charts';
 import { beatToTime, bpmAt, tempoLabel, timeToBeat } from './tempo';
 
-export interface EditorOptions { song: Song; initialChart?: Chart; online?: boolean; onChange?(): void; preview?(chart: Chart): Promise<void> | void }
+export interface EditorOptions { song: Song; difficulty?:Difficulty; initialChart?: Chart; online?: boolean; onChange?(): void; preview?(chart: Chart): Promise<void> | void }
 export interface EditorHandle { chart(): Chart; pause(): void; dispose(): void }
 export function mountEditor(options: EditorOptions): EditorHandle {
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -36,14 +38,14 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 const input = (id: string) => el<HTMLInputElement>(id);
 const select = (id: string) => el<HTMLSelectElement>(id);
-const song = options.song;
-const editorKey = songStorageKey(EDITOR_KEY, song), customKey = songStorageKey(CUSTOM_CHART_KEY, song);
+const song = options.song, difficulty = options.difficulty ?? DEFAULT_DIFFICULTY;
+const editorKey = songStorageKey(EDITOR_KEY, song, difficulty), customKey = songStorageKey(CUSTOM_CHART_KEY, song, difficulty);
 document.title = `管理者用 譜面エディター — ${song.title}`;
-el('editor-song-title').textContent = `${song.title} / ADMIN CHART EDITOR`;
-el<HTMLAnchorElement>('back-to-game').href = songUrl(song, 'game');
+el('editor-song-title').textContent = `${song.title} / ${difficultyLabel(difficulty)} / ADMIN CHART EDITOR`;
+el<HTMLAnchorElement>('back-to-game').href = songUrl(song, 'game',false,difficulty);
 document.querySelector<HTMLAnchorElement>('.playback-info a')!.href = songVideoUrl(song);
 const model = new EditorModel(options.initialChart ?? (options.online ? emptyChart(song) : loadChart(editorKey, false, song) ?? emptyChart(song)));
-const bundled = bundledChart(song);
+const bundled = bundledChart(song,difficulty);
 const clock = new VideoClock();
 const sound = new TapSound(() => message('確認音を再生できません。端末の音量・ブラウザの音声設定をご確認ください。'));
 let settings = loadSettings(); sound.volume = settings.soundVolume; sound.delay = settings.soundDelay;
@@ -500,7 +502,7 @@ on('try-game', () => {
     return;
   }
   if (!storeChart(customKey, model.chart)) { message('試遊用の譜面を保存できません。ブラウザのストレージ設定を確認してください。JSONの書き出しは利用できます。'); return; }
-  location.href = songUrl(song, 'game', true);
+  location.href = songUrl(song, 'game',true,difficulty);
 });
 window.addEventListener('keydown', event => {
   if (calibration.active) return;

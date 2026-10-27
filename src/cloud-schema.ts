@@ -1,6 +1,8 @@
 import type { Chart } from './chart';
 import { parseChart } from './chart-data';
 import type { Song } from './songs';
+import { DEFAULT_DIFFICULTY } from './difficulties';
+import type { Difficulty } from './difficulties';
 
 export interface CloudConfig { apiKey: string; authDomain: string; projectId: string; appId: string }
 export interface CloudChart { chart: Chart; json: string; revision: number }
@@ -22,9 +24,10 @@ export function chartJson(chart: Chart, song: Song, requireNotes = false): strin
   if (new TextEncoder().encode(json).byteLength > CLOUD_JSON_LIMIT) throw new Error('オンライン保存する譜面は800KB以内にしてください。');
   return json;
 }
-export function parseCloudChart(value: unknown, song: Song, published = false): CloudChart {
+export function parseCloudChart(value: unknown, song: Song, published = false, difficulty: Difficulty = DEFAULT_DIFFICULTY): CloudChart {
   const data = value as Record<string, unknown> | null;
-  if (!data || data.schemaVersion !== 1 || data.songId !== song.id || data.videoId !== song.videoId ||
+  const levelMatches = data && (difficulty === DEFAULT_DIFFICULTY ? data.schemaVersion === 1 && data.difficulty === undefined : data.schemaVersion === 2 && data.difficulty === difficulty);
+  if (!data || !levelMatches || data.songId !== song.id || data.videoId !== song.videoId ||
     typeof data.json !== 'string' || !Number.isSafeInteger(data.revision) || (data.revision as number) < 1 ||
     new TextEncoder().encode(data.json).byteLength > CLOUD_JSON_LIMIT) throw new Error('保存された譜面の形式を確認できません。');
   const chart = parseChart(data.json, published, song);

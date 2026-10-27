@@ -45,3 +45,8 @@
   .menu-page .header { flex-wrap:wrap; height:auto; row-gap:8px; }
   .menu-page .wordmark { white-space:nowrap; }
 }
+
+.song-actions .difficulty-choice { display:flex; grid-column:1 / -1; align-items:center; padding:0; margin:0; color:#d9cbea; }
+.song-actions.player-difficulty-actions { grid-template-columns:minmax(0,1fr) minmax(64px,.6fr); }
+.player-difficulty-actions .difficulty-choice { grid-column:auto; }
+.song-difficulty { width:100%; min-width:0; min-height:44px; max-width:100%; border:1px solid #c9a8ff55; border-radius:8px; padding:6px; background:#191326; color:#fff; font:inherit; }

@@ -12,19 +12,23 @@ import { emptyChart } from './editor-model';
 import type { Chart } from './chart';
 import { findSong, SONGS, songUrl } from './songs';
 import type { Song } from './songs';
+import {DIFFICULTIES,DEFAULT_DIFFICULTY,findDifficulty,difficultyLabel} from './difficulties';
+import type {Difficulty} from './difficulties';
 import type { EditorHandle } from './editor-controller';
 import { playableNotes } from './note-display';
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const initialApp = el('app').outerHTML, login = el<HTMLButtonElement>('google-login');
 const tools = el('admin-tools'), status = el('cloud-status'), save = el<HTMLButtonElement>('cloud-save'), publish = el<HTMLButtonElement>('cloud-publish');
-const songSelect = el<HTMLSelectElement>('admin-song');
+const songSelect = el<HTMLSelectElement>('admin-song'), difficultySelect=el<HTMLSelectElement>('admin-difficulty');
+for (const item of DIFFICULTIES) { const option=document.createElement('option');option.value=item.id;option.textContent=item.label;difficultySelect.append(option); }
 for (const song of SONGS) { const option = document.createElement('option'); option.value = song.id; option.textContent = song.title; songSelect.append(option); }
 let song = findSong(new URLSearchParams(location.search).get('song')) ?? SONGS[0];
+let difficulty=findDifficulty(new URLSearchParams(location.search).get('difficulty')) ?? DEFAULT_DIFFICULTY;
 let user: User | null = null, editor: EditorHandle | null = null, saved: CloudChart | null = null;
 let revision = 0, dirty = false, busy = false, allowed = false, generation = 0;
 const listeners = new AbortController(), signal = listeners.signal;
-function controls(): void { save.disabled = publish.disabled = busy || !allowed || !editor; songSelect.disabled = busy || !allowed; }
+function controls(): void { save.disabled = publish.disabled = busy || !allowed || !editor; songSelect.disabled = difficultySelect.disabled = busy || !allowed; }
 function clearEditor(): void {
   generation++; editor?.dispose(); editor = null; saved = null; revision = 0; dirty = false; tools.hidden = true;
   document.body.classList.remove('editor-page');
@@ -50,7 +54,7 @@ async function perform(action: () => Promise<void>): Promise<void> {
 }
 async function persist(chart: Chart): Promise<CloudChart> {
   const actor = user!, current = generation;
-  const result = await saveDraft(song, actor, chart, revision);
+  const result = await saveDraft(song, actor, chart, revision, difficulty);
   if (current !== generation || user?.uid !== actor.uid) throw new Error('ログイン状態が変わりました。');
   saved = result; revision = result.revision;
   dirty = chartJson(editor!.chart(), song) !== result.json;
@@ -58,25 +62,25 @@ async function persist(chart: Chart): Promise<CloudChart> {
   status.textContent = `下書きを保存しました（版 ${revision}）。公開するまでプレーヤーの譜面は変わりません。`;
   return result;
 }
-async function openEditor(next: Song): Promise<void> {
-  const actor = user!; clearEditor(); const current = generation; song = next;
+async function openEditor(next: Song, nextDifficulty:Difficulty = difficulty): Promise<void> {
+  const actor = user!; clearEditor(); const current = generation; song = next; difficulty=nextDifficulty;
   status.textContent = '下書きを読み込んでいます…';
-  const draft = await readDraft(song, actor);
+  const draft = await readDraft(song, actor, difficulty);
   const [{mountEditor}, template] = await Promise.all([import('./editor-controller'), import('./editor-template.html?raw')]);
   if (current !== generation || !allowed || user?.uid !== actor.uid) return;
   const parsed = new DOMParser().parseFromString(template.default, 'text/html'), app = parsed.getElementById('app')!;
   app.querySelector('.admin-notice')!.textContent = '管理者専用の編集画面です。下書きを保存してから公開できます。';
   el('app').replaceWith(document.importNode(app, true)); document.body.classList.add('editor-page');
-  const chart = draft?.chart ?? bundledChart(song) ?? emptyChart(song);
-  saved = draft; revision = draft?.revision ?? 0; dirty = false; songSelect.value = song.id; tools.hidden = false;
-  editor = mountEditor({song, initialChart:chart, online:true,
+  const chart = draft?.chart ?? bundledChart(song,difficulty) ?? emptyChart(song);
+  saved = draft; revision = draft?.revision ?? 0; dirty = false; songSelect.value = song.id; difficultySelect.value=difficulty; tools.hidden = false;
+  editor = mountEditor({song, difficulty, initialChart:chart, online:true,
     onChange() { dirty = true; status.textContent = '未保存の変更があります。'; },
-    async preview(chart) { await perform(async () => { await persist(chart); location.href = `${songUrl(song, 'game')}&preview=1`; }); },
+    async preview(chart) { await perform(async () => { await persist(chart); location.href = `${songUrl(song, 'game',false,difficulty)}&preview=1`; }); },
   });
   el('try-game').textContent = '保存してゲームで試す';
   el('save-status').textContent = draft ? 'オンラインの下書きを読み込みました。' : '収録譜面を読み込みました。編集後に下書きを保存してください。';
-  status.textContent = draft ? `下書きの版 ${revision} を読み込みました。` : '公開中の譜面を基に編集できます。';
-  const url = new URL(location.href); url.searchParams.set('song', song.id); history.replaceState(null, '', url);
+  status.textContent = draft ? `下書きの版 ${revision} を読み込みました。` : `${difficultyLabel(difficulty)}の譜面を編集中です。ノーツがなければMIDI読込や打ち込みで作成できます。`;
+  const url = new URL(location.href); url.searchParams.set('song', song.id); url.searchParams.set('difficulty',difficulty); history.replaceState(null, '', url);
   controls();
 }
 async function access(state: AccessState): Promise<void> {
@@ -111,16 +115,21 @@ el('admin-logout').addEventListener('click', () => {
 save.addEventListener('click', () => void perform(async () => { await persist(editor!.chart()); }), {signal});
 publish.addEventListener('click', () => void perform(async () => {
   const chart = editor!.chart(); chartJson(chart, song, true);
-  if (!confirm(`「${song.title}」の${playableNotes(chart.notes).length}ノーツを公開します。公開後はプレーヤーが新しい譜面で遊びます。よろしいですか？`)) return;
+  if (!confirm(`「${song.title} / ${difficultyLabel(difficulty)}」の${playableNotes(chart.notes).length}ノーツを公開します。公開後はプレーヤーが新しい譜面で遊びます。よろしいですか？`)) return;
   const current = generation, actor = user!;
   const snapshot = dirty || !saved ? await persist(chart) : saved;
-  const release = await publishDraft(song, actor, snapshot);
+  const release = await publishDraft(song, actor, snapshot, difficulty);
   if (current === generation) status.textContent = `公開しました（公開版 ${release}）。選曲から新しい譜面で遊べます。`;
 }), {signal});
 songSelect.addEventListener('change', () => {
   const next = findSong(songSelect.value);
   if (!next || (dirty && !confirm('未保存の変更があります。保存せずに曲を切り替えますか？'))) { songSelect.value = song.id; return; }
   void openEditor(next).catch(error => { status.textContent = errorText(error); });
+}, {signal});
+difficultySelect.addEventListener('change', () => {
+  const next=findDifficulty(difficultySelect.value);
+  if (!next || (dirty && !confirm('未保存の変更があります。保存せずに難易度を切り替えますか？'))) { difficultySelect.value=difficulty;return; }
+  void openEditor(song,next).catch(error=>{status.textContent=errorText(error);});
 }, {signal});
 window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } }, {signal});
 let stopAccess = () => {};
