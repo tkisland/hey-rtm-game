@@ -26,6 +26,7 @@ import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
 import type { Song } from './songs';
 import {findDifficulty,difficultyLabel} from './difficulties';
 import type {Difficulty} from './difficulties';
+import {resultShareUrl} from './result-share';
 import { publishedChart } from './cloud-published';
 import type { CloudChart } from './cloud-schema';
 import { bundledChart } from './bundled-charts';
@@ -208,6 +209,8 @@ function clearResults(): void {
   resultShown = false;
   completionAt = null;
   result.hidden = true;
+  const share = element<HTMLAnchorElement>('result-share');
+  share.hidden = true; share.removeAttribute('href');
   element('show-result').hidden = true;
   lastInputError = null;
   judgementTimes.fill(-Infinity);
@@ -227,6 +230,10 @@ function showResults(): void {
   element('show-result').hidden = false;
   element('result-score').textContent = scoreFormat.format(engine.score);
   element('result-combo').textContent = `MAX COMBO ${engine.maxCombo}`;
+  if (!__ADMIN__ && !previewUid) {
+    const share = element<HTMLAnchorElement>('result-share');
+    share.href = resultShareUrl(song,difficulty,engine); share.hidden = false;
+  }
   const counts = element('result-counts');
   counts.replaceChildren();
   for (const [name, count] of Object.entries(engine.counts)) {

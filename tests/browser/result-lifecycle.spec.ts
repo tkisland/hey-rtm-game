@@ -24,6 +24,8 @@ test('results wait for the afterglow and stay through video end and seek until e
   await page.clock.runFor(1400);await expect(page.locator('#result')).not.toBeVisible();
   await page.clock.runFor(200);await expect(page.locator('#result')).toBeVisible();
   await expect(page.locator('#result-score')).toHaveText('2,000');
+  await expect(page.locator('#result-share')).not.toBeVisible();
+  await expect(page.locator('#result-share')).not.toHaveAttribute('href',/.+/);
   await page.evaluate(()=>{const video=(window as any).testVideo;video.pauseVideo();video.seekTo(0);video.setState(0);});
   await page.clock.runFor(5000);
   await expect(page.locator('#result')).toBeVisible();await expect(page.locator('#combo')).toHaveText('2');
