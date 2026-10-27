@@ -87,6 +87,7 @@ input[type="checkbox"] { accent-color:var(--pink); width:16px; height:16px; }
 #result-combo { margin-left:auto; color:#ffb65c; }
 .result-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
 .result-actions .restart-button { display:inline-flex; align-items:center; justify-content:center; min-height:44px; }
+.result-actions .result-share { background:#17141d; color:#fff; border:1px solid #c8b9dc80; text-decoration:none; }
 .result-counts { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
 .result-counts div { display:flex; flex-direction:column; gap:7px; padding:10px 5px; background:#ffffff05; border-radius:4px; text-align:center; }
 .result-counts span { font-size:8px; letter-spacing:1px; color:#b0afc2; }

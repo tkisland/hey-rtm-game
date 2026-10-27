@@ -114,9 +114,14 @@ test('refuses stale saves and removes the editor when its administrator role is 
   await secondContext.close();
 });
 test('previews a saved draft without publishing and rejects anonymous preview access',async ({page,browser})=>{
+  await page.addInitScript(()=>localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({sound:false})));
   await signIn(page);await importChart(page);
   await page.locator('#try-game').click();await expect(page).toHaveURL(/game.html.*preview=1/);await expect(page.locator('#chart-info')).toContainText('3 NOTES');
   await expect(page.getByRole('link',{name:'管理画面へ戻る'})).toBeVisible();
+  await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(15);video.playVideo();video.setState(0);});
+  await expect(page.locator('#result')).toBeVisible();
+  await expect(page.locator('#result-share')).not.toBeVisible();
+  await expect(page.locator('#result-share')).not.toHaveAttribute('href',/.+/);
   const publicContext=await browser.newContext(),publicPage=await publicContext.newPage();
   await publicPage.goto('http://127.0.0.1:4184/game.html?preview=1');await expect(publicPage).toHaveURL(/admin.html/);await expect(publicPage.locator('#google-login')).toBeEnabled();
   await publicPage.goto('http://127.0.0.1:4184/game.html');await expect(publicPage.locator('#chart-info')).toContainText('510 NOTES');
