@@ -81,7 +81,7 @@ it('the shipped chart can be played through with all 22 holds and 32 chords scor
     }
   }
   expect(engine.finished).toBe(true); expect(engine.counts).toEqual({ PERFECT: 509, GREAT: 0, GOOD: 0, MISS: 0 });
-  expect(engine.baseScore).toBe(1000000); expect(engine.score).toBe(1098790); expect(engine.combo).toBe(509);
+  expect(engine.baseScore).toBe(1000000); expect(engine.score).toBe(1148186); expect(engine.combo).toBe(509);
 });
 
 function slideMidi(routes: {pitches:number[];channel:number}[]): Buffer {

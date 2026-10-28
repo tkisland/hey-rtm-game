@@ -29,7 +29,7 @@ test('the shipped two-lane hold scores only after both endpoint releases', async
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
   await expect(page.locator('#judgement-5 .judgement-label')).toHaveText(/PERFECT|GREAT|GOOD/);
   await expect(page.locator('.lane-button.holding')).toHaveCount(0);
-  const score = Number((await page.locator('#score').textContent())!.replaceAll(',', '')); expect(score).toBeGreaterThanOrEqual(1356); expect(score).toBeLessThanOrEqual(4521);
+  const score = Number((await page.locator('#score').textContent())!.replaceAll(',', '')); expect(score).toBeGreaterThanOrEqual(1446); expect(score).toBeLessThanOrEqual(4821);
   await page.keyboard.up('s'); await page.keyboard.up('l'); await expect(page.locator('#score')).toHaveText(score.toLocaleString('ja-JP'));
 });
 test('bundled, practice and saved charts coexist without changing existing drafts or settings', async ({ page }) => {

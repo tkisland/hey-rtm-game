@@ -91,7 +91,7 @@ try {
       assert.equal(game.finished,true);
       return {score:game.score,maxCombo:game.maxCombo,results:game.rankingJudgements()};
     };
-    perfect=play(false);miss=play(true);assert.equal(perfect.score,1002200);assert.equal(miss.score,752200);
+    perfect=play(false);miss=play(true);assert.equal(perfect.score,1003300);assert.equal(miss.score,753300);
     // Cross-language agreement for fractional rounding, combo tiers/reset/cap,
     // changing tempo, delayed chords, quality weights and failed hold/slide tails.
     const parity=[];
@@ -125,7 +125,7 @@ try {
       }echo 'TypeScript/PHP scoring parity: 3 complete mixed charts passed.';`}));
 
   } finally {await server.close();}
-  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:2};
+  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:3};
   const start=async(target=board)=>{
     const {token}=await api('start',target);
     sql(`UPDATE rhythm_sessions SET issued_at=issued_at-30 WHERE token_hash='${hash(token)}';`);return token;
@@ -133,14 +133,17 @@ try {
   await api('start',{...board,songId:'unknown'},400);await api('start',{...board,difficulty:'expert'},400);
   await api('start',{...board,rulesVersion:999},400);
   await api('start',{...board,rulesVersion:1},400);
+  await api('start',{...board,rulesVersion:2},400);
   await api('start',{...board,chartHash:'0'.repeat(64)},409);
   await api('start',board,403,'https://other.example');
-  const oldId=hash(`ranking-test|normal|${hash(fixture)}|rules1`),oldToken='1'.repeat(64);
-  sql(`INSERT INTO rhythm_boards (id,song_id,difficulty,chart_hash,rules_version,chart_json,minimum_seconds) VALUES ('${oldId}','ranking-test','normal','${hash(fixture)}',1,'${fixture}',0);
-    INSERT INTO rhythm_entries (board_id,token_hash,submission_hash,name,score,max_combo,created_at) VALUES ('${oldId}','${hash(oldToken)}','${hash('old')}','OLD',8000,8,1);
-    INSERT INTO rhythm_sessions (token_hash,board_id,issued_at,expires_at) VALUES ('${hash(oldToken)}','${oldId}',1,4102444800);`);
-  assert.deepEqual((await api('leaderboard',board)).entries,[]);
-  await api('submit',{token:oldToken,name:'OLD',...perfect},409);
+  for(const version of [1,2]) {
+    const oldId=hash(`ranking-test|normal|${hash(fixture)}|rules${version}`),oldToken=String(version).repeat(64);
+    sql(`INSERT INTO rhythm_boards (id,song_id,difficulty,chart_hash,rules_version,chart_json,minimum_seconds) VALUES ('${oldId}','ranking-test','normal','${hash(fixture)}',${version},'${fixture}',0);
+      INSERT INTO rhythm_entries (board_id,token_hash,submission_hash,name,score,max_combo,created_at) VALUES ('${oldId}','${hash(oldToken)}','${hash('old')}','OLD',${version===1?8000:1002200},8,1);
+      INSERT INTO rhythm_sessions (token_hash,board_id,issued_at,expires_at) VALUES ('${hash(oldToken)}','${oldId}',1,4102444800);`);
+    assert.deepEqual((await api('leaderboard',board)).entries,[]);
+    await api('submit',{token:oldToken,name:'OLD',...perfect},409);
+  }
   const early=(await api('start',board)).token;
   await api('submit',{token:early,name:'ABCDE',...perfect},422);
   const token=await start();
@@ -154,7 +157,7 @@ try {
   await api('submit',{token,name:'OTHER',...perfect},409);
   const second=await api('submit',{token:await start(),name:'ABC12',...perfect});assert.equal(second.rank,2);
   assert.equal((await api('submit',{token:await start(),name:'LOWER',...miss})).rank,3);
-  const list=await api('leaderboard',board);assert.deepEqual(list.entries.map(item=>[item.name,item.score]),[['ABC12',1002200],['ABC12',1002200],['LOWER',752200]]);
+  const list=await api('leaderboard',board);assert.deepEqual(list.entries.map(item=>[item.name,item.score]),[['ABC12',1003300],['ABC12',1003300],['LOWER',753300]]);
   const easy={...board,difficulty:'easy'};await start(easy);assert.deepEqual((await api('leaderboard',easy)).entries,[]);
   assert.equal((await api('submit',{token:await start(easy),name:'ab3',...perfect})).entry.name,'AB3');
   assert.equal((await api('submit',{token:await start(easy),name:'ABCD',...perfect})).entry.name,'ABCD');
@@ -176,7 +179,7 @@ try {
   // Fast-forwarding the browser clock must not bypass the API's real elapsed-time
   // check in production. Only these isolated test DB rows are shortened.
   sql('TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;TRUNCATE TABLE rhythm_entries;');
-  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:2});
+  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:3});
   sql('UPDATE rhythm_boards SET minimum_seconds=0;TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;');
   execFileSync(process.execPath,['node_modules/@playwright/test/cli.js','test','--config','playwright.ranking.config.ts'],{stdio:'inherit',env:{...env,RANKING_DB_CONTAINER:mysql}});
 } finally {

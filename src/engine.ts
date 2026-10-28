@@ -4,7 +4,7 @@ import { timeToBeat } from './tempo';
 import { playableNotes, chordGroups } from './note-display';
 
 /** Bump with scoring/judgement rule changes; rankings must not mix rule sets. */
-export const SCORE_RULES_VERSION = 2;
+export const SCORE_RULES_VERSION = 3;
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 /** More forgiving releases and slide checkpoints; starts still use WINDOWS. */
 export const HOLD_WINDOWS = { PERFECT: 0.1, GREAT: 0.18, GOOD: 0.25 } as const;
@@ -67,8 +67,8 @@ export class GameEngine {
     // Precompute at load/reset, never integrate tempo or allocate beat grids on input.
     for (const note of this.notes) {
       const beats = note.type === 'hold' ? Math.max(0, Math.floor(timeToBeat(chart, note.endTime) - timeToBeat(chart, note.time) + EPSILON)) : 0;
-      this.specialPoints.set(note, note.gimmick === 'box' ? 1000 : note.gimmick === 'dd' ? 300 :
-        beats * 100 + (note.gimmick === 'slide' ? (note.path?.length ?? 0) * 300 : 0));
+      this.specialPoints.set(note, note.gimmick === 'box' ? 1500 : note.gimmick === 'dd' ? 450 :
+        beats * 150 + (note.gimmick === 'slide' ? (note.path?.length ?? 0) * 450 : 0));
     }
     this.counts = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
     this.lastHit = null;
@@ -94,7 +94,7 @@ export class GameEngine {
       }
       // Round cumulative amounts once, so all PERFECT is exactly 1,000,000.
       this.baseScore = Math.floor(this.basePoints * 1000 / this.notes.length);
-      this.comboBonus = Math.floor(this.comboPoints * 10 / this.notes.length);
+      this.comboBonus = Math.floor(this.comboPoints * 15 / this.notes.length);
       this.awarded.add(group);
     }
     this.lastHit = { judgement, lane, errorMs: error * 1000, noteId: note.id,

@@ -44,7 +44,7 @@ test('negative correction accepts early taps and positive correction applies at 
   await page.locator('#settings-toggle').click(); await range(page, 'input-offset', '200'); await page.locator('#settings-close').click();
   await seekPlay(page, 12.19); await page.keyboard.down('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
   await expect(page.locator('#score')).toHaveText('0');
-  await waitForVideoTime(page, 13.1); await page.keyboard.up('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('1,000,100');
+  await waitForVideoTime(page, 13.1); await page.keyboard.up('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('1,000,150');
 });
 
 test('editor tap and hold recordings compensate input while preserving hold length and shared settings', async ({ page }) => {

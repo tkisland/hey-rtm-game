@@ -61,7 +61,7 @@ it('plays the entire shipped chart with 753 perfect results including authored s
     engine.advance(time,pressed);
   }
   expect(engine.finished).toBe(true);expect(engine.counts).toEqual({PERFECT:753,GREAT:0,GOOD:0,MISS:0});
-  expect(engine.baseScore).toBe(1000000); expect(engine.score).toBe(1105428);expect(engine.combo).toBe(753);
+  expect(engine.baseScore).toBe(1000000); expect(engine.score).toBe(1158143);expect(engine.combo).toBe(753);
 });
 
 it('advances every authored timestamp by 80ms without changing notes or MIDI timing',()=>{

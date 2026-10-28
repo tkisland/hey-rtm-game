@@ -24,7 +24,7 @@ test('success feedback reuses six animations while repeated notes keep scoring a
     if(i)await page.clock.runFor(300);else await page.clock.runFor(16);
     await page.keyboard.press(['s','d','f','j','k','l'][i%6]);
   }
-  await expect(page.locator('#score')).toHaveText('1,008,333');
+  await expect(page.locator('#score')).toHaveText('1,012,500');
   expect(await page.evaluate(()=>(window as any).feedbackCreated)).toBe(6);
   await page.clock.runFor(1000);
   expect(await page.locator('.lane-judgement').evaluateAll(nodes=>nodes.flatMap(node=>node.getAnimations()).filter(animation=>animation.playState==='running').length)).toBe(0);

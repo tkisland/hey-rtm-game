@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const RH_SCORE_RULES_VERSION = 2;
+const RH_SCORE_RULES_VERSION = 3;
 
 final class RankingError extends RuntimeException {
     public function __construct(public int $httpStatus, public string $errorCode, string $message) { parent::__construct($message); }
@@ -101,10 +101,10 @@ function rh_beat(array $chart, float $time): float {
     return $beat+($time-$start)*$bpm/60;
 }
 function rh_special_points(array $chart, array $note): int {
-    if (($note['gimmick'] ?? '')==='box') return 1000;
-    if (($note['gimmick'] ?? '')==='dd') return 300;
+    if (($note['gimmick'] ?? '')==='box') return 1500;
+    if (($note['gimmick'] ?? '')==='dd') return 450;
     $beats=$note['type']==='hold' ? max(0,(int)floor(rh_beat($chart,(float)$note['endTime'])-rh_beat($chart,(float)$note['time'])+1e-8)) : 0;
-    return $beats*100+(($note['gimmick'] ?? '')==='slide' ? count($note['path'] ?? [])*300 : 0);
+    return $beats*150+(($note['gimmick'] ?? '')==='slide' ? count($note['path'] ?? [])*450 : 0);
 }
 function rh_calculate(string $json, mixed $results): array {
     $notes=rh_notes($json);
@@ -136,7 +136,7 @@ function rh_calculate(string $json, mixed $results): array {
             }
         }
     }
-    $baseScore=intdiv($basePoints*1000,count($notes));$comboBonus=intdiv($comboPoints*10,count($notes));
+    $baseScore=intdiv($basePoints*1000,count($notes));$comboBonus=intdiv($comboPoints*15,count($notes));
     return ['score'=>$baseScore+$comboBonus+$specialBonus,'maxCombo'=>$max,'baseScore'=>$baseScore,'comboBonus'=>$comboBonus,'specialBonus'=>$specialBonus];
 }
 function rh_publication(array $fields, string $song, string $videoId, string $difficulty, string $hash): ?string {
