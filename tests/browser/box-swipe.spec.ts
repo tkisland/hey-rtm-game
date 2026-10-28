@@ -36,14 +36,14 @@ for(const rightFirst of [false,true])test(`two fingers open outward, ${rightFirs
   await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:central});
   await expect(page.locator('#score')).toHaveText('0');await page.clock.runFor(50);
   await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[0],points[5]]});
-  await expect(page.locator('#score')).toHaveText('300,450');await expect(page.locator('#combo')).toHaveText('1');
+  await expect(page.locator('#score')).toHaveText('500,750');await expect(page.locator('#combo')).toHaveText('1');
   await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   expect(await page.evaluate(()=>(window as any).swipeDefaults.every(Boolean))).toBe(true);expect(page.url()).toBe(url);
   expect(await page.evaluate(()=>getComputedStyle(document.documentElement).overscrollBehaviorX)).toBe('none');
   await page.clock.runFor(1600);
   await expect(page.locator('#result-accuracy')).toContainText('全 1 ノーツ');
   await expect(page.locator('#result-counts div').filter({hasText:'GOOD'}).locator('strong')).toHaveText('1');
-  await page.keyboard.press('s');await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('300,450');await touch.detach();
+  await page.keyboard.press('s');await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('500,750');await touch.detach();
 });
 test('one finger and a lifted partial hand cannot complete a box',async({page})=>{
   const points=await start(page,9.95),touch=await page.context().newCDPSession(page);

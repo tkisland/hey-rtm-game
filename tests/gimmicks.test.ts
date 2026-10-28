@@ -46,7 +46,7 @@ describe('DD and box play', () => {
     }
   });
   it('keeps broad start windows and accepts both hands finishing 350ms after starting', () => {
-    for(const [error,grade,points] of [[-.35,'GOOD',300],[-.25,'GREAT',700],[.15,'PERFECT',1000],[.35,'GOOD',300]] as const) {
+    for(const [error,grade,points] of [[-.35,'GOOD',500],[-.25,'GREAT',700],[.15,'PERFECT',1000],[.35,'GOOD',500]] as const) {
       const engine=new GameEngine(box());
       [2,3,1,4,0,5].forEach((lane,i)=>{
         const time=1+error+Math.floor(i/2)*BOX_SWEEP_SECONDS/2;

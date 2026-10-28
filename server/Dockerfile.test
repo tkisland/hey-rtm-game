@@ -1,4 +1,10 @@
 FROM php:8.3-cli
-RUN docker-php-ext-install pdo_mysql
+RUN --mount=type=secret,id=proxy_ca,target=/tmp/rhythm-ca.pem \
+    if [ -f /tmp/rhythm-ca.pem ]; then cat /tmp/rhythm-ca.pem >> /etc/ssl/certs/ca-certificates.crt; fi \
+    && sed -i s,http://deb.debian.org,https://deb.debian.org,g /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends libfreetype6-dev libpng-dev \
+    && docker-php-ext-configure gd --with-freetype \
+    && docker-php-ext-install pdo_mysql gd \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 CMD ["php", "-S", "0.0.0.0:8080", "-t", "/app"]

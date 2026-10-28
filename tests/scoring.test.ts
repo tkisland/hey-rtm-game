@@ -15,7 +15,7 @@ it('normalizes base score once over the whole chart, with no loss from individua
 it('uses judgement weights for base accuracy without counting bonus as accuracy',()=>{
   const game=new GameEngine(chart(taps(4)));
   game.input(0,1);game.input(0,2.08);game.input(0,3.15);game.advance(4.17);
-  expect(game.baseScore).toBe(500000);expect(game.accuracy).toBe(50);
+  expect(game.baseScore).toBe(550000);expect(game.accuracy).toBeCloseTo(55);
   expect(game.counts).toEqual({PERFECT:1,GREAT:1,GOOD:1,MISS:1});
 });
 it('increments combo tiers at 10, caps at 100, and preserves earned bonus after MISS',()=>{
@@ -37,7 +37,7 @@ it('restarts the combo bonus tier after a MISS and scales it by the final grade'
   for(let time=12;time<=20;time++)game.input(0,time);
   const before=game.comboBonus;game.input(0,21.15);
   expect(before).toBe(Math.floor(15000/21));
-  expect(game.comboBonus).toBe(Math.floor(19500/21));
+  expect(game.comboBonus).toBe(Math.floor(22500/21));
 });
 it('counts whole hold beats through tempo changes and commits bonus only on successful release',()=>{
   const data=chart([{id:1,type:'hold',lane:0,time:1,endTime:3}],{tempoChanges:[{time:2,bpm:180}]});
@@ -64,10 +64,10 @@ it('awards one quality-weighted box completion and one DD bonus, never per lane 
   for(const lane of [2,3,1,4,0])game.input(lane,1.2);
   expect(game.specialBonus).toBe(0);game.input(5,1.2);
   expect(game.specialBonus).toBe(1050); // GREAT
-  game.input(4,2.15);expect(game.specialBonus).toBe(1185); // GOOD
-  expect(game.baseScore).toBe(500000);expect(game.score).toBe(501185);
+  game.input(4,2.15);expect(game.specialBonus).toBe(1275); // GOOD
+  expect(game.baseScore).toBe(600000);expect(game.score).toBe(601275);
   for(let lane=0;lane<6;lane++)game.input(lane,2.15);
-  expect(game.score).toBe(501185);
+  expect(game.score).toBe(601275);
 });
 it('forfeits base, combo and special bonus for a failed chord, while preserving successful judgement counts',()=>{
   const notes=taps(10);notes[9]={id:9,lane:0,time:10,type:'hold',endTime:12};notes.push({id:10,lane:1,time:10,type:'tap'});

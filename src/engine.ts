@@ -4,11 +4,11 @@ import { timeToBeat } from './tempo';
 import { playableNotes, chordGroups } from './note-display';
 
 /** Bump with scoring/judgement rule changes; rankings must not mix rule sets. */
-export const SCORE_RULES_VERSION = 3;
+export const SCORE_RULES_VERSION = 4;
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 /** More forgiving releases and slide checkpoints; starts still use WINDOWS. */
 export const HOLD_WINDOWS = { PERFECT: 0.1, GREAT: 0.18, GOOD: 0.25 } as const;
-export const POINTS = { PERFECT: 1000, GREAT: 700, GOOD: 300, MISS: 0 } as const;
+export const POINTS = { PERFECT: 1000, GREAT: 700, GOOD: 500, MISS: 0 } as const;
 export const BOX_WINDOWS = { PERFECT:.15, GREAT:.25, GOOD:.35 } as const;
 export const BOX_SWEEP_SECONDS = .35;
 export const BOX_JOIN_SECONDS = .15;

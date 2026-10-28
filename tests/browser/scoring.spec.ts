@@ -26,6 +26,7 @@ test('the result displays base, both bonuses and their total, and replay clears 
   await page.clock.runFor(1000);await page.keyboard.press('l');
   await page.clock.runFor(1700);
   await expect(page.locator('#result')).toBeVisible();
+  await expect(page.locator('#result-message')).toHaveText('伝説のLIVE！');
   await expect(page.locator('#result-base-score')).toHaveText('1,000,000');
   await expect(page.locator('#result-combo-bonus')).toHaveText('＋10,909');
   await expect(page.locator('#result-special-bonus')).toHaveText('＋1,050');
@@ -37,6 +38,8 @@ test('the result displays base, both bonuses and their total, and replay clears 
   await page.locator('#result-replay').click();await page.clock.runFor(32);
   await expect(page.locator('#score')).toHaveText('0');await expect(page.locator('#result')).not.toBeVisible();
   await page.clock.runFor(14000);
+  await expect(page.locator('#result-message')).toHaveText('また一緒にLIVEしよう！');
+  expect(await page.locator('.score-help').getAttribute('open')).toBeNull();
   for(const id of ['result-base-score','result-score'])await expect(page.locator(`#${id}`)).toHaveText('0');
   for(const id of ['result-combo-bonus','result-special-bonus'])await expect(page.locator(`#${id}`)).toHaveText('＋0');
 });

@@ -38,10 +38,10 @@ for(const slide of [false,true]) for(const error of [-.22,.22]) test(`${slide?'s
   await expect(page.locator('#score')).toHaveText('0');
   if(touch) await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   else await page.keyboard.up(slide?'l':'s');
-  await expect(page.locator('#score')).toHaveText(slide?'300,405':'300,270');
+  await expect(page.locator('#score')).toHaveText(slide?'500,675':'500,450');
   await expect(page.locator('#combo')).toHaveText('1');
   await page.clock.runFor(1600);
-  await expect(page.locator('#result h2')).toHaveText('最高なLIVE！');
+  await expect(page.locator('#result h2')).toHaveText('レスが届いたLIVE！');
   await expect(page.locator('#result-counts div').filter({hasText:'GOOD'}).locator('strong')).toHaveText('1');
   await touch?.detach();
 });

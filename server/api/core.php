@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const RH_SCORE_RULES_VERSION = 3;
+const RH_SCORE_RULES_VERSION = 4;
 
 final class RankingError extends RuntimeException {
     public function __construct(public int $httpStatus, public string $errorCode, string $message) { parent::__construct($message); }
@@ -112,7 +112,7 @@ function rh_calculate(string $json, mixed $results): array {
     $known=array_fill_keys(array_column($notes,'id'),true);[$membership,$groups]=rh_groups($notes);
     $chart=json_decode($json,true,64,JSON_THROW_ON_ERROR);$special=[];
     foreach ($notes as $note) $special[$note['id']]=rh_special_points($chart,$note);
-    $points=['PERFECT'=>1000,'GREAT'=>700,'GOOD'=>300,'MISS'=>0];$judged=[];$awarded=[];$basePoints=0;$comboPoints=0;$specialBonus=0;$steps=[];$combo=0;$max=0;
+    $points=['PERFECT'=>1000,'GREAT'=>700,'GOOD'=>500,'MISS'=>0];$judged=[];$awarded=[];$basePoints=0;$comboPoints=0;$specialBonus=0;$steps=[];$combo=0;$max=0;
     foreach ($results as $result) {
         if (!is_array($result)) rh_error(422,'invalid_result','判定結果を確認できません。');
         $id=$result['id'] ?? null;$judgement=$result['judgement'] ?? null;
