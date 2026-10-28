@@ -9,7 +9,7 @@ describe('input compensation', () => {
     const engine = new GameEngine({ ...emptyChart(), notes: [{ id: 1, time: 12, lane: 0, type: 'tap' }] });
     expect(engine.advance(compensateInput(12.29, 300))).toEqual([]);
     expect(engine.input(0, compensateInput(12.3, 300))?.judgement).toBe('PERFECT');
-    expect(engine.chart.notes[0].time).toBe(12); expect(engine.score).toBe(1000);
+    expect(engine.chart.notes[0].time).toBe(12); expect(engine.baseScore).toBe(Math.floor(1000 * 1000 / engine.notes.length));
   });
   it('combines video position with input correction once and preserves the GOOD boundary', () => {
     const engine = new GameEngine({ ...emptyChart(), notes: [{ id: 1, time: 12, lane: 0, type: 'tap' }] });

@@ -23,7 +23,7 @@ describe('video-anchored interpolation', () => {
     const sample=clock.sample(13.1,S.PLAYING,1100);
     expect(sample.seek).toBe(false);
     game.advance(sample.time);
-    expect(game.score).toBe(1000);expect(game.counts).toEqual({PERFECT:1,GREAT:0,GOOD:0,MISS:1});expect(game.skipped).toBe(0);
+    expect(game.baseScore).toBe(Math.floor(1000 * 1000 / game.notes.length));expect(game.counts).toEqual({PERFECT:1,GREAT:0,GOOD:0,MISS:1});expect(game.skipped).toBe(0);
   });
   it('does not reset scores for a transient backwards API timestamp while playing', () => {
     const clock=new VideoClock();clock.sample(12,S.PLAYING,0);clock.sample(12.25,S.PLAYING,250);
@@ -65,7 +65,7 @@ describe('video-anchored interpolation', () => {
       time=sample.time;engine.advance(time);
     }
     expect(engine.counts.MISS).toBe(0);expect(engine.input(0,time)?.judgement).toBe('PERFECT');
-    expect(engine.score).toBe(1000);
+    expect(engine.baseScore).toBe(Math.floor(1000 * 1000 / engine.notes.length));
   });
   it.each([.1,.25,.4].flatMap(interval=>[.1,.5].map(actualRate=>[interval,actualRate])))('tracks sparse %ss updates at actual rate %sx', (interval,actualRate) => {
     const clock=new VideoClock();let previous=12;

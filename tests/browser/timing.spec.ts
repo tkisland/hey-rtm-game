@@ -26,7 +26,7 @@ test('input correction works after the original MISS deadline and audio delay do
   await range(page, 'offset', '100'); await range(page, 'input-offset', '300'); await range(page, 'sound-delay', '150');
   await page.locator('#debug-toggle').check(); await page.locator('#settings-close').click();
   await seekPlay(page, 12.38); await page.keyboard.press('s');
-  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('500,000');
   await expect.poll(() => starts(page).then(events => events.length)).toBe(2);
   const delayed = (await starts(page))[1]; expect(delayed.when - delayed.now).toBeGreaterThan(0.12); expect(delayed.when - delayed.now).toBeLessThanOrEqual(0.151);
   await expect(page.locator('#debug-input-offset')).toHaveText('300 ms');
@@ -44,7 +44,7 @@ test('negative correction accepts early taps and positive correction applies at 
   await page.locator('#settings-toggle').click(); await range(page, 'input-offset', '200'); await page.locator('#settings-close').click();
   await seekPlay(page, 12.19); await page.keyboard.down('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('HOLD');
   await expect(page.locator('#score')).toHaveText('0');
-  await waitForVideoTime(page, 13.1); await page.keyboard.up('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('1,000');
+  await waitForVideoTime(page, 13.1); await page.keyboard.up('s'); await expect(page.locator('#judgement-0 .judgement-label')).toHaveText('PERFECT'); await expect(page.locator('#score')).toHaveText('1,000,100');
 });
 
 test('editor tap and hold recordings compensate input while preserving hold length and shared settings', async ({ page }) => {

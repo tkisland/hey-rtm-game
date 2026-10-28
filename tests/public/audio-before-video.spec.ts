@@ -63,7 +63,7 @@ test('a slow initial resume finishes before video playback and the first note ca
   await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(1);
   await page.evaluate(()=>{const video=(window as any).testVideo;video.pauseVideo();video.liveClock=false;video.seekTo(3.85);video.playVideo();});
   await page.keyboard.press('l');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('1,328');
   expect(await page.evaluate(()=>(window as any).delayedAudio.starts)).toBe(1);
 });
 

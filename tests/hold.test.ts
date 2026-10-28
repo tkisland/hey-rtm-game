@@ -12,11 +12,11 @@ describe('hold endpoint judgement and chord scoring', () => {
   it('scores only on a valid endpoint release, using the worse of head and tail', () => {
     const engine = game();
     expect(engine.input(0, 10.08)).toMatchObject({ judgement: 'GREAT', phase: 'start' });
-    expect(engine.notes[0].state).toBe('holding'); expect(engine.score).toBe(0); expect(engine.finished).toBe(false);
+    expect(engine.notes[0].state).toBe('holding'); expect(engine.baseScore).toBe(0); expect(engine.finished).toBe(false);
     expect(engine.advance(10.5, held(0))).toEqual([]);
-    expect(engine.advance(11, held(0))).toEqual([]); expect(engine.score).toBe(0);
+    expect(engine.advance(11, held(0))).toEqual([]); expect(engine.baseScore).toBe(0);
     expect(engine.release(0, 11)).toMatchObject([{ judgement: 'GREAT', noteId: 1 }]);
-    expect(engine.score).toBe(700); expect(engine.combo).toBe(1); expect(engine.finished).toBe(true);
+    expect(engine.baseScore).toBe(Math.floor(700 * 1000 / engine.notes.length)); expect(engine.combo).toBe(1); expect(engine.finished).toBe(true);
     expect(engine.release(0, 11.1)).toEqual([]); expect(engine.advance(12, held(0))).toEqual([]);
     expect(engine.counts.GREAT).toBe(1);
   });
@@ -47,27 +47,27 @@ describe('hold endpoint judgement and chord scoring', () => {
     const engine = game([hold(), { id: 2, time: 10, lane: 3, type: 'tap' }, { id: 3, time: 11, lane: 0, type: 'tap' }]);
     engine.input(0, 10); engine.input(3, 10.12);
     expect(engine.combo).toBe(1); expect(engine.input(0, 10)).toBeNull();
-    expect(engine.score).toBe(0); engine.advance(11, held(0)); engine.release(0, 11); engine.input(0, 11.05);
-    expect(engine.score).toBe(2300); expect(engine.combo).toBe(3); expect(engine.finished).toBe(true);
+    expect(engine.baseScore).toBe(0); engine.advance(11, held(0)); engine.release(0, 11); engine.input(0, 11.05);
+    expect(engine.baseScore).toBe(Math.floor(2300 * 1000 / engine.notes.length)); expect(engine.combo).toBe(3); expect(engine.finished).toBe(true);
   });
   it('keeps two holds independent when one finger releases', () => {
     const engine = game([hold(), hold(3, 2)]);
     engine.input(0, 10); engine.input(3, 10);
     engine.release(0, 10.4); engine.release(3, 11);
     expect(engine.counts).toEqual({ PERFECT: 1, GREAT: 0, GOOD: 0, MISS: 1 });
-    expect(engine.score).toBe(0); expect(engine.combo).toBe(1);
+    expect(engine.baseScore).toBe(0); expect(engine.combo).toBe(1);
   });
   it('fails a hold that stays pressed beyond the endpoint window without adding points', () => {
     const engine = game(); engine.input(0, 10);
-    expect(engine.advance(11.25, held(0))).toEqual([]); expect(engine.score).toBe(0);
+    expect(engine.advance(11.25, held(0))).toEqual([]); expect(engine.baseScore).toBe(0);
     expect(engine.advance(11.2501, held(0))).toMatchObject([{judgement:'MISS'}]);
-    expect(engine.score).toBe(0); expect(engine.release(0, 11.3)).toEqual([]);
+    expect(engine.baseScore).toBe(0); expect(engine.release(0, 11.3)).toEqual([]);
     expect(engine.counts.MISS).toBe(1);
   });
   it('skips an active hold on forward seek and resets on backwards seek', () => {
     const engine = game([hold(), { id: 2, type: 'tap', time: 15, lane: 3 }]);
     engine.input(0, 10); engine.seek(10.5, false);
-    expect(engine.notes[0].state).toBe('skipped'); expect(engine.score).toBe(0); expect(engine.counts.MISS).toBe(0);
+    expect(engine.notes[0].state).toBe('skipped'); expect(engine.baseScore).toBe(0); expect(engine.counts.MISS).toBe(0);
     expect(engine.advance(11, held(0))).toEqual([]);
     engine.seek(9.5, true); expect(engine.notes[0].state).toBe('pending'); expect(engine.skipped).toBe(0);
   });

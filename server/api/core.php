@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+const RH_SCORE_RULES_VERSION = 2;
+
 final class RankingError extends RuntimeException {
     public function __construct(public int $httpStatus, public string $errorCode, string $message) { parent::__construct($message); }
 }
@@ -39,15 +41,15 @@ function rh_catalog(): array {
     $json=@file_get_contents(__DIR__.'/catalog.json');
     if ($json===false) throw new RuntimeException('Ranking chart catalog is missing');
     $catalog=json_decode($json,true,64,JSON_THROW_ON_ERROR);
-    if (!is_array($catalog) || ($catalog['schemaVersion'] ?? null)!==1 || ($catalog['rulesVersion'] ?? null)!==1 || !is_array($catalog['songs'] ?? null) || !$catalog['songs']) throw new RuntimeException('Unsupported ranking chart catalog');
+    if (!is_array($catalog) || ($catalog['schemaVersion'] ?? null)!==1 || ($catalog['rulesVersion'] ?? null)!==RH_SCORE_RULES_VERSION || !is_array($catalog['songs'] ?? null) || !$catalog['songs']) throw new RuntimeException('Unsupported ranking chart catalog');
     return $catalog;
 }
 function rh_board_key(array $data, array $catalog): array {
     $song=$data['songId'] ?? null;$difficulty=$data['difficulty'] ?? null;$hash=$data['chartHash'] ?? null;
-    if (!in_array($data['rulesVersion'] ?? null,[1,'1'],true) || ($catalog['rulesVersion'] ?? null)!==1
+    if (!in_array($data['rulesVersion'] ?? null,[RH_SCORE_RULES_VERSION,(string)RH_SCORE_RULES_VERSION],true) || ($catalog['rulesVersion'] ?? null)!==RH_SCORE_RULES_VERSION
         || !is_string($song) || !isset($catalog['songs'][$song]) || !in_array($difficulty,['easy','normal','hard'],true)
         || !is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D',$hash)) rh_error(400,'invalid_board','曲・難易度・譜面を確認してください。');
-    return [hash('sha256',$song.'|'.$difficulty.'|'.$hash.'|rules1'),$song,$difficulty,$hash];
+    return [hash('sha256',$song.'|'.$difficulty.'|'.$hash.'|rules'.RH_SCORE_RULES_VERSION),$song,$difficulty,$hash];
 }
 /** Trusted chart only. Box markers score as one note, just like the browser engine. */
 function rh_notes(string $json): array {
@@ -87,16 +89,36 @@ function rh_groups(array $notes): array {
     }
     $finish();return [$membership,$groups];
 }
+/** Integrate the authored tempo map; the origin cancels when measuring a hold. */
+function rh_beat(array $chart, float $time): float {
+    $start=(float)($chart['beatOrigin'] ?? $chart['startTime']);$bpm=(float)$chart['bpm'];$beat=0.0;
+    if (!is_finite($bpm) || $bpm<=0) throw new RuntimeException('Invalid chart tempo');
+    foreach ($chart['tempoChanges'] ?? [] as $change) {
+        if ($change['time']>$time) break;
+        $beat+=($change['time']-$start)*$bpm/60;$start=(float)$change['time'];$bpm=(float)$change['bpm'];
+        if (!is_finite($bpm) || $bpm<=0) throw new RuntimeException('Invalid chart tempo');
+    }
+    return $beat+($time-$start)*$bpm/60;
+}
+function rh_special_points(array $chart, array $note): int {
+    if (($note['gimmick'] ?? '')==='box') return 1000;
+    if (($note['gimmick'] ?? '')==='dd') return 300;
+    $beats=$note['type']==='hold' ? max(0,(int)floor(rh_beat($chart,(float)$note['endTime'])-rh_beat($chart,(float)$note['time'])+1e-8)) : 0;
+    return $beats*100+(($note['gimmick'] ?? '')==='slide' ? count($note['path'] ?? [])*300 : 0);
+}
 function rh_calculate(string $json, mixed $results): array {
     $notes=rh_notes($json);
     if (!is_array($results) || !array_is_list($results) || count($results)!==count($notes)) rh_error(422,'invalid_result','最後までプレイした結果だけ登録できます。');
     $known=array_fill_keys(array_column($notes,'id'),true);[$membership,$groups]=rh_groups($notes);
-    $points=['PERFECT'=>1000,'GREAT'=>700,'GOOD'=>300,'MISS'=>0];$judged=[];$awarded=[];$score=0;$combo=0;$max=0;
+    $chart=json_decode($json,true,64,JSON_THROW_ON_ERROR);$special=[];
+    foreach ($notes as $note) $special[$note['id']]=rh_special_points($chart,$note);
+    $points=['PERFECT'=>1000,'GREAT'=>700,'GOOD'=>300,'MISS'=>0];$judged=[];$awarded=[];$basePoints=0;$comboPoints=0;$specialBonus=0;$steps=[];$combo=0;$max=0;
     foreach ($results as $result) {
         if (!is_array($result)) rh_error(422,'invalid_result','判定結果を確認できません。');
         $id=$result['id'] ?? null;$judgement=$result['judgement'] ?? null;
         if (!is_int($id) || !isset($known[$id]) || isset($judged[$id]) || !is_string($judgement) || !array_key_exists($judgement,$points)) rh_error(422,'invalid_result','判定結果を確認できません。');
         $judged[$id]=$judgement;$combo=$judgement==='MISS' ? 0 : $combo+1;$max=max($max,$combo);
+        $steps[$id]=min(10,intdiv($combo,10));
         $groupId=$membership[$id];
         if (!isset($awarded[$groupId])) {
             $sum=0;$complete=true;
@@ -104,10 +126,18 @@ function rh_calculate(string $json, mixed $results): array {
                 if (!isset($judged[$member]) || $judged[$member]==='MISS') { $complete=false;break; }
                 $sum+=$points[$judged[$member]];
             }
-            if ($complete) { $score+=$sum;$awarded[$groupId]=true; }
+            if ($complete) {
+                $basePoints+=$sum;
+                foreach ($groups[$groupId] as $member) {
+                    $comboPoints+=$points[$judged[$member]]*$steps[$member];
+                    $specialBonus+=intdiv($special[$member]*$points[$judged[$member]],1000);
+                }
+                $awarded[$groupId]=true;
+            }
         }
     }
-    return ['score'=>$score,'maxCombo'=>$max];
+    $baseScore=intdiv($basePoints*1000,count($notes));$comboBonus=intdiv($comboPoints*10,count($notes));
+    return ['score'=>$baseScore+$comboBonus+$specialBonus,'maxCombo'=>$max,'baseScore'=>$baseScore,'comboBonus'=>$comboBonus,'specialBonus'=>$specialBonus];
 }
 function rh_publication(array $fields, string $song, string $videoId, string $difficulty, string $hash): ?string {
     $json=$fields['json']['stringValue'] ?? '';$version=(int)($fields['schemaVersion']['integerValue'] ?? 0);
@@ -141,7 +171,7 @@ function rh_resolve(PDO $db, array $catalog, array $key): array {
     $notes=rh_notes($json);$end=max(array_map(static fn($note)=>$note['type']==='hold' ? $note['endTime'] : $note['time'],$notes));
     $minimum=max(0,(int)floor($end-2));
     $insert=$db->prepare('INSERT IGNORE INTO rhythm_boards (id,song_id,difficulty,chart_hash,rules_version,chart_json,minimum_seconds) VALUES (?,?,?,?,?,?,?)');
-    $insert->execute([$id,$song,$difficulty,$hash,1,$json,$minimum]);
+    $insert->execute([$id,$song,$difficulty,$hash,RH_SCORE_RULES_VERSION,$json,$minimum]);
     return ['id'=>$id,'chart_json'=>$json,'minimum_seconds'=>$minimum];
 }
 function rh_start(PDO $db, array $config, array $catalog, array $data): array {
@@ -169,7 +199,7 @@ function rh_submit(PDO $db, array $data): array {
         $query=$db->prepare('SELECT * FROM rhythm_sessions WHERE token_hash=? FOR UPDATE');$query->execute([$tokenHash]);$session=$query->fetch();
         if (!$session || (int)$session['expires_at']<time()) rh_error(410,'expired','登録の有効期限が切れました。もういちどプレイしてください。');
         $query=$db->prepare('SELECT * FROM rhythm_boards WHERE id=?');$query->execute([$session['board_id']]);$board=$query->fetch();
-        if ((int)$board['rules_version']!==1) rh_error(409,'rules_changed','採点ルールが更新されました。ページを読み込み直して再度プレイしてください。');
+        if ((int)$board['rules_version']!==RH_SCORE_RULES_VERSION) rh_error(409,'rules_changed','採点ルールが更新されました。ページを読み込み直して再度プレイしてください。');
         if (time()-(int)$session['issued_at']<(int)$board['minimum_seconds']) rh_error(422,'too_early','プレイ時間を確認できません。最後までプレイしてから登録してください。');
         $result=rh_calculate($board['chart_json'],$data['results'] ?? null);
         if (($data['score'] ?? null)!==$result['score'] || ($data['maxCombo'] ?? null)!==$result['maxCombo']) rh_error(422,'score_mismatch','判定結果と点数が一致しません。');

@@ -140,7 +140,13 @@
         <section id="result" class="panel result" aria-label="プレイ結果" tabindex="-1" hidden>
           <div class="panel-heading"><div><p class="eyebrow">LIVE COMPLETE</p><h2>最高なLIVE！</h2></div><button id="result-close" class="text-button">閉じる ×</button></div>
           <p id="result-difficulty" class="difficulty-badge"></p>
-          <div class="result-headline"><strong id="result-score">0</strong><span>SCORE</span><span id="result-combo"></span></div>
+          <div class="result-headline"><strong id="result-score">0</strong><span>TOTAL</span><span id="result-combo"></span></div>
+          <dl class="result-breakdown" aria-label="スコアの内訳">
+            <div><dt>基本スコア <small>／1,000,000</small></dt><dd id="result-base-score">0</dd></div>
+            <div><dt>コンボボーナス</dt><dd id="result-combo-bonus">＋0</dd></div>
+            <div><dt>特殊操作ボーナス</dt><dd id="result-special-bonus">＋0</dd></div>
+          </dl>
+          <details class="score-help"><summary>得点のしくみ</summary><p>基本スコアは全PERFECTで100万点。GREATは70％、GOODは30％です。同時オシは1つでもMISSになると、その組全体が0点です。</p><p>コンボボーナスは10コンボから基本配点の1％、10コンボごとに1％増え、100コンボ以上は10％です。</p><p>特殊操作は長オシの1拍につき100点、オシ変の移動1回につき追加300点、箱オシの完了で1,000点、DDで300点。最終判定に応じてGREATは70％、GOODは30％となり、最後まで成功したときに確定します。</p></details>
           <div id="result-counts" class="result-counts"></div><p id="result-accuracy" class="field-help"></p>
           <div class="result-actions">
             <button id="result-replay" class="restart-button" type="button">もういちど遊ぶ</button>

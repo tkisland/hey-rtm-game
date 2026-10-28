@@ -19,11 +19,14 @@ test.beforeEach(async({page})=>{
 
 test('results wait for the afterglow and stay through video end and seek until explicitly dismissed or restarted',async({page})=>{
   await page.clock.runFor(1000);await page.keyboard.press('j');
-  await expect(page.locator('#score')).toHaveText('2,000');
+  await expect(page.locator('#score')).toHaveText('1,000,000');
   await expect(page.locator('#result')).not.toBeVisible();
   await page.clock.runFor(1400);await expect(page.locator('#result')).not.toBeVisible();
   await page.clock.runFor(200);await expect(page.locator('#result')).toBeVisible();
-  await expect(page.locator('#result-score')).toHaveText('2,000');
+  await expect(page.locator('#result-score')).toHaveText('1,000,000');
+  await expect(page.locator('#result-base-score')).toHaveText('1,000,000');
+  await expect(page.locator('#result-combo-bonus')).toHaveText('＋0');
+  await expect(page.locator('#result-special-bonus')).toHaveText('＋0');
   await expect(page.locator('#result-share')).not.toBeVisible();
   await expect(page.locator('#result-ranking')).not.toBeVisible();
   await expect(page.locator('#result-share')).not.toHaveAttribute('href',/.+/);
@@ -31,7 +34,7 @@ test('results wait for the afterglow and stay through video end and seek until e
   await page.clock.runFor(5000);
   await expect(page.locator('#result')).toBeVisible();await expect(page.locator('#combo')).toHaveText('2');
   await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(5);video.playVideo();});
-  await page.clock.runFor(1000);await expect(page.locator('#result-score')).toHaveText('2,000');
+  await page.clock.runFor(1000);await expect(page.locator('#result-score')).toHaveText('1,000,000');
   await expect(page.locator('#result')).toBeVisible();
   await page.locator('#result-close').click();await page.clock.runFor(2000);await expect(page.locator('#result')).not.toBeVisible();
   await page.locator('.playback-details summary').click();await page.locator('#show-result').click();
@@ -41,11 +44,11 @@ test('results wait for the afterglow and stay through video end and seek until e
 });
 
 test('video end settles the last unjudged note without losing the score if its playhead resets',async({page})=>{
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('500,000');
   await page.evaluate(()=>{const video=(window as any).testVideo;video.pauseVideo();video.seekTo(0);video.setState(0);});
   await page.clock.runFor(1400);await expect(page.locator('#result')).not.toBeVisible();
   await page.clock.runFor(250);await expect(page.locator('#result')).toBeVisible();
-  await expect(page.locator('#result-score')).toHaveText('1,000');
+  await expect(page.locator('#result-score')).toHaveText('500,000');
   await expect(page.locator('#result-counts div').filter({hasText:'MISS'}).locator('strong')).toHaveText('1');
-  await page.clock.runFor(3000);await expect(page.locator('#result-score')).toHaveText('1,000');
+  await page.clock.runFor(3000);await expect(page.locator('#result-score')).toHaveText('500,000');
 });

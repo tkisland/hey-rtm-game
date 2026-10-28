@@ -40,6 +40,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Check FTP output under /rhythm/
         run: npm run test:sakura
+      - name: Check score breakdown and replay
+        run: npm run test:e2e -- tests/browser/scoring.spec.ts
       - name: Test ranking with isolated PHP and MySQL
         run: npm run test:ranking
       - name: Upload FTP site package

@@ -11,7 +11,7 @@ test('migrates existing alignment, previews MV without scoring, and saves each c
   await page.locator('#play-start').click();
   await page.evaluate(()=>{const v=(window as any).testVideo;(window as any).mainVideo=v;v.liveClock=false;v.seekTo(7.75);v.playVideo();
     const c=document.getElementById('game-canvas')!;c.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyL',bubbles:true}));c.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyL',bubbles:true}));});
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('1,960');
   await page.locator('#settings-toggle').click();await page.locator('#song-calibrate').click();
   await expect(page.locator('#song-timing-start')).toBeEnabled();
   await expect(page.locator('#song-timing-offset')).toHaveValue('100');
@@ -19,7 +19,7 @@ test('migrates existing alignment, previews MV without scoring, and saves each c
   await page.locator('#song-timing-offset').fill('150');
   await expect(page.locator('#song-timing-offset-value')).toHaveText('+150 ms');
   await page.locator('#song-timing-apply').click();
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('1,960');
   await page.locator('#flow-calibrate').click();await expect(page.locator('#timing-preview-value')).toHaveText('0 ms');
   await page.locator('#timing-preview-offset').fill('80');await page.locator('#timing-preview-apply').click();
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({noteOffset:150,inputOffset:80});

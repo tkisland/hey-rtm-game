@@ -1,9 +1,10 @@
 import type { Chart, ChartNote } from './chart';
 import { copyNote } from './chart';
+import { timeToBeat } from './tempo';
 import { playableNotes, chordGroups } from './note-display';
 
 /** Bump with scoring/judgement rule changes; rankings must not mix rule sets. */
-export const SCORE_RULES_VERSION = 1;
+export const SCORE_RULES_VERSION = 2;
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 /** More forgiving releases and slide checkpoints; starts still use WINDOWS. */
 export const HOLD_WINDOWS = { PERFECT: 0.1, GREAT: 0.18, GOOD: 0.25 } as const;
@@ -31,7 +32,14 @@ export function judge(error: number, windows: Readonly<Record<'PERFECT' | 'GREAT
 /** All methods receive video time minus the configured offset. No independent clock. */
 export class GameEngine {
   notes: PlayNote[] = [];
-  score = 0;
+  baseScore = 0;
+  comboBonus = 0;
+  specialBonus = 0;
+  private basePoints = 0;
+  private comboPoints = 0;
+  private comboSteps = new Map<PlayNote, number>();
+  private specialPoints = new Map<PlayNote, number>();
+  get score(): number { return this.baseScore + this.comboBonus + this.specialBonus; }
   combo = 0;
   maxCombo = 0;
   counts: Record<Judgement, number> = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
@@ -53,7 +61,15 @@ export class GameEngine {
     this.scoreGroups.clear(); this.awarded.clear();
     this.notes.forEach(note => this.scoreGroups.set(note, [note]));
     for (const group of chordGroups(this.notes) as PlayNote[][]) for (const note of group) this.scoreGroups.set(note, group);
-    this.score = this.combo = this.maxCombo = 0;
+    this.baseScore = this.comboBonus = this.specialBonus = this.basePoints = this.comboPoints = 0;
+    this.combo = this.maxCombo = 0;
+    this.comboSteps.clear(); this.specialPoints.clear();
+    // Precompute at load/reset, never integrate tempo or allocate beat grids on input.
+    for (const note of this.notes) {
+      const beats = note.type === 'hold' ? Math.max(0, Math.floor(timeToBeat(chart, note.endTime) - timeToBeat(chart, note.time) + EPSILON)) : 0;
+      this.specialPoints.set(note, note.gimmick === 'box' ? 1000 : note.gimmick === 'dd' ? 300 :
+        beats * 100 + (note.gimmick === 'slide' ? (note.path?.length ?? 0) * 300 : 0));
+    }
     this.counts = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
     this.lastHit = null;
     this.previousPressed.clear();
@@ -64,14 +80,23 @@ export class GameEngine {
     note.state = judgement === 'MISS' ? 'miss' : 'hit';
     note.judgement = judgement;
     this.judgementOrder.push(note.id);
-    const group = this.scoreGroups.get(note)!;
-    if (!this.awarded.has(group) && group.every(member => member.state === 'hit')) {
-      this.score += group.reduce((sum, member) => sum + POINTS[member.judgement!], 0);
-      this.awarded.add(group);
-    }
     this.counts[judgement]++;
     this.combo = judgement !== 'MISS' ? this.combo + 1 : 0;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.comboSteps.set(note, Math.min(10, Math.floor(this.combo / 10)));
+    const group = this.scoreGroups.get(note)!;
+    if (!this.awarded.has(group) && group.every(member => member.state === 'hit')) {
+      for (const member of group) {
+        const points = POINTS[member.judgement!];
+        this.basePoints += points;
+        this.comboPoints += points * this.comboSteps.get(member)!;
+        this.specialBonus += Math.floor(this.specialPoints.get(member)! * points / POINTS.PERFECT);
+      }
+      // Round cumulative amounts once, so all PERFECT is exactly 1,000,000.
+      this.baseScore = Math.floor(this.basePoints * 1000 / this.notes.length);
+      this.comboBonus = Math.floor(this.comboPoints * 10 / this.notes.length);
+      this.awarded.add(group);
+    }
     this.lastHit = { judgement, lane, errorMs: error * 1000, noteId: note.id,
       ...(note.gimmick === 'box' ? {boxId:note.boxId, ...(judgement !== 'MISS' ? {boxStep:6, boxComplete:true} : {})} : {}) };
     return this.lastHit;
@@ -209,6 +234,6 @@ export class GameEngine {
   get skipped(): number { return this.notes.filter(note => note.state === 'skipped').length; }
   get accuracy(): number {
     const judged = Object.values(this.counts).reduce((sum, count) => sum + count, 0);
-    return judged ? this.score / (judged * POINTS.PERFECT) * 100 : 0;
+    return judged ? this.basePoints / (judged * POINTS.PERFECT) * 100 : 0;
   }
 }

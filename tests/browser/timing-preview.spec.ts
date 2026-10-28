@@ -71,7 +71,7 @@ test('rehearses real moving notes, previews correction immediately and saves onl
     document.getElementById('game-canvas')!.dispatchEvent(new KeyboardEvent('keydown', {code:'KeyS',key:'s',bubbles:true}));
     document.getElementById('game-canvas')!.dispatchEvent(new KeyboardEvent('keyup', {code:'KeyS',key:'s',bubbles:true}));
   });
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('9,900');
   await open(page);
   expect(await page.evaluate(() => (window as any).testVideo.state)).toBe(2);
   await expect(page.locator('#timing-preview-value')).toHaveText('+140 ms');
@@ -93,7 +93,7 @@ test('rehearses real moving notes, previews correction immediately and saves onl
   await tap(page, 2, info.project.name === 'mobile-touch');
   await expect(page.locator('#timing-preview-feedback')).toHaveText('PERFECT · 遅い +40 ms');
   await expect(page.locator('#input-offset')).toHaveValue('140');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('9,900');
   await range(page, 240);
   await advance(page, times[5]);
   const geometry = await page.evaluate(async () => {
@@ -113,7 +113,7 @@ test('rehearses real moving notes, previews correction immediately and saves onl
   await expect(page.locator('.timing-preview')).not.toBeVisible();
   await expect(page.locator('#input-offset')).toHaveValue('240');
   await expect(page.locator('#sound-delay')).toHaveValue('150');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('9,900');
   expect(await page.evaluate(() => (window as any).testVideo.state)).toBe(2);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hey-rhythm-settings-v1')!))).toMatchObject({ inputOffset:240, soundDelay:150, sound:false, soundVolume:0, travel:3 });
   await expect.poll(() => page.evaluate(() => (window as any).previewContexts.at(-1).state)).toBe('closed');
