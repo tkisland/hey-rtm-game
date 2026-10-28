@@ -12,7 +12,8 @@ it('keeps old URLs, storage and publications as normal and isolates additional l
   expect(cloudChartPath('publishedCharts',DEFAULT_SONG.id,'normal')).toEqual(['publishedCharts',DEFAULT_SONG.id]);
   expect(cloudChartPath('publishedCharts',DEFAULT_SONG.id,'hard')).toEqual(['publishedCharts',DEFAULT_SONG.id,'difficulties','hard']);
   expect(bundledChart(DEFAULT_SONG,'normal')?.notes.length).toBeGreaterThan(0);
-  expect(bundledChart(DEFAULT_SONG,'easy')).toBeNull();expect(bundledChart(DEFAULT_SONG,'hard')).toBeNull();
+  expect(bundledChart(DEFAULT_SONG,'easy')!.notes.length).toBeGreaterThan(0);expect(bundledChart(DEFAULT_SONG,'hard')!.notes.length).toBeGreaterThan(0);
+  expect(bundledChart({...DEFAULT_SONG,charts:undefined},'easy')).toBeNull();
 });
 it('does not serve another difficulty or a legacy normal chart as easy/hard',()=>{
   const chart=bundledChart(DEFAULT_SONG)!,json=chartJson(chart,DEFAULT_SONG),record={songId:DEFAULT_SONG.id,videoId:DEFAULT_SONG.videoId,revision:1,json,noteCount:chart.notes.length};

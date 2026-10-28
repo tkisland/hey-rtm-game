@@ -37,14 +37,14 @@ test('uses the Google sign-in button and popup before checking the administrator
 test('edits, saves, previews and publishes each difficulty without touching normal or exposing drafts',async({page,browser})=>{
   await signIn(page);await importChart(page);
   page.once('dialog',dialog=>dialog.accept());await page.locator('#cloud-publish').click();await expect(page.locator('#cloud-status')).toContainText('公開しました');
-  await page.locator('#admin-difficulty').selectOption('easy');await expect(page.locator('#note-count')).toHaveText('0 NOTES');
+  await page.locator('#admin-difficulty').selectOption('easy');await expect(page.locator('#note-count')).toHaveText('275 NOTES');
   await importChart(page,{...chart,notes:[chart.notes[0]]});
   await page.locator('#cloud-save').click();await expect(page.locator('#cloud-status')).toContainText('版 1');
   await page.locator('#try-game').click();await expect(page).toHaveURL(/difficulty=easy.*preview=1/);
   await expect(page.locator('#chart-info')).toContainText('1 NOTES');
   await page.getByRole('link',{name:'管理画面へ戻る'}).click();await expect(page.locator('#admin-difficulty')).toHaveValue('easy');
   page.once('dialog',dialog=>dialog.accept());await page.locator('#cloud-publish').click();await expect(page.locator('#cloud-status')).toContainText('公開しました');
-  await page.locator('#admin-difficulty').selectOption('hard');await expect(page.locator('#note-count')).toHaveText('0 NOTES');
+  await page.locator('#admin-difficulty').selectOption('hard');await expect(page.locator('#note-count')).toHaveText('893 NOTES');
   await importChart(page,{...chart,notes:chart.notes.slice(0,2)});
   await page.locator('#cloud-save').click();await expect(page.locator('#cloud-status')).toContainText('版 1');
   await page.locator('#admin-difficulty').selectOption('normal');await expect(page.locator('#note-count')).toHaveText('3 NOTES');
@@ -60,11 +60,11 @@ test('edits, saves, previews and publishes each difficulty without touching norm
   await player.goto('http://127.0.0.1:4184/');
   const select=player.getByRole('combobox',{name:'SUPER MOMMY GIRLSの難易度'});
   await expect(select.locator('option[value="easy"]')).toHaveText('かんたん');
-  await expect(select.locator('option[value="hard"]')).toHaveText('むずかしい（準備中）');
+  await expect(select.locator('option[value="hard"]')).toHaveText('むずかしい');
   await select.selectOption('easy');await player.locator('[data-song="super-mommy-girls"] .song-play').click();
   await expect(player.locator('#chart-info')).toContainText('1 NOTES');await expect(player.locator('#song-difficulty')).toHaveText('かんたん');
   await player.goto('http://127.0.0.1:4184/game.html');await expect(player.locator('#chart-info')).toContainText('3 NOTES');
-  await player.goto('http://127.0.0.1:4184/game.html?difficulty=hard');await expect(player).toHaveURL(/unavailable-song=1/);
+  await player.goto('http://127.0.0.1:4184/game.html?difficulty=hard');await expect(player.locator('#chart-info')).toContainText('893 NOTES');
   await context.close();
 });
 test('keeps the editor and video unloaded until Google identity and server role both allow access',async ({page})=>{

@@ -1,6 +1,6 @@
 # HEY! RHYTHM!
 
-Hey!Mommy!の公式YouTube MVと同期する、非公式ファンメイドの6レーンリズムゲームです。一般プレーヤーはトップページで曲を選び、管理者が公開した収録譜面で遊びます。管理者はGoogleログイン後のブラウザ画面で譜面を編集・保存・公開できます。現在遊べる収録曲は「SUPER MOMMY GIRLS」と「ビスケットケース」の2曲です。Vite + Vanilla TypeScript + Canvasで実装し、一般プレーヤーはログイン不要です。管理者向けのオンライン機能にはFirebase AuthenticationとFirestoreを使用します。Firebase未設定でも収録譜面で遊べます。
+Hey!Mommy!の公式YouTube MVと同期する、非公式ファンメイドの6レーンリズムゲームです。一般プレーヤーはトップページで曲を選び、管理者が公開した収録譜面で遊びます。管理者はGoogleログイン後のブラウザ画面で譜面を編集・保存・公開できます。現在遊べる収録曲は「SUPER MOMMY GIRLS」と「ビスケットケース」の2曲で、それぞれ「かんたん・ふつう・むずかしい」を収録しています。[譜面の構成と編集方法](docs/charts/difficulty-variants.md)を参照してください。Vite + Vanilla TypeScript + Canvasで実装し、一般プレーヤーはログイン不要です。管理者向けのオンライン機能にはFirebase AuthenticationとFirestoreを使用します。Firebase未設定でも収録譜面で遊べます。
 
 動画ID：`pJDfWpZ7CI4` / [公式MV](https://www.youtube.com/watch?v=pJDfWpZ7CI4)
 
