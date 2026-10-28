@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const RH_SCORE_RULES_VERSION = 5;
+const RH_SCORE_RULES_VERSION = 6;
 
 final class RankingError extends RuntimeException {
     public function __construct(public int $httpStatus, public string $errorCode, string $message) { parent::__construct($message); }
@@ -69,7 +69,16 @@ function rh_notes(string $json): array {
             if (!isset($boxes[$box]) || $time<$raw[$boxes[$box]]['time']) $boxes[$box]=$index;
         }
     }
-    return array_values(array_filter($raw,static fn($note,$i)=>($note['gimmick'] ?? '')!=='box' || $boxes[$note['boxId']]===$i,ARRAY_FILTER_USE_BOTH));
+    $tails=[];
+    foreach($raw as $note)if($note['type']==='hold'&&($note['gimmick'] ?? '')==='slide') {
+        $path=$note['path'] ?? [];$tails[]=['time'=>$note['endTime'],'lane'=>$path ? $path[count($path)-1]['lane'] : $note['lane']];
+    }
+    return array_values(array_filter($raw,static function($note,$i) use($boxes,$tails) {
+        if(($note['gimmick'] ?? '')==='box' && $boxes[$note['boxId']]!==$i)return false;
+        if($note['type']==='tap'&&!($note['gimmick'] ?? ''))foreach($tails as $tail)
+            if($tail['lane']===$note['lane'] && abs($tail['time']-$note['time'])<=1e-8)return false;
+        return true;
+    },ARRAY_FILTER_USE_BOTH));
 }
 function rh_groups(array $notes): array {
     $membership=[];$groups=[];

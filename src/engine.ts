@@ -4,7 +4,7 @@ import { timeToBeat } from './tempo';
 import { playableNotes, chordGroups } from './note-display';
 
 /** Bump with scoring/judgement rule changes; rankings must not mix rule sets. */
-export const SCORE_RULES_VERSION = 5;
+export const SCORE_RULES_VERSION = 6;
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 /** More forgiving releases and slide checkpoints; starts still use WINDOWS. */
 export const HOLD_WINDOWS = { PERFECT: 0.1, GREAT: 0.18, GOOD: 0.25 } as const;

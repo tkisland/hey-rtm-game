@@ -23,7 +23,13 @@ export function boxGroups<T extends ChartNote>(notes: readonly T[]): T[][] {
 /** Keep the six authored MIDI markers, but play and score each box as one gesture. */
 export function playableNotes(notes: readonly ChartNote[]): ChartNote[] {
   const first = new Set(boxGroups(notes).map(group => group[0]));
-  return notes.filter(note => note.gimmick !== 'box' || first.has(note)).map(note => note.gimmick === 'box' ? {...note, lane:2} : note);
+  // Some MIDI charts repeat a slide tail as a plain tap. Releasing the slide
+  // already performs that response; keeping a second input makes late GOOD
+  // releases fail against the shorter tap window.
+  const tails = notes.filter(note=>note.type==='hold'&&note.gimmick==='slide')
+    .map(note=>({time:note.type==='hold'?note.endTime:note.time,lane:note.path?.at(-1)?.lane??note.lane}));
+  return notes.filter(note => (note.gimmick !== 'box' || first.has(note)) &&
+    !(note.type==='tap'&&!note.gimmick&&tails.some(tail=>tail.lane===note.lane&&Math.abs(tail.time-note.time)<=1e-8))).map(note => note.gimmick === 'box' ? {...note, lane:2} : note);
 }
 export function noteThickness(size: number, spacing: number, base: number): number {
   return Math.max(2, Math.min(base * size / 100, spacing * 0.6));

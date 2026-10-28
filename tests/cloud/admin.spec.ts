@@ -44,7 +44,7 @@ test('edits, saves, previews and publishes each difficulty without touching norm
   await expect(page.locator('#chart-info')).toContainText('1 NOTES');
   await page.getByRole('link',{name:'管理画面へ戻る'}).click();await expect(page.locator('#admin-difficulty')).toHaveValue('easy');
   page.once('dialog',dialog=>dialog.accept());await page.locator('#cloud-publish').click();await expect(page.locator('#cloud-status')).toContainText('公開しました');
-  await page.locator('#admin-difficulty').selectOption('hard');await expect(page.locator('#note-count')).toHaveText('893 NOTES');
+  await page.locator('#admin-difficulty').selectOption('hard');await expect(page.locator('#note-count')).toHaveText('891 NOTES');
   await importChart(page,{...chart,notes:chart.notes.slice(0,2)});
   await page.locator('#cloud-save').click();await expect(page.locator('#cloud-status')).toContainText('版 1');
   await page.locator('#admin-difficulty').selectOption('normal');await expect(page.locator('#note-count')).toHaveText('3 NOTES');
@@ -64,7 +64,7 @@ test('edits, saves, previews and publishes each difficulty without touching norm
   await select.selectOption('easy');await player.locator('[data-song="super-mommy-girls"] .song-play').click();
   await expect(player.locator('#chart-info')).toContainText('1 NOTES');await expect(player.locator('#song-difficulty')).toHaveText('かんたん');
   await player.goto('http://127.0.0.1:4184/game.html');await expect(player.locator('#chart-info')).toContainText('3 NOTES');
-  await player.goto('http://127.0.0.1:4184/game.html?difficulty=hard');await expect(player.locator('#chart-info')).toContainText('893 NOTES');
+  await player.goto('http://127.0.0.1:4184/game.html?difficulty=hard');await expect(player.locator('#chart-info')).toContainText('891 NOTES');
   await context.close();
 });
 test('keeps the editor and video unloaded until Google identity and server role both allow access',async ({page})=>{
@@ -75,7 +75,7 @@ test('keeps the editor and video unloaded until Google identity and server role 
   await expect(page.locator('#admin-account-id')).toContainText(uid);
   expect(requests.some(url=>url.includes('editor-controller')||url.includes('youtube.com'))).toBe(false);
   await role(uid);await expect(page.locator('#record-toggle')).toBeEnabled();
-  await expect(page.locator('#note-count')).toHaveText('510 NOTES');
+  await expect(page.locator('#note-count')).toHaveText('508 NOTES');
   expect(requests.some(url=>url.includes('editor-controller'))).toBe(true);
 });
 test('saves drafts privately, publishes explicitly, and serves the new chart to anonymous players',async ({page,browser})=>{
@@ -84,7 +84,7 @@ test('saves drafts privately, publishes explicitly, and serves the new chart to 
   await page.locator('#cloud-save').click();await expect(page.locator('#cloud-status')).toContainText('下書きを保存しました');
   const playerContext=await browser.newContext(),player=await playerContext.newPage();
   await player.route('https://www.youtube.com/iframe_api',route=>route.fulfill({body:api}));
-  await player.goto('http://127.0.0.1:4184/game.html');await expect(player.locator('#chart-info')).toContainText('510 NOTES');
+  await player.goto('http://127.0.0.1:4184/game.html');await expect(player.locator('#chart-info')).toContainText('508 NOTES');
   page.once('dialog',dialog=>dialog.accept());await page.locator('#cloud-publish').click();await expect(page.locator('#cloud-status')).toContainText('公開しました');
   await player.reload();await expect(player.locator('#chart-info')).toContainText('3 NOTES');
   await seekPlay(player,12);await player.keyboard.down('s');await player.keyboard.down('l');await expect(player.locator('#combo')).toHaveText('2');
@@ -126,7 +126,7 @@ test('previews a saved draft without publishing and rejects anonymous preview ac
   await expect(page.locator('#result-share')).not.toHaveAttribute('href',/.+/);
   const publicContext=await browser.newContext(),publicPage=await publicContext.newPage();
   await publicPage.goto('http://127.0.0.1:4184/game.html?preview=1');await expect(publicPage).toHaveURL(/admin.html/);await expect(publicPage.locator('#google-login')).toBeEnabled();
-  await publicPage.goto('http://127.0.0.1:4184/game.html');await expect(publicPage.locator('#chart-info')).toContainText('510 NOTES');
+  await publicPage.goto('http://127.0.0.1:4184/game.html');await expect(publicPage.locator('#chart-info')).toContainText('508 NOTES');
   await publicContext.close();
 });
 test('discarded editor sessions cannot finish a delayed file import after revocation',async ({page})=>{

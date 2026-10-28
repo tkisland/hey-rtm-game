@@ -12,7 +12,7 @@ test('both songs offer three independent playable difficulties while normal rema
   for(const song of ['super-mommy-girls','biscuit-case']){
     const card=page.locator(`[data-song="${song}"]`),select=card.locator('.song-difficulty');
     await expect(select).toHaveValue('normal');await expect(select.locator('option')).toHaveCount(3);
-    for(const [level,count] of [['easy',song==='super-mommy-girls'?275:393],['hard',song==='super-mommy-girls'?893:998]] as const) {
+    for(const [level,count] of [['easy',song==='super-mommy-girls'?275:393],['hard',song==='super-mommy-girls'?891:998]] as const) {
       await select.selectOption(level);await expect(card.locator('.song-play')).toBeVisible();
       await expect(card.locator('.song-meta')).toContainText(`${count} NOTES`);
       await expect(card.locator('.song-play')).toHaveAttribute('href',`./game.html?song=${song}&difficulty=${level}`);
@@ -34,7 +34,7 @@ test('unknown difficulty and song links return to selection before loading YouTu
 test('easy and hard load their own charts, finish and replay without replacing normal',async({page})=>{
   await page.clock.install();await page.clock.pauseAt(new Date(Date.now()+1000));
   for(const [song,count,level,label] of [
-    ['super-mommy-girls',275,'easy','かんたん'],['super-mommy-girls',893,'hard','むずかしい'],
+    ['super-mommy-girls',275,'easy','かんたん'],['super-mommy-girls',891,'hard','むずかしい'],
     ['biscuit-case',393,'easy','かんたん'],['biscuit-case',998,'hard','むずかしい'],
   ] as const) {
     await page.goto(`/game.html?song=${song}&difficulty=${level}`);await page.clock.runFor(100);

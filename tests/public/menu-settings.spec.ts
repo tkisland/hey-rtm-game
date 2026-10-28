@@ -80,6 +80,6 @@ test('travel time persists between menu and game without changing calibration or
   await page.locator('#settings-close').click();
   await page.evaluate(() => { const video = (window as any).testVideo; video.seekTo(7.75); video.liveClock=false; video.playVideo(); });
   await page.keyboard.press('l');await expect(page.locator('#judgement-5 .judgement-label')).toHaveText('PERFECT');
-  await expect(page.locator('#score')).toHaveText('1,960');
+  await expect(page.locator('#score')).toHaveText('1,968');
   await page.goto('/');await page.locator('#settings-toggle').click();await expect(page.locator('#travel')).toHaveValue('1.25');
 });
