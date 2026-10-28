@@ -355,7 +355,7 @@ function showError(message: string): void {
   element<HTMLButtonElement>('play-start').disabled = true;
 }
 function updateChartInfo(): void {
-  element('chart-info').textContent = __ADMIN__ ? `${source === 'custom' ? 'EDITOR CHART' : source === 'bundled' ? 'BUNDLED CHART' : 'TEST CHART'} · ${tempoLabel(engine.chart)} BPM · ${engine.chart.startTime.toFixed(source === 'bundled' ? 2 : 1)}秒〜 · ${engine.notes.length} NOTES` : `${tempoLabel(engine.chart)} BPM · ${engine.notes.length} NOTES`;
+  element('chart-info').textContent = __ADMIN__ ? `${source === 'custom' ? 'EDITOR CHART' : source === 'bundled' ? 'BUNDLED CHART' : 'PRACTICE CHART'} · ${tempoLabel(engine.chart)} BPM · ${engine.chart.startTime.toFixed(source === 'bundled' ? 2 : 1)}秒〜 · ${engine.notes.length} NOTES` : `${tempoLabel(engine.chart)} BPM · ${engine.notes.length} NOTES`;
 }
 
 const disposePlayer = createYouTubePlayer({

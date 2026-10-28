@@ -40,7 +40,7 @@ test('bundled, practice and saved charts coexist without changing existing draft
   await page.goto('/game.html'); await expect(page.locator('#restart')).toBeEnabled();
   await expect(page.locator('#chart-source')).toHaveValue('bundled'); await page.locator('#settings-toggle').click();
   await expect(page.locator('#bpm')).toBeDisabled(); await expect(page.locator('#start-time')).toBeDisabled();
-  await page.locator('#chart-source').selectOption('test'); await expect(page.locator('#chart-info')).toContainText('TEST CHART · 150 BPM · 14.0秒');
+  await page.locator('#chart-source').selectOption('test'); await expect(page.locator('#chart-info')).toContainText('PRACTICE CHART · 150 BPM · 14.0秒');
   await page.reload(); await expect(page.locator('#chart-source')).toHaveValue('test');
   await page.locator('#settings-toggle').click(); await page.locator('#chart-source').selectOption('custom');
   await expect(page.locator('#chart-info')).toContainText('EDITOR CHART · 120 BPM · 10.0秒〜 · 1 NOTES');

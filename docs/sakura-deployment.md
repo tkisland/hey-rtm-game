@@ -21,7 +21,7 @@ Firebaseプロジェクト、`admins`、下書き、公開済み譜面はその�
 1. 変更のPRを確認して`main`へマージします。
 2. GitHubのActions → **Build site for Sakura FTP** で、そのマージコミットの実行が成功するまで待ちます。手動ビルドはRun workflowでブランチを`main`にします。
 3. 成功した実行画面のArtifactsから **`rhythm-site`** をダウンロードします。GitHubへのログインが必要です。
-4. ZIPをPCで展開し、直下に`index.html`・`game.html`・`admin.html`・`rankings.html`・`assets`・`api`・`ogp-test-v1.png`があることを確認します。`.vite`はビルドの照合用情報で、含まれていても問題ありません。初回のランキング設定用には別の`ranking-setup`成果物もダウンロードします。こちらは公開フォルダーへ転送しません。
+4. ZIPをPCで展開し、直下に`index.html`・`game.html`・`admin.html`・`rankings.html`・`assets`・`api`・`ogp-v2.png`があることを確認します。`.vite`はビルドの照合用情報で、含まれていても問題ありません。初回のランキング設定用には別の`ranking-setup`成果物もダウンロードします。こちらは公開フォルダーへ転送しません。
 
 PRの実行でも確認用ZIPを作成しますが、通常の本番更新には`main`の成果物を使用します。成果物は30日で期限切れになるため、公開したZIPとコミット番号をPCに保管してください。
 
@@ -40,7 +40,7 @@ PRの実行でも確認用ZIPを作成しますが、通常の本番更新には
    ├─ rankings.html
    ├─ api/             ← ランキングのPHPと公開譜面カタログ
    ├─ assets/          ← JS・CSS・ステージ画像など。フォルダー全体を転送
-   ├─ ogp-test-v1.png
+   ├─ ogp-v2.png
    └─ .vite/           ← 照合用情報（任意）
 ```
 
@@ -53,7 +53,7 @@ PRの実行でも確認用ZIPを作成しますが、通常の本番更新には
 1. https://hey.jpn.org/rhythm/ を開き、選曲画面の画像・フォント・両方の曲を確認します。
 2. iPhone・Android・PCでゲームスタート、動画、ノーツ音、設定、リザルトからの「もういちど遊ぶ」を確認します。
 3. 管理者ログイン、既存の下書きの読み込み、管理者プレビューを確認します。確認のために本番譜面を上書きする必要はありません。
-4. https://hey.jpn.org/rhythm/ogp-test-v1.png が直接開けることを確認します。Xなどの共有カードはサービス側のキャッシュに左右されます。
+4. https://hey.jpn.org/rhythm/ogp-v2.png が直接開けることを確認します。Xなどの共有カードはサービス側のキャッシュに左右されます。
 5. 親ディレクトリの`.htaccess`や独自のセキュリティヘッダーがある場合、JS・CSSやYouTube通信を妨げていないか確認します。YouTubeのためにRefererを遮断しないでください（`strict-origin-when-cross-origin`を使用）。
 
 GitHub Pagesとは別オリジンになるため、端末の音量・タイミング補正・初回案内の確認状態は自動では引き継がれません。初回案内から再確認します。Firebase内の譜面はこの影響を受けません。

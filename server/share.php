@@ -27,4 +27,4 @@ header('Referrer-Policy: no-referrer');header('Cache-Control: public, max-age=86
 <p><?=rs_escape($result['title'])?> / <?=rs_escape($result['level'])?><br>TOTAL <?=number_format($result['score'])?> · MAX COMBO <?=number_format($result['combo'])?></p>
 <?php if ($result['skipped']>0): ?><p class="note">シークでスキップ：<?=number_format($result['skipped'])?>ノーツ</p><?php endif; ?>
 <a href="<?=rs_escape($play)?>">この曲で遊ぶ</a><a href="./">曲を選ぶ</a>
-<p class="note">Hey!Mommy!の曲でリズムゲーム！ · 非公式ファンメイド／テスト版</p></main></body></html>
+<p class="note">Hey!Mommy!の曲でリズムゲーム！ · 非公式ファンメイド</p></main></body></html>

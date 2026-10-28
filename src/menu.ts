@@ -54,7 +54,7 @@ function render(): void {
     for (const color of LANE_COLORS) { const lane = node('i', ''); lane.style.setProperty('--color', color); lanes.append(lane); }
     artwork.append(lanes);
     const body = node('div', 'song-card-body');
-    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · ${__ADMIN__ ? `${song.chartId?.toUpperCase()} · ` : ''}${tempoLabel(bundled)} BPM · ${playableNotes(bundled.notes).length} NOTES` : __ADMIN__ ? `6 LANES · テスト譜面 ${song.bpm} BPM` : '譜面の準備中'));
+    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · ${__ADMIN__ ? `${song.chartId?.toUpperCase()} · ` : ''}${tempoLabel(bundled)} BPM · ${playableNotes(bundled.notes).length} NOTES` : __ADMIN__ ? `6 LANES · 練習譜面 ${song.bpm} BPM` : '譜面の準備中'));
     const levelLabel=node('label','difficulty-choice'), level=node('select','song-difficulty');level.id=`difficulty-${song.id}`;
     level.setAttribute('aria-label',`${song.title}の難易度`);
     for(const item of DIFFICULTIES){
@@ -69,7 +69,7 @@ function render(): void {
     if(!__ADMIN__)actions.classList.add('player-difficulty-actions');
     actions.append(levelLabel);
     if (bundled || __ADMIN__) {
-      const play = node('a', 'song-play', __ADMIN__ ? bundled ? '収録譜面で遊ぶ' : 'テスト譜面で遊ぶ' : 'プレイ');
+      const play = node('a', 'song-play', __ADMIN__ ? bundled ? '収録譜面で遊ぶ' : '練習譜面で遊ぶ' : 'プレイ');
       play.href = __ADMIN__ ? songUrl(song, 'game', bundled ? 'bundled' : 'test',difficulty) : songUrl(song, 'game',false,difficulty);
       actions.append(play);
     } else actions.append(node('span', 'song-unavailable', '準備中'));
@@ -83,7 +83,7 @@ function render(): void {
       });
       const edit = node('a', 'song-edit', '譜面を編集 →'); edit.href = songUrl(song, 'editor',false,difficulty);
       actions.append(custom, edit);
-      if (bundled) { const practice = node('a', 'song-practice', 'テスト譜面で遊ぶ'); practice.href = songUrl(song, 'game', 'test',difficulty); actions.append(practice); }
+      if (bundled) { const practice = node('a', 'song-practice', '練習譜面で遊ぶ'); practice.href = songUrl(song, 'game', 'test',difficulty); actions.append(practice); }
     }
     body.append(actions); card.append(artwork, body); list.append(card);
   });
