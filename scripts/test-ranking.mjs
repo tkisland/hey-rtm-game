@@ -105,6 +105,7 @@ try {
   console.log(docker(['exec','-i',php,'php'],{input:phpChecks}));
   const server=await createServer({configFile:false,server:{middlewareMode:true},optimizeDeps:{noDiscovery:true,entries:[]}});
   let perfect,miss;
+  const levelPlays=[];
   try {
     const {GameEngine}=await server.ssrLoadModule('/src/engine.ts');
     const {resultMessage}=await server.ssrLoadModule('/src/result-message.ts');
@@ -153,6 +154,15 @@ try {
         if($actual!==$case['expected'])throw new Exception('Scoring mismatch: '.json_encode([$actual,$case['expected']]));
       }echo 'TypeScript/PHP scoring parity: 3 complete mixed charts passed.';`}));
 
+    const {autoplayChart}=await server.ssrLoadModule('/tests/chart-autoplay.ts');
+    for(const [songId,song] of Object.entries(catalog.songs)) {
+      if(songId==='ranking-test')continue;
+      for(const [difficulty,json] of Object.entries(song.charts)) {
+        const game=autoplayChart(JSON.parse(json));
+        assert.equal(game.finished,true);assert.equal(game.counts.MISS,0);assert.equal(game.baseScore,1000000);
+        levelPlays.push({songId,difficulty,json,result:{score:game.score,maxCombo:game.maxCombo,results:game.rankingJudgements()}});
+      }
+    }
   } finally {await server.close();}
   const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:5};
   const start=async(target=board)=>{
@@ -195,6 +205,16 @@ try {
   const updated=JSON.stringify({...chart,title:'New chart release'});catalog.songs['ranking-test'].charts.normal=updated;putCatalog();
   const nextBoard={...board,chartHash:hash(updated)};await start(nextBoard);assert.deepEqual((await api('leaderboard',nextBoard)).entries,[]);
   assert.equal((await api('leaderboard',board)).entries.length,3);
+  for(const level of levelPlays) {
+    const target={songId:level.songId,difficulty:level.difficulty,chartHash:hash(level.json),rulesVersion:catalog.rulesVersion};
+    const token=await start(target);
+    sql(`UPDATE rhythm_sessions SET issued_at=issued_at-600 WHERE token_hash='${hash(token)}';`);
+    const saved=await api('submit',{token,name:'LEVELS',...level.result});
+    assert.equal(saved.entry.score,level.result.score);assert.equal(saved.rank,1);
+    const entries=(await api('leaderboard',target)).entries;
+    assert.equal(entries.length,1);assert.equal(entries[0].score,level.result.score);
+  }
+  console.log(`Bundled difficulty registration: ${levelPlays.length} complete charts matched PHP scores in separate boards.`);
   const expired=await start();sql(`UPDATE rhythm_sessions SET expires_at=1 WHERE token_hash='${hash(expired)}';`);
   await api('submit',{token:expired,name:'ABCDE',...perfect},410);
   sql('TRUNCATE TABLE rhythm_rate_limits;');

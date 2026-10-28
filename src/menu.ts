@@ -54,7 +54,7 @@ function render(): void {
     for (const color of LANE_COLORS) { const lane = node('i', ''); lane.style.setProperty('--color', color); lanes.append(lane); }
     artwork.append(lanes);
     const body = node('div', 'song-card-body');
-    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · ${__ADMIN__ ? `${song.chartId?.toUpperCase()} · ` : ''}${tempoLabel(bundled)} BPM · ${playableNotes(bundled.notes).length} NOTES` : __ADMIN__ ? `6 LANES · 練習譜面 ${song.bpm} BPM` : '譜面の準備中'));
+    body.append(node('p', 'song-artist', song.artist), node('h2', 'song-name', song.title), node('p', 'song-meta', bundled ? `6 LANES · ${__ADMIN__ ? `${(song.charts?.[difficulty] ?? song.chartId)?.toUpperCase()} · ` : ''}${tempoLabel(bundled)} BPM · ${playableNotes(bundled.notes).length} NOTES` : __ADMIN__ ? `6 LANES · 練習譜面 ${song.bpm} BPM` : '譜面の準備中'));
     const levelLabel=node('label','difficulty-choice'), level=node('select','song-difficulty');level.id=`difficulty-${song.id}`;
     level.setAttribute('aria-label',`${song.title}の難易度`);
     for(const item of DIFFICULTIES){

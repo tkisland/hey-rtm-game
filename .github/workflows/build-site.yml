@@ -38,6 +38,8 @@ jobs:
           VITE_FIREBASE_CONFIG: ${{ vars.FIREBASE_WEB_CONFIG }}
       - name: Install browser for subdirectory checks
         run: npx playwright install --with-deps chromium
+      - name: Check difficulty selection and replay
+        run: npm run test:public -- tests/public/difficulties.spec.ts
       - name: Check FTP output under /rhythm/
         run: npm run test:sakura
       - name: Check score breakdown and replay
