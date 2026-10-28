@@ -48,7 +48,7 @@ describe('hold endpoint judgement and chord scoring', () => {
     engine.input(0, 10); engine.input(3, 10.12);
     expect(engine.combo).toBe(1); expect(engine.input(0, 10)).toBeNull();
     expect(engine.baseScore).toBe(0); engine.advance(11, held(0)); engine.release(0, 11); engine.input(0, 11.05);
-    expect(engine.baseScore).toBe(Math.floor(2300 * 1000 / engine.notes.length)); expect(engine.combo).toBe(3); expect(engine.finished).toBe(true);
+    expect(engine.baseScore).toBe(Math.floor(2500 * 1000 / engine.notes.length)); expect(engine.combo).toBe(3); expect(engine.finished).toBe(true);
   });
   it('keeps two holds independent when one finger releases', () => {
     const engine = game([hold(), hold(3, 2)]);

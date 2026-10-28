@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
-import {mkdtempSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {lookup} from 'node:dns/promises';
 import {createServer} from 'vite';
 
 // Isolated real MySQL/PHP. No production server, credentials or Firebase writes.
 const suffix=randomUUID().slice(0,8),network=`rhythm-rank-${suffix}`,mysql=`rhythm-db-${suffix}`,php=`rhythm-php-${suffix}`;
 const temporary=mkdtempSync(join(tmpdir(),'rhythm-ranking-'));
 const env={...process.env,DOCKER_CONFIG:process.env.DOCKER_CONFIG || join(tmpdir(),'rhythm-docker')};
+for(const key of ['http_proxy','https_proxy','no_proxy'])if(!env[key] && env[key.toUpperCase()])env[key]=env[key.toUpperCase()];
 const docker=(args,options={})=>execFileSync('docker',args,{env,encoding:'utf8',stdio:['pipe','pipe','pipe'],...options});
 const sql=text=>docker(['exec','-i','--env','MYSQL_PWD=rhythm_root_pass',mysql,'mysql','-uroot','rhythm'],{input:text});
 const hash=text=>createHash('sha256').update(text).digest('hex');
@@ -24,7 +26,12 @@ async function api(action,data={},expected=200,origin='http://127.0.0.1:4194'){
   const body=await response.json();assert.equal(response.status,expected,JSON.stringify(body));checks++;return body;
 }
 try {
-  docker(['build','-f','server/Dockerfile.test','-t','hey-rhythm-ranking-test','server'],{stdio:'inherit'});
+  const buildAccess=[];
+  for(const hostname of new Set(['HTTP_PROXY','HTTPS_PROXY'].flatMap(key=>env[key]?[new URL(env[key]).hostname]:[]))) {
+    const {address}=await lookup(hostname);buildAccess.push('--add-host',`${hostname}:${address}`);
+  }
+  if(env.SSL_CERT_FILE && existsSync(env.SSL_CERT_FILE))buildAccess.push('--secret',`id=proxy_ca,src=${env.SSL_CERT_FILE}`);
+  docker(['build',...buildAccess,...['HTTP_PROXY','HTTPS_PROXY','NO_PROXY','http_proxy','https_proxy','no_proxy'].flatMap(key=>['--build-arg',key]),'-f','server/Dockerfile.test','-t','hey-rhythm-ranking-test','server'],{stdio:'inherit'});
   docker(['network','create',network]);
   docker(['run','-d','--name',mysql,'--network',network,'--network-alias','db','-e','MYSQL_ROOT_PASSWORD=rhythm_root_pass','-e','MYSQL_DATABASE=rhythm','-e','MYSQL_USER=rhythm','-e','MYSQL_PASSWORD=rhythm_test_pass','mysql:8.4']);
   let ready=false;
@@ -55,6 +62,23 @@ try {
     await pause(200);
   }
   assert.equal((await api('status')).enabled,true);
+  const shareQuery=new URLSearchParams({song:'biscuit-case',difficulty:'normal',v:'4',score:'1160000',base:'960000',combo:'328',skipped:'0'});
+  const shareUrl=`http://127.0.0.1:4194/rhythm/share.php?${shareQuery}`;
+  const sharePage=await fetch(shareUrl);assert.equal(sharePage.status,200);
+  const shareHtml=await sharePage.text();assert.ok(shareHtml.includes('ビスケットケース / ふつう'));
+  assert.ok(shareHtml.includes('1,160,000'));assert.ok(shareHtml.includes('最高なLIVE！'));
+  assert.ok(shareHtml.includes('summary_large_image'));assert.ok(shareHtml.includes('https://hey.jpn.org/rhythm/share-image.php?'));
+  const imageUrl=shareUrl.replace('/share.php?','/share-image.php?');
+  const imageResponse=await fetch(imageUrl);assert.equal(imageResponse.headers.get('content-type'),'image/png');
+  const png=Buffer.from(await imageResponse.arrayBuffer());assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+  assert.equal(png.readUInt32BE(16),1200);assert.equal(png.readUInt32BE(20),630);
+  writeFileSync(join(tmpdir(),'rhythm-share-preview.png'),png);
+  for(const change of [{song:'<script>'},{difficulty:'unknown'},{score:'-1'},{base:'1000001'},{score:'1',base:'900000'},{combo:'5001'},{v:'99'}]) {
+    const query=new URLSearchParams(shareQuery);for(const [key,value] of Object.entries(change))query.set(key,value);
+    for(const page of ['share.php','share-image.php'])assert.equal((await fetch(`http://127.0.0.1:4194/rhythm/${page}?${query}`)).status,400);
+  }
+  console.log('Result OGP: HTML metadata, Japanese PNG 1200x630 and 14 invalid requests passed.');
+
   for(const [method,type,body,origin,status] of [
     ['GET','application/json',undefined,'http://127.0.0.1:4194',405],
     ['POST','text/plain','{}','http://127.0.0.1:4194',415],
@@ -82,6 +106,10 @@ try {
   let perfect,miss;
   try {
     const {GameEngine}=await server.ssrLoadModule('/src/engine.ts');
+    const {resultMessage}=await server.ssrLoadModule('/src/result-message.ts');
+    const messages=Object.fromEntries([0,499999,500000,699999,700000,849999,850000,949999,950000,999999,1000000].map(value=>[value,resultMessage(value)]));
+    const encodedMessages=Buffer.from(JSON.stringify(messages)).toString('base64');
+    console.log(docker(['exec','-i',php,'php'],{input:`<?php require '/app/rhythm/share-common.php';foreach(json_decode(base64_decode('${encodedMessages}'),true) as $score=>$message)if(rs_message($score)!==$message)throw new Exception('Message mismatch');echo 'Result message parity passed.';`}));
     const play=fail=>{
       const game=new GameEngine(chart);
       if(!fail)game.input(0,1);game.input(1,1);if(fail)game.advance(1.17);
@@ -91,7 +119,7 @@ try {
       assert.equal(game.finished,true);
       return {score:game.score,maxCombo:game.maxCombo,results:game.rankingJudgements()};
     };
-    perfect=play(false);miss=play(true);assert.equal(perfect.score,1002200);assert.equal(miss.score,752200);
+    perfect=play(false);miss=play(true);assert.equal(perfect.score,1003300);assert.equal(miss.score,753300);
     // Cross-language agreement for fractional rounding, combo tiers/reset/cap,
     // changing tempo, delayed chords, quality weights and failed hold/slide tails.
     const parity=[];
@@ -125,7 +153,7 @@ try {
       }echo 'TypeScript/PHP scoring parity: 3 complete mixed charts passed.';`}));
 
   } finally {await server.close();}
-  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:2};
+  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:4};
   const start=async(target=board)=>{
     const {token}=await api('start',target);
     sql(`UPDATE rhythm_sessions SET issued_at=issued_at-30 WHERE token_hash='${hash(token)}';`);return token;
@@ -133,14 +161,18 @@ try {
   await api('start',{...board,songId:'unknown'},400);await api('start',{...board,difficulty:'expert'},400);
   await api('start',{...board,rulesVersion:999},400);
   await api('start',{...board,rulesVersion:1},400);
+  await api('start',{...board,rulesVersion:2},400);
+  await api('start',{...board,rulesVersion:3},400);
   await api('start',{...board,chartHash:'0'.repeat(64)},409);
   await api('start',board,403,'https://other.example');
-  const oldId=hash(`ranking-test|normal|${hash(fixture)}|rules1`),oldToken='1'.repeat(64);
-  sql(`INSERT INTO rhythm_boards (id,song_id,difficulty,chart_hash,rules_version,chart_json,minimum_seconds) VALUES ('${oldId}','ranking-test','normal','${hash(fixture)}',1,'${fixture}',0);
-    INSERT INTO rhythm_entries (board_id,token_hash,submission_hash,name,score,max_combo,created_at) VALUES ('${oldId}','${hash(oldToken)}','${hash('old')}','OLD',8000,8,1);
-    INSERT INTO rhythm_sessions (token_hash,board_id,issued_at,expires_at) VALUES ('${hash(oldToken)}','${oldId}',1,4102444800);`);
-  assert.deepEqual((await api('leaderboard',board)).entries,[]);
-  await api('submit',{token:oldToken,name:'OLD',...perfect},409);
+  for(const version of [1,2,3]) {
+    const oldId=hash(`ranking-test|normal|${hash(fixture)}|rules${version}`),oldToken=String(version).repeat(64);
+    sql(`INSERT INTO rhythm_boards (id,song_id,difficulty,chart_hash,rules_version,chart_json,minimum_seconds) VALUES ('${oldId}','ranking-test','normal','${hash(fixture)}',${version},'${fixture}',0);
+      INSERT INTO rhythm_entries (board_id,token_hash,submission_hash,name,score,max_combo,created_at) VALUES ('${oldId}','${hash(oldToken)}','${hash('old')}','OLD',${version===1?8000:1002200},8,1);
+      INSERT INTO rhythm_sessions (token_hash,board_id,issued_at,expires_at) VALUES ('${hash(oldToken)}','${oldId}',1,4102444800);`);
+    assert.deepEqual((await api('leaderboard',board)).entries,[]);
+    await api('submit',{token:oldToken,name:'OLD',...perfect},409);
+  }
   const early=(await api('start',board)).token;
   await api('submit',{token:early,name:'ABCDE',...perfect},422);
   const token=await start();
@@ -154,7 +186,7 @@ try {
   await api('submit',{token,name:'OTHER',...perfect},409);
   const second=await api('submit',{token:await start(),name:'ABC12',...perfect});assert.equal(second.rank,2);
   assert.equal((await api('submit',{token:await start(),name:'LOWER',...miss})).rank,3);
-  const list=await api('leaderboard',board);assert.deepEqual(list.entries.map(item=>[item.name,item.score]),[['ABC12',1002200],['ABC12',1002200],['LOWER',752200]]);
+  const list=await api('leaderboard',board);assert.deepEqual(list.entries.map(item=>[item.name,item.score]),[['ABC12',1003300],['ABC12',1003300],['LOWER',753300]]);
   const easy={...board,difficulty:'easy'};await start(easy);assert.deepEqual((await api('leaderboard',easy)).entries,[]);
   assert.equal((await api('submit',{token:await start(easy),name:'ab3',...perfect})).entry.name,'AB3');
   assert.equal((await api('submit',{token:await start(easy),name:'ABCD',...perfect})).entry.name,'ABCD');
@@ -168,6 +200,7 @@ try {
   await api('start',board,429);
   docker(['exec',php,'php','-r',"rename('/private/config.php','/private/config.disabled');"]);
   assert.equal((await api('status')).enabled,false);await api('start',board,503);
+  assert.equal((await fetch(shareUrl)).status,200);assert.equal((await fetch(imageUrl)).headers.get('content-type'),'image/png');
   docker(['exec',php,'php','-r',"rename('/private/config.disabled','/private/config.php');"]);
   docker(['exec',php,'php','-r',"rename('/app/rhythm/api/catalog.json','/app/rhythm/api/catalog.disabled');"]);
   assert.equal((await api('status')).enabled,false);await api('start',board,503);
@@ -176,7 +209,7 @@ try {
   // Fast-forwarding the browser clock must not bypass the API's real elapsed-time
   // check in production. Only these isolated test DB rows are shortened.
   sql('TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;TRUNCATE TABLE rhythm_entries;');
-  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:2});
+  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:4});
   sql('UPDATE rhythm_boards SET minimum_seconds=0;TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;');
   execFileSync(process.execPath,['node_modules/@playwright/test/cli.js','test','--config','playwright.ranking.config.ts'],{stdio:'inherit',env:{...env,RANKING_DB_CONTAINER:mysql}});
 } finally {

@@ -1,3 +1,4 @@
+import {resultMessage} from './result-message';
 import { decoratePenlight } from './penlight';
 import { playLane } from './engine';
 import './style.css';
@@ -211,6 +212,7 @@ function clearResults(): void {
   resultShown = false;
   completionAt = null;
   result.hidden = true;
+  result.querySelectorAll('details').forEach(details=>{details.open=false;});
   ranking?.clear();
   const share = element<HTMLAnchorElement>('result-share');
   share.hidden = true; share.removeAttribute('href');
@@ -231,6 +233,7 @@ function showResults(): void {
   resultShown = true;
   result.hidden = false;
   element('show-result').hidden = false;
+  element('result-message').textContent = resultMessage(engine.baseScore);
   element('result-score').textContent = scoreFormat.format(engine.score);
   element('result-base-score').textContent = scoreFormat.format(engine.baseScore);
   element('result-combo-bonus').textContent = `＋${scoreFormat.format(engine.comboBonus)}`;
@@ -571,7 +574,7 @@ function frame(now: number): void {
   } else {
     const hidden = sample.playing || resultShown;
     if (stageHint.hidden !== hidden) stageHint.hidden = hidden;
-    const hint = awaitingAudio ? '「ゲームスタート」を押してライブ開始！' : restartTarget !== null ? restartMessage() : clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '「ゲーム再開」を押してライブ再開！' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? '最高なLIVE！' : '「ゲームスタート」を押してライブ開始！';
+    const hint = awaitingAudio ? '「ゲームスタート」を押してライブ開始！' : restartTarget !== null ? restartMessage() : clockStale ? '再生時刻の更新を待っています' : state === PLAYER_STATE.PAUSED ? '「ゲーム再開」を押してライブ再開！' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : state === PLAYER_STATE.ENDED ? resultMessage(engine.baseScore) : '「ゲームスタート」を押してライブ開始！';
     if (hintTitle.textContent !== hint) hintTitle.textContent = hint;
     if (hintDescription.textContent) hintDescription.textContent = '';
     if (!hintDescription.hidden) hintDescription.hidden = true;

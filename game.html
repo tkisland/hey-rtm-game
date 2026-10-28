@@ -138,7 +138,7 @@
           <p id="storage-status" class="field-help">設定はこのブラウザに保存されます。</p>
         </section>
         <section id="result" class="panel result" aria-label="プレイ結果" tabindex="-1" hidden>
-          <div class="panel-heading"><div><p class="eyebrow">LIVE COMPLETE</p><h2>最高なLIVE！</h2></div><button id="result-close" class="text-button">閉じる ×</button></div>
+          <div class="panel-heading"><div><p class="eyebrow">LIVE COMPLETE</p><h2 id="result-message">LIVE COMPLETE</h2></div><button id="result-close" class="text-button">閉じる ×</button></div>
           <p id="result-difficulty" class="difficulty-badge"></p>
           <div class="result-headline"><strong id="result-score">0</strong><span>TOTAL</span><span id="result-combo"></span></div>
           <dl class="result-breakdown" aria-label="スコアの内訳">
@@ -146,23 +146,25 @@
             <div><dt>コンボボーナス</dt><dd id="result-combo-bonus">＋0</dd></div>
             <div><dt>特殊操作ボーナス</dt><dd id="result-special-bonus">＋0</dd></div>
           </dl>
-          <details class="score-help"><summary>得点のしくみ</summary><p>基本スコアは全PERFECTで100万点。GREATは70％、GOODは30％です。同時オシは1つでもMISSになると、その組全体が0点です。</p><p>コンボボーナスは10コンボから基本配点の1％、10コンボごとに1％増え、100コンボ以上は10％です。</p><p>特殊操作は長オシの1拍につき100点、オシ変の移動1回につき追加300点、箱オシの完了で1,000点、DDで300点。最終判定に応じてGREATは70％、GOODは30％となり、最後まで成功したときに確定します。</p></details>
           <div id="result-counts" class="result-counts"></div><p id="result-accuracy" class="field-help"></p>
-          <div class="result-actions">
-            <button id="result-replay" class="restart-button" type="button">もういちど遊ぶ</button>
-            <a id="result-share" class="restart-button result-share" target="_blank" rel="noopener noreferrer" aria-label="プレイ結果をXで共有（新しいタブで開く）" hidden>Xで共有 ↗</a>
-            <a href="./" class="restart-button">ほかの曲を選ぶ</a>
-          </div>
           <section id="result-ranking" class="ranking-section" aria-labelledby="ranking-title" hidden>
-            <h3 id="ranking-title">ランキング · 上位20件</h3>
+            <h3 id="ranking-title">ランキング登録</h3>
             <form id="ranking-form" class="ranking-form" novalidate>
               <label for="ranking-name">登録名（半角英数字3〜6文字）<input id="ranking-name" name="name" type="text" minlength="3" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" /></label>
               <button id="ranking-submit" class="restart-button" type="submit">登録する</button>
             </form>
             <p id="ranking-status" class="ranking-status" role="status"></p>
-            <ol id="ranking-entries" class="ranking-entries" aria-label="この譜面のランキング"></ol>
-            <p class="ranking-note">ログイン不要。同じ名前でも別のプレイ記録になります。</p>
+            <details class="ranking-board"><summary>上位20件を見る</summary>
+              <ol id="ranking-entries" class="ranking-entries" aria-label="この譜面のランキング"></ol>
+              <p class="ranking-note">ログイン不要。同じ名前でも別のプレイ記録になります。</p>
+            </details>
           </section>
+          <div class="result-actions">
+            <button id="result-replay" class="restart-button" type="button">もういちど遊ぶ</button>
+            <a id="result-share" class="restart-button result-share" target="_blank" rel="noopener noreferrer" aria-label="プレイ結果をXで共有（新しいタブで開く）" hidden>Xで共有 ↗</a>
+            <a href="./" class="restart-button">ほかの曲を選ぶ</a>
+          </div>
+          <details class="score-help"><summary>得点のしくみ</summary><p>基本スコアは全PERFECTで100万点。GREATは70％、GOODは50％です。同時オシは1つでもMISSになると、その組全体が0点です。</p><p>コンボボーナスは10コンボから基本配点の1.5％、10コンボごとに1.5％増え、100コンボ以上は15％です。</p><p>特殊操作は長オシの1拍につき150点、オシ変の移動1回につき追加450点、箱オシの完了で1,500点、DDで450点。最終判定に応じてGREATは70％、GOODは50％となり、最後まで成功したときに確定します。</p></details>
         </section>
         <!-- admin:start -->
         <section id="debug-panel" class="panel debug-panel" aria-label="同期デバッグ" hidden><h2>SYNC MONITOR</h2><dl><dt>YouTube時刻</dt><dd id="debug-time">0.000 s</dd><dt>ゲーム時刻（補間＋オフセット）</dt><dd id="debug-game-time">0.000 s</dd><dt>補間状態</dt><dd id="debug-clock">停止</dd><dt>状態</dt><dd id="debug-state">LOADING</dd><dt>適用中BPM</dt><dd id="debug-bpm">140</dd><dt>オフセット</dt><dd id="debug-offset">0 ms</dd><dt>入力の遅れ補正</dt><dd id="debug-input-offset">0 ms</dd><dt>補正後の判定時刻</dt><dd id="debug-input-time">0.000 s</dd><dt>タップ音の追加遅延</dt><dd id="debug-sound-delay">0 ms</dd><dt>FPS</dt><dd id="debug-fps">—</dd><dt>直近の入力誤差</dt><dd id="debug-error">—</dd><dt>最後の判定</dt><dd id="debug-judgement">—</dd></dl></section>

@@ -36,14 +36,14 @@ for(const rightFirst of [false,true])test(`two fingers open outward, ${rightFirs
   await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:central});
   await expect(page.locator('#score')).toHaveText('0');await page.clock.runFor(50);
   await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[0],points[5]]});
-  await expect(page.locator('#score')).toHaveText('300,300');await expect(page.locator('#combo')).toHaveText('1');
+  await expect(page.locator('#score')).toHaveText('500,750');await expect(page.locator('#combo')).toHaveText('1');
   await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   expect(await page.evaluate(()=>(window as any).swipeDefaults.every(Boolean))).toBe(true);expect(page.url()).toBe(url);
   expect(await page.evaluate(()=>getComputedStyle(document.documentElement).overscrollBehaviorX)).toBe('none');
   await page.clock.runFor(1600);
   await expect(page.locator('#result-accuracy')).toContainText('全 1 ノーツ');
   await expect(page.locator('#result-counts div').filter({hasText:'GOOD'}).locator('strong')).toHaveText('1');
-  await page.keyboard.press('s');await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('300,300');await touch.detach();
+  await page.keyboard.press('s');await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('500,750');await touch.detach();
 });
 test('one finger and a lifted partial hand cannot complete a box',async({page})=>{
   const points=await start(page,9.95),touch=await page.context().newCDPSession(page);
@@ -65,7 +65,7 @@ test('F+J then D+K then S+L opens one box using the keyboard',async({page})=>{
     for(const key of pair)await page.keyboard.press(key);
     await page.clock.runFor(30);
   }
-  await expect(page.locator('#score')).toHaveText('1,001,000');await expect(page.locator('#combo')).toHaveText('1');
+  await expect(page.locator('#score')).toHaveText('1,001,500');await expect(page.locator('#combo')).toHaveText('1');
 });
 test('the extended upper touch area works and keeps the same lower clearance',async({page})=>{
   const points=await start(page,9.95,true);
@@ -78,6 +78,6 @@ test('the extended upper touch area works and keeps the same lower clearance',as
   const touch=await page.context().newCDPSession(page);
   await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[points[2],points[3]]});
   await page.clock.runFor(50);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[0],points[5]]});
-  await expect(page.locator('#score')).toHaveText('1,001,000');
+  await expect(page.locator('#score')).toHaveText('1,001,500');
   await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await touch.detach();
 });

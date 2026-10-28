@@ -16,3 +16,12 @@
 .ranking-filters select { max-width:100%; min-height:44px; padding:8px; font:inherit; background:#191326; color:#fff; border:1px solid #c9a8ff66; border-radius:8px; }
 .ranking-page .ranking-entries { max-height:none; }
 .ranking-open { display:inline-flex; align-items:center; text-decoration:none; }
+
+.result .ranking-section { margin-top:6px; padding-top:8px; }
+.result .ranking-section h3 { margin:0 0 6px; font-size:13px; }
+.result .ranking-form { flex-wrap:nowrap; gap:8px; }
+.result .ranking-form label { flex:1; min-width:0; gap:3px; font-size:10px; }
+.result .ranking-form input { width:100%; font-size:16px; }
+.result .ranking-status { margin:5px 0; line-height:1.4; }
+.ranking-board summary { min-height:24px; cursor:pointer; color:#cbb6de; font-size:11px; line-height:24px; }
+.ranking-board .ranking-note { margin:6px 0; }

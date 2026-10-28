@@ -50,6 +50,21 @@ test('registers each play without login, preserves duplicate names and opens the
   await expect(page.locator('#ranking-page-status')).toContainText('まだ記録がありません');
   await expect(page.locator('#ranking-play')).toHaveAttribute('href','./game.html?song=biscuit-case');
 });
+test('registration stays visible without scrolling on 360x640 and 390x844 phones',async({page})=>{
+  await page.route('**/api/ranking.php?action=leaderboard**',r=>r.fulfill({json:{ok:true,entries:Array.from({length:20},(_,i)=>({id:String(i+1),name:'PLAYER',score:1000000,maxCombo:510,createdAt:1}))}}));
+  await finish(page);
+  for(const viewport of [{width:360,height:640},{width:390,height:844}]) {
+    await page.setViewportSize(viewport);await page.clock.runFor(32);
+    await expect(page.locator('#ranking-title')).toHaveText('ランキング登録');
+    expect(await page.locator('.ranking-board').getAttribute('open')).toBeNull();
+    const fit=await page.evaluate(()=>{
+      const panel=document.getElementById('result')!,form=document.getElementById('ranking-form')!,button=document.getElementById('ranking-submit')!;
+      const bounds=button.getBoundingClientRect(),field=form.getBoundingClientRect();
+      return {scroll:panel.scrollTop,overflow:panel.scrollHeight-panel.clientHeight,visible:bounds.bottom<=innerHeight&&field.top>=0,reachable:document.elementFromPoint(bounds.x+bounds.width/2,bounds.y+bounds.height/2)===button};
+    });
+    expect(fit.scroll).toBe(0);expect(fit.overflow).toBeLessThanOrEqual(1);expect(fit.visible).toBe(true);expect(fit.reachable).toBe(true);
+  }
+});
 test('a lost registration response can be retried without creating another record',async({page})=>{
   await finish(page);let first=true;
   await page.route('**/api/ranking.php?action=submit',async route=>{

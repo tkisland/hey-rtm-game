@@ -291,3 +291,27 @@ footer p { font-size:9px; line-height:1.7; margin:0; text-align:right; }
 .result-breakdown dd { margin:0; color:#ffe779; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .score-help { margin:10px 0; color:#b0afc2; font-size:11px; line-height:1.7; }
 .score-help summary { cursor:pointer; }
+
+/* Keep the result and registration in the viewport, independently of stage height. */
+.game-page .result { top:max(8px,env(safe-area-inset-top)); left:50%; width:min(600px,calc(100% - 16px)); max-height:calc(100dvh - max(8px,env(safe-area-inset-top)) - max(8px,env(safe-area-inset-bottom))); }
+.game-page .result .panel-heading .eyebrow { margin:0 0 3px; }
+.game-page .result h2 { margin:0; font-size:19px; }
+.result .difficulty-badge { margin:4px 0; }
+.result-headline { margin:6px 0; }
+.result-breakdown { margin:6px 0; padding:6px 10px; }
+.result-breakdown > div { padding:3px 0; }
+.result-counts div { padding:7px 4px; gap:3px; }
+.result-counts strong { font-size:17px; }
+.result #result-accuracy { margin:6px 0; font-size:10px; line-height:1.4; }
+.result-actions { margin-top:8px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.result-actions .restart-button { padding:8px 4px; min-width:0; text-align:center; font-size:11px; }
+.result .score-help { margin:6px 0 0; }
+.result .score-help summary { min-height:24px; }
+@media (max-width:480px) {
+  .game-page .result { padding:12px; }
+  .game-page .result h2 { font-size:17px; }
+  .game-page .result .panel-heading .eyebrow { display:none; }
+  #result-score { font-size:30px; }
+  .result-headline { gap:6px; }
+  #result-combo { font-size:10px; }
+}

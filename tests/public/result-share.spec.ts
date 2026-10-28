@@ -23,7 +23,8 @@ test('sharing is user-activated and opens the finalized public result without ch
   const link=new URL((await share.getAttribute('href'))!);
   expect(link.searchParams.get('text')).toContain('SUPER MOMMY GIRLS / ふつう\nSCORE：1,960\nMAX COMBO：1');
   expect(link.searchParams.get('text')).not.toContain('シークでスキップ');
-  expect(link.searchParams.get('url')).toBe('https://hey.jpn.org/rhythm/game.html?song=super-mommy-girls');
+  const shared=new URL(link.searchParams.get('url')!);
+  expect(shared.pathname).toBe('/rhythm/share.php');expect(shared.searchParams.get('score')).toBe('1960');expect(shared.searchParams.get('base')).toBe('1960');
   expect(requests).toEqual([]);
   expect((await share.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   const popupPromise=page.waitForEvent('popup');await share.click();const popup=await popupPromise;
@@ -48,6 +49,6 @@ test('Biscuit Case shares its own title and play link and distinguishes skipped 
   const link=new URL((await page.locator('#result-share').getAttribute('href'))!);
   expect(link.searchParams.get('text')).toContain('ビスケットケース / ふつう');
   expect(link.searchParams.get('text')).toContain('シークでスキップ：');
-  expect(link.searchParams.get('url')).toBe('https://hey.jpn.org/rhythm/game.html?song=biscuit-case');
+  expect(new URL(link.searchParams.get('url')!).searchParams.get('song')).toBe('biscuit-case');
   expect(link.searchParams.get('url')).not.toContain('sync=');
 });
