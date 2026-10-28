@@ -17,7 +17,7 @@
 設置後、次のURLで共有ページと画像を確認できます（サンプルの表示結果です。ランキングには登録しません）。
 
 ```
-https://hey.jpn.org/rhythm/share.php?song=biscuit-case&difficulty=normal&v=4&art=2&score=1160000&base=960000&combo=328&skipped=0
+https://hey.jpn.org/rhythm/share.php?song=biscuit-case&difficulty=normal&v=5&art=2&score=1160000&base=960000&combo=328&skipped=0
 ```
 
 同じクエリで `share.php` を `share-image.php` に置き換えるとPNG自体を確認できます。これが表示されればGD・日本語フォントを利用できています。ページの「この曲で遊ぶ」から対応する曲・難易度へ進めます。新規の共有URLには画像版の `art=2` を付け、以前の画像キャッシュと区別します。画像版を持たない以前の共有リンクも開けます。共有ページは検索用に大量インデックスされないようnoindexにしています。
@@ -33,3 +33,5 @@ Xのカードの表示・キャッシュ更新はX側の取得状況にも依存
 PNG背景は画像生成で制作しています。文字の描画にはDela Gothic Oneを使用し、SIL Open Font Licenseを `share/OFL.txt` に同梱しています。
 
 公開ページと共有画像から開発段階の版表記を除いています。共通OGPは `ogp-v2.png` へ更新し、以前の画像URL `ogp-test-v1.png` にも同じ新画像を置くため、FTP更新で旧画像も上書きできます。Xに保存済みのカードはX側のキャッシュ更新に依存します。
+
+採点ルール5の共有URLに対応し、以前のルール4で共有した結果のリンクも引き続き表示します。

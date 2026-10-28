@@ -8,7 +8,7 @@ it('shares the selected song, difficulty and formatted result with a public Saku
   expect(url.searchParams.get('text')).toBe('レスが届いたLIVE！\nビスケットケース / むずかしい\nSCORE：652,000\nMAX COMBO：328');
   const shared=new URL(url.searchParams.get('url')!);
   expect(shared.origin+shared.pathname).toBe('https://hey.jpn.org/rhythm/share.php');
-  expect(Object.fromEntries(shared.searchParams)).toEqual({song:'biscuit-case',difficulty:'hard',v:'4',art:'2',score:'652000',base:'600000',combo:'328',skipped:'0'});
+  expect(Object.fromEntries(shared.searchParams)).toEqual({song:'biscuit-case',difficulty:'hard',v:'5',art:'2',score:'652000',base:'600000',combo:'328',skipped:'0'});
   expect(url.searchParams.get('hashtags')).toBe('HeyMommy,HEY_RHYTHM');
 });
 it('labels skipped notes and safely encodes Japanese and special characters without mixing query parameters',()=>{

@@ -46,7 +46,7 @@ describe('DD and box play', () => {
     }
   });
   it('keeps broad start windows and accepts both hands finishing 350ms after starting', () => {
-    for(const [error,grade,points] of [[-.35,'GOOD',500],[-.25,'GREAT',700],[.15,'PERFECT',1000],[.35,'GOOD',500]] as const) {
+    for(const [error,grade,points] of [[-.35,'GOOD',500],[-.25,'GREAT',750],[.15,'PERFECT',1000],[.35,'GOOD',500]] as const) {
       const engine=new GameEngine(box());
       [2,3,1,4,0,5].forEach((lane,i)=>{
         const time=1+error+Math.floor(i/2)*BOX_SWEEP_SECONDS/2;
@@ -140,7 +140,7 @@ describe('slide gestures', () => {
     const engine = new GameEngine(chart([slide()])); engine.input(0,1);
     engine.advance(2.12,new Set([0,1])); expect(engine.release(0,2.13)).toEqual([]);
     engine.advance(2.5,new Set([1])); engine.advance(3,new Set([1,2])); engine.release(1,3);
-    expect(engine.release(2,4)[0].judgement).toBe('GREAT'); expect(engine.baseScore).toBe(Math.floor(700 * 1000 / engine.notes.length));
+    expect(engine.release(2,4)[0].judgement).toBe('GREAT'); expect(engine.baseScore).toBe(Math.floor(750 * 1000 / engine.notes.length));
   });
   it('fails when released early, at a missed checkpoint, or after holding past the tail', () => {
     for (const mode of ['release','checkpoint','tail']) {

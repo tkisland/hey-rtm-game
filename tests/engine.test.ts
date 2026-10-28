@@ -26,13 +26,13 @@ describe('judgement and score', () => {
     game.input(1, 13.15);
     expect(game.combo).toBe(3);
     expect(game.maxCombo).toBe(3);
-    expect(game.baseScore).toBe(Math.floor(2200 * 1000 / game.notes.length));
+    expect(game.baseScore).toBe(Math.floor(2250 * 1000 / game.notes.length));
     game.advance(14.161);
     expect(game.combo).toBe(0);
     expect(game.maxCombo).toBe(3);
     expect(game.counts).toEqual({ PERFECT: 1, GREAT: 1, GOOD: 1, MISS: 1 });
     expect(game.finished).toBe(true);
-    expect(game.accuracy).toBeCloseTo(55);
+    expect(game.accuracy).toBeCloseTo(56.25);
     expect(game.advance(15)).toEqual([]);
   });
   it('does not expire a note at exactly 160ms', () => {
