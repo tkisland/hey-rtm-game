@@ -54,5 +54,5 @@ it('plays the entire shipped chart with 509 perfect results including distant sl
     engine.advance(time,pressed);
   }
   expect(engine.finished).toBe(true);expect(engine.counts).toEqual({PERFECT:509,GREAT:0,GOOD:0,MISS:0});
-  expect(engine.score).toBe(509000);expect(engine.combo).toBe(509);
+  expect(engine.baseScore).toBe(1000000); expect(engine.score).toBe(1109890);expect(engine.combo).toBe(509);
 });

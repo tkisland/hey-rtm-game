@@ -118,7 +118,7 @@ test('Biscuit Case plays the uploaded BSC002 chart at MIDI zero plus 2.95s', asy
   expect(await page.evaluate(()=>(window as any).testVideo.options.videoId)).toBe('JUsGoi24rug');
   await page.evaluate(()=>{const video=(window as any).testVideo;video.liveClock=false;video.seekTo(3.85);video.playVideo();});
   await page.keyboard.press('l');await expect(page.locator('#judgement-5 .judgement-label')).toHaveText('PERFECT');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('1,328');
   await page.locator('#restart').click();await expect(page.locator('#score')).toHaveText('0');
   await page.reload();await expect(page.locator('#chart-info')).toContainText('753 NOTES');
 });

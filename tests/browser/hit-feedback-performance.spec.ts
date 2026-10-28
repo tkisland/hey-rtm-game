@@ -24,13 +24,13 @@ test('success feedback reuses six animations while repeated notes keep scoring a
     if(i)await page.clock.runFor(300);else await page.clock.runFor(16);
     await page.keyboard.press(['s','d','f','j','k','l'][i%6]);
   }
-  await expect(page.locator('#score')).toHaveText('24,000');
+  await expect(page.locator('#score')).toHaveText('1,008,333');
   expect(await page.evaluate(()=>(window as any).feedbackCreated)).toBe(6);
   await page.clock.runFor(1000);
   expect(await page.locator('.lane-judgement').evaluateAll(nodes=>nodes.flatMap(node=>node.getAnimations()).filter(animation=>animation.playState==='running').length)).toBe(0);
   // Cancelled animations are also reusable on an explicit restart.
   await page.locator('#restart').click();await page.clock.runFor(2016);await page.keyboard.press('s');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('41,666');
   expect(await page.evaluate(()=>(window as any).feedbackCreated)).toBe(6);
   // Let the next lane MISS, then its reused pop must be cancelled immediately.
   await page.clock.runFor(600);

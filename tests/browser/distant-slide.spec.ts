@@ -55,7 +55,7 @@ test('one captured finger crosses intermediate pads without releasing or tapping
   await expect(page.locator('#judgement-0 .judgement-label')).toHaveText(/オシ変！|HOLD/);
   await advanceTo(page,13);
   await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('500,900');
   await page.clock.runFor(1600);
   await expect(page.locator('#result-counts div').filter({hasText:'MISS'}).locator('strong')).toHaveText('1');
   await session.detach();
@@ -78,5 +78,5 @@ test('keyboard transfers directly between distant keys and scores at the final r
   await page.clock.runFor(16);
   await expect(page.locator('.lane-button').nth(0)).toHaveClass(/holding/);
   await advanceTo(page,13); await page.keyboard.up('s');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('500,900');
 });

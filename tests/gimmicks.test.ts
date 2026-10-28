@@ -23,22 +23,22 @@ describe('DD and box play', () => {
       const engine = new GameEngine(chart([{id:1,type:'tap',gimmick:'dd',time:1,lane:2}]));
       expect(engine.input(lane,1)).toMatchObject({judgement:'PERFECT',lane});
       for (let second=0;second<6;second++) expect(engine.input(second,1)).toBeNull();
-      expect(engine.score).toBe(1000); expect(engine.combo).toBe(1);
+      expect(engine.baseScore).toBe(Math.floor(1000 * 1000 / engine.notes.length)); expect(engine.combo).toBe(1);
     }
   });
   it('gives matching ordinary notes priority over DD without forming a chord with it', () => {
     const data = chart([{id:1,type:'tap',gimmick:'dd',time:1,lane:2},{id:2,type:'tap',time:1,lane:3}]);
     const engine = new GameEngine(data);
     expect(chordGroups(data.notes)).toEqual([]);
-    expect(engine.input(3,1)?.noteId).toBe(2); expect(engine.score).toBe(1000);
-    expect(engine.input(0,1)?.noteId).toBe(1); expect(engine.score).toBe(2000);
+    expect(engine.input(3,1)?.noteId).toBe(2); expect(engine.baseScore).toBe(Math.floor(1000 * 1000 / engine.notes.length));
+    expect(engine.input(0,1)?.noteId).toBe(1); expect(engine.baseScore).toBe(Math.floor(2000 * 1000 / engine.notes.length));
   });
   it('scores two distinct fingers opening from the center in either starting order exactly once', () => {
     for(const order of [[2,3,1,4,0,5],[3,2,4,1,5,0]]) {
       const engine=new GameEngine(box());
       order.forEach((lane,i)=>{
         const hit=engine.input(lane,1+Math.floor(i/2)*.04,{id:lane<3?'left':'right'});
-        expect(hit?.boxStep).toBe(i+1);expect(engine.score).toBe(i===5?1000:0);
+        expect(hit?.boxStep).toBe(i+1);expect(engine.baseScore).toBe(i===5?1000000:0);
       });
       expect(engine.counts).toEqual({PERFECT:1,GREAT:0,GOOD:0,MISS:0});
       expect(engine.combo).toBe(1);expect(engine.finished).toBe(true);
@@ -52,7 +52,7 @@ describe('DD and box play', () => {
         const time=1+error+Math.floor(i/2)*BOX_SWEEP_SECONDS/2;
         engine.advance(time);expect(engine.input(lane,time)?.judgement).toBe(grade);
       });
-      expect(engine.score).toBe(points);expect(engine.combo).toBe(1);
+      expect(engine.baseScore).toBe(Math.floor(points * 1000 / engine.notes.length));expect(engine.combo).toBe(1);
     }
     for(const error of [-.3501,.3501])expect(new GameEngine(box()).input(2,1+error)).toBeNull();
   });
@@ -60,30 +60,30 @@ describe('DD and box play', () => {
     for(const lanes of [[2,3,1,4,0,5],[0,1,2,3,4,5],[5,4,3,2,1,0],[2,3,1,4,2,5]]) {
       const engine=new GameEngine(box());
       lanes.forEach((lane,i)=>engine.input(lane,1+i*.02,{id:lanes[0]===2&&lanes[4]===0?'one':lane<3?'left':'right'}));
-      engine.advance(2);expect(engine.score).toBe(0);expect(engine.counts.MISS).toBe(1);
+      engine.advance(2);expect(engine.baseScore).toBe(0);expect(engine.counts.MISS).toBe(1);
     }
   });
   it('requires nearly simultaneous central contacts and an outward gesture within the deadline', () => {
     const late=new GameEngine(box());late.input(2,1,{id:'left'});
     expect(late.input(3,1.1501,{id:'right'})).toBeNull();
     late.input(1,1.2,{id:'left'});late.input(0,1.25,{id:'left'});late.advance(2);
-    expect(late.score).toBe(0);expect(late.counts.MISS).toBe(1);
+    expect(late.baseScore).toBe(0);expect(late.counts.MISS).toBe(1);
     const slow=new GameEngine(box());[2,3,1,4,0,5].forEach((lane,i)=>slow.input(lane,1+i*.08));
-    slow.advance(2);expect(slow.score).toBe(0);expect(slow.counts.MISS).toBe(1);
+    slow.advance(2);expect(slow.baseScore).toBe(0);expect(slow.counts.MISS).toBe(1);
     const edge=new GameEngine(box());edge.input(2,1);expect(edge.input(3,1.15)?.phase).toBe('sweep');
   });
   it('cancels partial lifts, allows a new attempt and lets a completed hand lift after both have joined', () => {
     const engine=new GameEngine(box());engine.input(2,.75,{id:'left'});engine.input(3,.75,{id:'right'});
     engine.cancelBoxGesture('left');expect(engine.notes[0].boxProgress).toBeUndefined();
     [2,3,1,4,0,5].forEach(lane=>engine.input(lane,1,{id:lane<3?'left2':'right2'}));
-    expect(engine.score).toBe(1000); // A cancelled attempt cannot retain its worse grade.
+    expect(engine.baseScore).toBe(Math.floor(1000 * 1000 / engine.notes.length)); // A cancelled attempt cannot retain its worse grade.
     const lifted=new GameEngine(box());
     lifted.input(2,1,{id:'left'});lifted.input(3,1,{id:'right'});
     lifted.input(1,1.04,{id:'left'});lifted.input(0,1.08,{id:'left'});lifted.cancelBoxGesture('left');
-    lifted.input(4,1.1,{id:'right'});lifted.input(5,1.12,{id:'right'});expect(lifted.score).toBe(1000);
+    lifted.input(4,1.1,{id:'right'});lifted.input(5,1.12,{id:'right'});expect(lifted.baseScore).toBe(Math.floor(1000 * 1000 / lifted.notes.length));
     const single=new GameEngine(box());[2,1,0].forEach((lane,i)=>single.input(lane,1+i*.02,{id:'first'}));
     single.cancelBoxGesture('first');expect(single.input(3,1.08,{id:'second'})).toBeNull();
-    single.advance(2);expect(single.score).toBe(0);
+    single.advance(2);expect(single.baseScore).toBe(0);
   });
   it('expires and seeks a box only once and never lets interpolated crossings hit ordinary notes', () => {
     const engine=new GameEngine(box());engine.input(2,1);engine.cancelBoxGesture('keyboard');
@@ -92,7 +92,7 @@ describe('DD and box play', () => {
     engine.seek(1.4,false);expect(engine.skipped).toBe(1);engine.seek(0,true);expect(engine.notes[0].boxHands).toBeUndefined();
     for(const gimmick of [undefined,'dd'] as const) {
       const ordinary=new GameEngine(chart([{id:1,type:'tap',lane:2,time:1,gimmick}]));
-      expect(ordinary.input(2,1,{id:'finger',sweepOnly:true})).toBeNull();expect(ordinary.score).toBe(0);
+      expect(ordinary.input(2,1,{id:'finger',sweepOnly:true})).toBeNull();expect(ordinary.baseScore).toBe(0);
       expect(ordinary.input(2,1)?.judgement).toBe('PERFECT');
     }
   });
@@ -100,7 +100,7 @@ describe('DD and box play', () => {
     const data=box();data.notes.push(...box().notes.map(note=>({...note,id:note.id+6,boxId:2,time:note.time+1})));
     data.notes.reverse();const engine=new GameEngine(data);
     for(const time of [1,2])for(const lane of [2,3,1,4,0,5])engine.input(lane,time);
-    expect(engine.score).toBe(2000);expect(engine.combo).toBe(2);
+    expect(engine.baseScore).toBe(Math.floor(2000 * 1000 / engine.notes.length));expect(engine.combo).toBe(2);
     const tutorial=tutorialChart(3),preview=new EditorPreview();preview.sync(tutorial);preview.seek(tutorial.startTime-.1);
     expect(preview.update(tutorial.startTime,true)).toEqual([expect.objectContaining({boxStep:6,boxComplete:true})]);
     expect(preview.update(tutorial.startTime+.1,true)).toEqual([]);preview.seek(0);expect(preview.update(4,true)).toEqual([]);
@@ -124,7 +124,7 @@ describe('slide gestures', () => {
     expect(engine.nextSlideLane(4)).toBe(0);
     engine.advance(23.65,new Set([0])); expect(engine.nextSlideLane(0)).toBe(2);
     engine.advance(24.65,new Set([2])); expect(engine.release(2,25.65)[0].judgement).toBe('PERFECT');
-    expect(engine.score).toBe(1000); expect(engine.combo).toBe(1);
+    expect(engine.baseScore).toBe(Math.floor(1000 * 1000 / engine.notes.length)); expect(engine.combo).toBe(1);
   });
   it('transfers a captured finger atomically and scores only at a successful final release', () => {
     const engine = new GameEngine(chart([slide()]));
@@ -132,15 +132,15 @@ describe('slide gestures', () => {
     expect(engine.advance(2,new Set([1]))).toEqual([expect.objectContaining({lane:1,phase:'move',judgement:'PERFECT'})]);
     expect(engine.release(0,2)).toEqual([]); expect(playLane(engine.notes[0])).toBe(1);
     expect(engine.advance(3,new Set([2]))[0].phase).toBe('move');
-    expect(engine.score).toBe(0); expect(engine.combo).toBe(0);
+    expect(engine.baseScore).toBe(0); expect(engine.combo).toBe(0);
     expect(engine.release(2,4)[0].judgement).toBe('PERFECT');
-    expect(engine.score).toBe(1000); expect(engine.combo).toBe(1); expect(engine.finished).toBe(true);
+    expect(engine.baseScore).toBe(Math.floor(1000 * 1000 / engine.notes.length)); expect(engine.combo).toBe(1); expect(engine.finished).toBe(true);
   });
   it('allows overlapping adjacent keyboard keys and uses the worst checkpoint judgement', () => {
     const engine = new GameEngine(chart([slide()])); engine.input(0,1);
     engine.advance(2.12,new Set([0,1])); expect(engine.release(0,2.13)).toEqual([]);
     engine.advance(2.5,new Set([1])); engine.advance(3,new Set([1,2])); engine.release(1,3);
-    expect(engine.release(2,4)[0].judgement).toBe('GREAT'); expect(engine.score).toBe(700);
+    expect(engine.release(2,4)[0].judgement).toBe('GREAT'); expect(engine.baseScore).toBe(Math.floor(700 * 1000 / engine.notes.length));
   });
   it('fails when released early, at a missed checkpoint, or after holding past the tail', () => {
     for (const mode of ['release','checkpoint','tail']) {
@@ -148,14 +148,14 @@ describe('slide gestures', () => {
       if (mode==='release') engine.release(0,1.5);
       if (mode==='checkpoint') engine.advance(2.2501,new Set([0]));
       if (mode==='tail') {engine.advance(2,new Set([1]));engine.advance(3,new Set([2]));engine.advance(4.2501,new Set([2]));}
-      expect(engine.score).toBe(0); expect(engine.counts.MISS).toBe(1); expect(engine.finished).toBe(true);
+      expect(engine.baseScore).toBe(0); expect(engine.counts.MISS).toBe(1); expect(engine.finished).toBe(true);
       engine.advance(5,new Set()); expect(engine.counts.MISS).toBe(1);
     }
   });
   it('does not accept a next key held too early or a skipped intermediate lane', () => {
     const engine = new GameEngine(chart([slide()])); engine.input(0,1);
     engine.advance(1.5,new Set([0,1])); engine.advance(2,new Set([0,1])); engine.advance(2.2501,new Set([0,1]));
-    expect(engine.counts.MISS).toBe(1); expect(engine.score).toBe(0);
+    expect(engine.counts.MISS).toBe(1); expect(engine.baseScore).toBe(0);
     engine.reset(); engine.input(0,1); engine.advance(2,new Set([2])); expect(engine.counts.MISS).toBe(1);
   });
   it('resets accepted checkpoints and preserves original chart paths during a seek', () => {
@@ -172,7 +172,7 @@ describe('slide gestures', () => {
     expect(hits[0].judgement).toBe(judgement);
     if (judgement !== 'MISS') {
       expect(hits[0]).toMatchObject({phase:'move',lane:5});
-      expect(engine.score).toBe(0); expect(engine.combo).toBe(0);
+      expect(engine.baseScore).toBe(0); expect(engine.combo).toBe(0);
       expect(engine.release(5,4)[0].judgement).toBe(judgement);
     }
     expect(engine.counts[judgement]).toBe(1);
@@ -272,11 +272,11 @@ it('accepts a prepared adjacent key only when the current key is released at the
   expect(playLane(engine.notes[0])).toBe(0);
   expect(engine.advance(2,new Set([1]))).toEqual([expect.objectContaining({phase:'move',lane:1,judgement:'PERFECT'})]);
   engine.advance(2.5,new Set([1,2]));engine.advance(3,new Set([2]));engine.release(2,4);
-  expect(engine.score).toBe(1000);expect(engine.counts.PERFECT).toBe(1);
+  expect(engine.baseScore).toBe(Math.floor(1000 * 1000 / engine.notes.length));expect(engine.counts.PERFECT).toBe(1);
 });
 
 it('still fails an early release onto a prepared key and never transfers from holding all keys alone', () => {
   const engine = new GameEngine(chart([slide()]));engine.advance(1,new Set([0]));engine.input(0,1);
   engine.advance(1.5,new Set([0,1]));engine.advance(1.6,new Set([1]));
-  expect(engine.counts.MISS).toBe(1);expect(engine.score).toBe(0);
+  expect(engine.counts.MISS).toBe(1);expect(engine.baseScore).toBe(0);
 });

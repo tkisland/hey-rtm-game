@@ -6,7 +6,7 @@ export default defineConfig({
   outputDir: 'test-results/admin',
   use: {
     baseURL: 'http://127.0.0.1:5173',
-    launchOptions: { executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium', args: ['--no-sandbox'] },
+    launchOptions: { executablePath: process.env.CHROMIUM_PATH || (process.env.CI ? undefined : '/usr/bin/chromium'), args: ['--no-sandbox'] },
   },
   webServer: { command: 'npm run dev:admin -- --port 5173 --strictPort', url: 'http://127.0.0.1:5173', reuseExistingServer: false },
   projects: [

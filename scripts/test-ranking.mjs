@@ -91,17 +91,56 @@ try {
       assert.equal(game.finished,true);
       return {score:game.score,maxCombo:game.maxCombo,results:game.rankingJudgements()};
     };
-    perfect=play(false);miss=play(true);assert.equal(perfect.score,8000);assert.equal(miss.score,6000);
+    perfect=play(false);miss=play(true);assert.equal(perfect.score,1002200);assert.equal(miss.score,752200);
+    // Cross-language agreement for fractional rounding, combo tiers/reset/cap,
+    // changing tempo, delayed chords, quality weights and failed hold/slide tails.
+    const parity=[];
+    for(const mode of ['perfect','mixed','failed-tail']) {
+      const data={...chart,tempoChanges:[{time:122,bpm:180}],notes:[
+        ...Array.from({length:120},(_,i)=>({id:i,type:'tap',lane:0,time:i+1})),
+        {id:120,type:'hold',lane:0,time:121,endTime:123.5},
+        {id:121,type:'hold',gimmick:'slide',lane:1,time:125,endTime:128,path:[{time:126,lane:5}]},
+        {id:122,type:'tap',lane:0,time:129,gimmick:'dd'},
+        ...Array.from({length:6},(_,lane)=>({id:123+lane,type:'tap',lane,time:130,gimmick:'box',boxId:2})),
+        {id:129,type:'hold',lane:0,time:132,endTime:134},{id:130,type:'tap',lane:1,time:132},
+      ]};
+      const game=new GameEngine(data);
+      for(let i=0;i<120;i++) {
+        if(mode==='mixed' && i%17===0)game.advance(i+1.17);
+        else game.input(0,i+1+(mode==='mixed' ? [0,.08,.15][i%3] : 0));
+      }
+      game.input(0,121);game.release(0,mode==='failed-tail'?122.5:123.65);
+      game.input(1,125);game.advance(mode==='mixed'?126.2:126,new Set([5]));game.release(5,mode==='failed-tail'?127:128);
+      game.input(3,mode==='mixed'?129.15:129);
+      for(const lane of [2,3,1,4,0,5])game.input(lane,mode==='mixed'?130.3:130);
+      game.input(0,132);game.input(1,132);game.release(0,mode==='failed-tail'?133:134);
+      assert.equal(game.finished,true);
+      parity.push({json:JSON.stringify(data),results:game.rankingJudgements(),expected:{score:game.score,maxCombo:game.maxCombo,baseScore:game.baseScore,comboBonus:game.comboBonus,specialBonus:game.specialBonus}});
+    }
+    const encodedParity=Buffer.from(JSON.stringify(parity)).toString('base64');
+    console.log(docker(['exec','-i',php,'php'],{input:`<?php require '/app/rhythm/api/core.php';
+      foreach(json_decode(base64_decode('${encodedParity}'),true) as $case) {
+        $actual=rh_calculate($case['json'],$case['results']);
+        if($actual!==$case['expected'])throw new Exception('Scoring mismatch: '.json_encode([$actual,$case['expected']]));
+      }echo 'TypeScript/PHP scoring parity: 3 complete mixed charts passed.';`}));
+
   } finally {await server.close();}
-  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:1};
+  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:2};
   const start=async(target=board)=>{
     const {token}=await api('start',target);
     sql(`UPDATE rhythm_sessions SET issued_at=issued_at-30 WHERE token_hash='${hash(token)}';`);return token;
   };
   await api('start',{...board,songId:'unknown'},400);await api('start',{...board,difficulty:'expert'},400);
   await api('start',{...board,rulesVersion:999},400);
+  await api('start',{...board,rulesVersion:1},400);
   await api('start',{...board,chartHash:'0'.repeat(64)},409);
   await api('start',board,403,'https://other.example');
+  const oldId=hash(`ranking-test|normal|${hash(fixture)}|rules1`),oldToken='1'.repeat(64);
+  sql(`INSERT INTO rhythm_boards (id,song_id,difficulty,chart_hash,rules_version,chart_json,minimum_seconds) VALUES ('${oldId}','ranking-test','normal','${hash(fixture)}',1,'${fixture}',0);
+    INSERT INTO rhythm_entries (board_id,token_hash,submission_hash,name,score,max_combo,created_at) VALUES ('${oldId}','${hash(oldToken)}','${hash('old')}','OLD',8000,8,1);
+    INSERT INTO rhythm_sessions (token_hash,board_id,issued_at,expires_at) VALUES ('${hash(oldToken)}','${oldId}',1,4102444800);`);
+  assert.deepEqual((await api('leaderboard',board)).entries,[]);
+  await api('submit',{token:oldToken,name:'OLD',...perfect},409);
   const early=(await api('start',board)).token;
   await api('submit',{token:early,name:'ABCDE',...perfect},422);
   const token=await start();
@@ -115,7 +154,7 @@ try {
   await api('submit',{token,name:'OTHER',...perfect},409);
   const second=await api('submit',{token:await start(),name:'ABC12',...perfect});assert.equal(second.rank,2);
   assert.equal((await api('submit',{token:await start(),name:'LOWER',...miss})).rank,3);
-  const list=await api('leaderboard',board);assert.deepEqual(list.entries.map(item=>[item.name,item.score]),[['ABC12',8000],['ABC12',8000],['LOWER',6000]]);
+  const list=await api('leaderboard',board);assert.deepEqual(list.entries.map(item=>[item.name,item.score]),[['ABC12',1002200],['ABC12',1002200],['LOWER',752200]]);
   const easy={...board,difficulty:'easy'};await start(easy);assert.deepEqual((await api('leaderboard',easy)).entries,[]);
   assert.equal((await api('submit',{token:await start(easy),name:'ab3',...perfect})).entry.name,'AB3');
   assert.equal((await api('submit',{token:await start(easy),name:'ABCD',...perfect})).entry.name,'ABCD');
@@ -137,7 +176,7 @@ try {
   // Fast-forwarding the browser clock must not bypass the API's real elapsed-time
   // check in production. Only these isolated test DB rows are shortened.
   sql('TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;TRUNCATE TABLE rhythm_entries;');
-  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:1});
+  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:2});
   sql('UPDATE rhythm_boards SET minimum_seconds=0;TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;');
   execFileSync(process.execPath,['node_modules/@playwright/test/cli.js','test','--config','playwright.ranking.config.ts'],{stdio:'inherit',env:{...env,RANKING_DB_CONTAINER:mysql}});
 } finally {

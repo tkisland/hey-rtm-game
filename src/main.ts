@@ -232,6 +232,9 @@ function showResults(): void {
   result.hidden = false;
   element('show-result').hidden = false;
   element('result-score').textContent = scoreFormat.format(engine.score);
+  element('result-base-score').textContent = scoreFormat.format(engine.baseScore);
+  element('result-combo-bonus').textContent = `＋${scoreFormat.format(engine.comboBonus)}`;
+  element('result-special-bonus').textContent = `＋${scoreFormat.format(engine.specialBonus)}`;
   element('result-combo').textContent = `MAX COMBO ${engine.maxCombo}`;
   if (!__ADMIN__ && !previewUid) {
     const share = element<HTMLAnchorElement>('result-share');
@@ -245,7 +248,7 @@ function showResults(): void {
     label.textContent = name; value.textContent = String(count);
     item.append(label, value); counts.append(item);
   }
-  element('result-accuracy').textContent = `得点率 ${engine.accuracy.toFixed(1)}%（判定済みノーツのみ） · 判定済み ${Object.values(engine.counts).reduce((sum,n)=>sum+n,0)} · シークでスキップ ${engine.skipped} / 全 ${engine.notes.length} ノーツ`;
+  element('result-accuracy').textContent = `基本スコア得点率 ${engine.accuracy.toFixed(1)}%（判定済みノーツのみ） · 判定済み ${Object.values(engine.counts).reduce((sum,n)=>sum+n,0)} · シークでスキップ ${engine.skipped} / 全 ${engine.notes.length} ノーツ`;
   void ranking?.show({score:engine.score,maxCombo:engine.maxCombo,results:engine.rankingJudgements()},engine.skipped===0 && videoRate===1);
 }
 function readTime(now: number): { time: number; playing: boolean } {

@@ -29,12 +29,12 @@ test('registers each play without login, preserves duplicate names and opens the
   const during:string[]=[];page.on('request',request=>{if(request.url().includes('/api/'))during.push(request.url());});
   await page.locator('#play-start').click();await page.clock.runFor(7650);await page.keyboard.press('l');
   expect(during).toEqual([]);await page.clock.fastForward(210000);await page.clock.runFor(1700);
-  await expect(page.locator('#ranking-form')).toBeVisible();await expect(page.locator('#result-score')).toHaveText('1,000');
+  await expect(page.locator('#ranking-form')).toBeVisible();await expect(page.locator('#result-score')).toHaveText('1,960');
   await page.locator('#ranking-name').fill('あいうえお');await page.locator('#ranking-submit').click();
   await expect(page.locator('#ranking-status')).toContainText('半角英数字3〜6文字');
   await page.locator('#ranking-name').fill('abc');await page.locator('#ranking-submit').click();
   await expect(page.locator('#ranking-status')).toContainText('ABC で登録しました！ 1位');
-  await expect(page.locator('#ranking-entries')).toContainText('1,000 / COMBO 1');await expect(page.locator('#ranking-submit')).toBeDisabled();
+  await expect(page.locator('#ranking-entries')).toContainText('1,960 / COMBO 1');await expect(page.locator('#ranking-submit')).toBeDisabled();
   const next=page.waitForResponse(response=>response.url().includes('action=start'));
   await page.locator('#result-replay').click();await page.clock.runFor(32);await next;
   await page.clock.fastForward(220000);await page.clock.runFor(1700);

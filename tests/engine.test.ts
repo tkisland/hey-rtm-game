@@ -16,7 +16,7 @@ describe('judgement and score', () => {
     const game = new GameEngine(chart([[12, 0], [12.2, 0]]));
     expect(game.input(0, 12.19)?.noteId).toBe(2);
     expect(game.input(0, 12.19)).toBeNull();
-    expect(game.score).toBe(1000);
+    expect(game.baseScore).toBe(Math.floor(1000 * 1000 / game.notes.length));
     expect(game.input(1, 12)).toBeNull();
   });
   it('awards a complete chord and continues combo for every non-MISS judgement', () => {
@@ -26,7 +26,7 @@ describe('judgement and score', () => {
     game.input(1, 13.15);
     expect(game.combo).toBe(3);
     expect(game.maxCombo).toBe(3);
-    expect(game.score).toBe(2000);
+    expect(game.baseScore).toBe(Math.floor(2000 * 1000 / game.notes.length));
     game.advance(14.161);
     expect(game.combo).toBe(0);
     expect(game.maxCombo).toBe(3);
@@ -50,14 +50,14 @@ describe('judgement and score', () => {
     game.input(0, 12);
     game.seek(14, false);
     expect(game.skipped).toBe(1);
-    expect(game.score).toBe(1000);
+    expect(game.baseScore).toBe(Math.floor(1000 * 1000 / game.notes.length));
     expect(game.combo).toBe(0);
     expect(game.advance(14)).toEqual([]);
     game.input(2, 14);
     game.seek(12, true);
-    expect(game.score).toBe(0);
+    expect(game.baseScore).toBe(0);
     expect(game.input(0, 12)?.judgement).toBe('PERFECT');
-    expect(game.score).toBe(1000);
+    expect(game.baseScore).toBe(Math.floor(1000 * 1000 / game.notes.length));
   });
   it('reset regenerates chart without retaining judged notes', () => {
     const game = new GameEngine(chart([[12, 0]]));
@@ -65,7 +65,7 @@ describe('judgement and score', () => {
     game.reset(generateChart(100, 8));
     expect(game.chart.bpm).toBe(100);
     expect(game.notes[0].time).toBe(8);
-    expect(game.score).toBe(0);
+    expect(game.baseScore).toBe(0);
     expect(game.notes.every(note => note.state === 'pending')).toBe(true);
   });
 });

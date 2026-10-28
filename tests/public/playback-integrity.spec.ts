@@ -16,10 +16,10 @@ test('a full SMG005 play with repeated one-second rendering gaps retains the hit
   await page.evaluate(()=>(window as any).testVideo.playVideo());
   await page.clock.runFor(7650);
   await page.keyboard.press('l');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('1,960');
   for(let second=0;second<211;second++)await page.clock.fastForward(1000);
   await expect(page.locator('#result')).toBeVisible();
-  await expect(page.locator('#result-score')).toHaveText('1,000');
+  await expect(page.locator('#result-score')).toHaveText('1,960');
   await expect(page.locator('#result-counts div').filter({hasText:'PERFECT'}).locator('strong')).toHaveText('1');
   await expect(page.locator('#result-counts div').filter({hasText:'MISS'}).locator('strong')).toHaveText('509');
   await expect(page.locator('#result-accuracy')).toContainText('判定済み 510');
@@ -35,7 +35,7 @@ test('a full SMG005 play with repeated one-second rendering gaps retains the hit
   await expect.poll(()=>page.evaluate(()=>(window as any).testVideo.getPlayerState())).toBe(1);
   await page.clock.runFor(7618);
   await page.keyboard.press('l');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('1,960');
 });
 
 test('normal 750ms iframe updates move visible notes on every rendered frame after learning the cadence',async({page})=>{
@@ -63,12 +63,12 @@ test('normal 750ms iframe updates move visible notes on every rendered frame aft
 test('a temporarily older iframe timestamp does not erase an earned score',async({page})=>{
   await page.evaluate(()=>(window as any).testVideo.playVideo());
   await page.clock.runFor(7650);await page.keyboard.press('l');
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('1,960');
   await page.evaluate(()=>{
     const video=(window as any).testVideo,original=video.getCurrentTime.bind(video),start=performance.now();
     video.getCurrentTime=()=>original()-(performance.now()-start<100?.12:0);
   });
   await page.clock.runFor(200);
-  await expect(page.locator('#score')).toHaveText('1,000');
+  await expect(page.locator('#score')).toHaveText('1,960');
   await expect(page.locator('#game-notice')).not.toContainText('後方シーク');
 });

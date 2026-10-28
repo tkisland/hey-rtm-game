@@ -62,5 +62,5 @@ it('plays the entire shipped chart with 510 perfect results including authored s
     engine.advance(time,pressed);
   }
   expect(engine.finished).toBe(true);expect(engine.counts).toEqual({PERFECT:510,GREAT:0,GOOD:0,MISS:0});
-  expect(engine.score).toBe(510000);expect(engine.combo).toBe(510);
+  expect(engine.baseScore).toBe(1000000); expect(engine.score).toBe(1111211);expect(engine.combo).toBe(510);
 });

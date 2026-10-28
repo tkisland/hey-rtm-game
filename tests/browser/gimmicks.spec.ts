@@ -28,6 +28,7 @@ test('imports special MIDI in the admin browser, preserves it on export, and und
 });
 
 test('edits DD and slide checkpoints through the browser and uses the real game input pipeline',async ({page}) => {
+  await page.addInitScript(()=>localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({sound:false})));
   await page.route('https://www.youtube.com/iframe_api',route => route.fulfill({contentType:'application/javascript',body:api}));
   await page.goto('/editor.html');await expect(page.locator('#record-toggle')).toBeEnabled();
   const chart={videoId:'pJDfWpZ7CI4',title:'推しノーツ',bpm:120,startTime:10,beatOrigin:0,notes:[{id:1,type:'tap',time:10,lane:0},{id:2,type:'tap',time:14,lane:2}]};
@@ -47,7 +48,7 @@ test('edits DD and slide checkpoints through the browser and uses the real game 
   await page.clock.runFor(1000);await page.keyboard.down('d');await page.keyboard.up('s');
   await expect(page.locator('.judgement-label').nth(1)).toHaveText(/オシ変|HOLD/);
   await page.clock.runFor(1000);await page.keyboard.down('f');await page.keyboard.up('d');
-  await page.clock.runFor(1000);await page.keyboard.up('f');await expect(page.locator('#score')).toHaveText('1,000');
-  await page.clock.runFor(1000);await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('2,000');
-  await page.clock.runFor(1600);await expect(page.locator('#result-score')).toHaveText('2,000');
+  await page.clock.runFor(1000);await page.keyboard.up('f');await expect(page.locator('#score')).toHaveText('501,200');
+  await page.clock.runFor(1000);await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('1,001,500');
+  await page.clock.runFor(1600);await expect(page.locator('#result-score')).toHaveText('1,001,500');
 });
