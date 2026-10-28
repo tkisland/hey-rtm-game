@@ -101,7 +101,7 @@ test('plays the edited chart and keeps it on restart, then switches back to prac
   await page.locator('#restart').click(); await expect(page.locator('#chart-info')).toContainText('2 NOTES');
   expect(await page.evaluate(() => (window as any).testVideo.getCurrentTime())).toBeLessThan(8);
   await page.locator('#settings-toggle').click(); await expect(page.locator('#bpm')).toBeDisabled();
-  await page.locator('#chart-source').selectOption('test'); await expect(page.locator('#chart-info')).toContainText('TEST CHART');
+  await page.locator('#chart-source').selectOption('test'); await expect(page.locator('#chart-info')).toContainText('PRACTICE CHART');
   await expect(page.locator('#bpm')).toBeEnabled();
 });
 

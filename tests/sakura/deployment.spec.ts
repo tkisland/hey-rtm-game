@@ -44,10 +44,11 @@ test('static metadata and OGP image use the Sakura address without requiring Jav
     const html=await response.text(),canonical=file==='index.html'?'https://hey.jpn.org/rhythm/':`https://hey.jpn.org/rhythm/${file}`;
     expect(html).toContain(`<link rel="canonical" href="${canonical}"`);
     expect(html).toContain(`<meta property="og:url" content="${canonical}"`);
-    expect(html).toContain('https://hey.jpn.org/rhythm/ogp-test-v1.png');
+    expect(html).toContain('https://hey.jpn.org/rhythm/ogp-v2.png');
+    expect(html).not.toMatch(/テスト版|試作|プロトタイプ/);
     expect(html).not.toContain('tkisland.github.io');expect(html).not.toContain('/src/');
   }
-  const image=await request.get('ogp-test-v1.png');expect(image.status()).toBe(200);
+  const image=await request.get('ogp-v2.png');expect(image.status()).toBe(200);
   expect(image.headers()['content-type']).toContain('image/png');
   // Local-only editing pages must not be included in the FTP upload.
   expect((await request.get('editor.html')).status()).toBe(404);
