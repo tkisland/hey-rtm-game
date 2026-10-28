@@ -2,6 +2,8 @@ import type { Chart, ChartNote } from './chart';
 import { copyNote } from './chart';
 import { playableNotes, chordGroups } from './note-display';
 
+/** Bump with scoring/judgement rule changes; rankings must not mix rule sets. */
+export const SCORE_RULES_VERSION = 1;
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 /** More forgiving releases and slide checkpoints; starts still use WINDOWS. */
 export const HOLD_WINDOWS = { PERFECT: 0.1, GREAT: 0.18, GOOD: 0.25 } as const;
@@ -37,6 +39,7 @@ export class GameEngine {
   private scoreGroups = new Map<PlayNote, PlayNote[]>();
   private awarded = new Set<PlayNote[]>();
   private previousPressed = new Set<number>();
+  private judgementOrder: number[] = [];
   constructor(public chart: Chart) { this.reset(); }
 
   nextSlideLane(lane: number): number | undefined {
@@ -54,11 +57,13 @@ export class GameEngine {
     this.counts = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
     this.lastHit = null;
     this.previousPressed.clear();
+    this.judgementOrder = [];
   }
 
   private record(note: PlayNote, judgement: Judgement, error: number, lane = playLane(note)): Hit {
     note.state = judgement === 'MISS' ? 'miss' : 'hit';
     note.judgement = judgement;
+    this.judgementOrder.push(note.id);
     const group = this.scoreGroups.get(note)!;
     if (!this.awarded.has(group) && group.every(member => member.state === 'hit')) {
       this.score += group.reduce((sum, member) => sum + POINTS[member.judgement!], 0);
@@ -195,6 +200,11 @@ export class GameEngine {
     }
   }
 
+  /** Materialized only after play; no per-frame serialization or result-object allocation. */
+  rankingJudgements(): {id:number;judgement:Judgement}[] {
+    const notes=new Map(this.notes.map(note=>[note.id,note]));
+    return this.judgementOrder.map(id=>({id,judgement:notes.get(id)!.judgement!}));
+  }
   get finished(): boolean { return this.notes.every(note => note.state !== 'pending' && note.state !== 'holding'); }
   get skipped(): number { return this.notes.filter(note => note.state === 'skipped').length; }
   get accuracy(): number {

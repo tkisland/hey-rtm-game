@@ -14,10 +14,10 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'hey-public-build-'));
   mkdirSync(join(root, 'dist/assets'), {recursive:true});
   mkdirSync(join(root, 'dist/.vite'), {recursive:true});
-  put('index.html', '<h1>Select music</h1>'); put('game.html', '<canvas></canvas>'); put('admin.html', '<button>Sign in</button>');
-  const manifest = Object.fromEntries(['index','game','admin'].map(name => [`${name}.html`, {file:`assets/${name}.js`}]));
+  put('index.html', '<h1>Select music</h1>'); put('game.html', '<canvas></canvas>'); put('admin.html', '<button>Sign in</button>');put('rankings.html','<h1>Ranking</h1>');
+  const manifest = Object.fromEntries(['index','game','admin','rankings'].map(name => [`${name}.html`, {file:`assets/${name}.js`}]));
   put('.vite/manifest.json',JSON.stringify(manifest));
-  for (const name of ['index','game','admin']) put(`assets/${name}.js`,'console.log(1);');
+  for (const name of ['index','game','admin','rankings']) put(`assets/${name}.js`,'console.log(1);');
 });
 afterEach(() => rmSync(root, {recursive:true, force:true}));
 it('accepts player pages and the sign-in entry', () => {
@@ -49,4 +49,10 @@ it('rejects an incomplete public artifact', () => {
 });
 it('refuses to publish the test project or emulator configuration', () => {
   put('assets/admin.js','demo-hey-rtm'); expect(verify).toThrow('Emulator configuration must not be published');
+});
+it('refuses database configuration and SQL setup files in public output',()=>{
+  mkdirSync(join(root,'dist/api'));
+  for(const file of ['api/config.php','config.example.php','schema.sql','.env.local']){
+    put(file,'private configuration');expect(verify).toThrow('Private server setup file');rmSync(join(root,'dist',file));
+  }
 });

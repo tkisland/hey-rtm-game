@@ -40,11 +40,20 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Check FTP output under /rhythm/
         run: npm run test:sakura
+      - name: Test ranking with isolated PHP and MySQL
+        run: npm run test:ranking
       - name: Upload FTP site package
         uses: actions/upload-artifact@v4
         with:
           name: rhythm-site
           path: dist
           include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload database setup templates
+        uses: actions/upload-artifact@v4
+        with:
+          name: ranking-setup
+          path: server/setup
           if-no-files-found: error
           retention-days: 30

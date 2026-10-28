@@ -9,12 +9,13 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "dev:admin": "vite --mode admin --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build && node scripts/check-public-build.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/prepare-ranking.mjs && node scripts/check-public-build.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:public": "playwright test --config playwright.public.config.ts",
     "test:sakura": "playwright test --config playwright.sakura.config.ts",
+    "test:ranking": "node scripts/test-ranking.mjs",
     "test:rules": "vitest run --config vitest.cloud.config.ts",
     "test:cloud": "playwright test --config playwright.cloud.config.ts"
   },

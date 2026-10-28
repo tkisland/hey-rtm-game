@@ -1,0 +1,18 @@
+.ranking-section { margin-top:18px; border-top:1px solid #c9a8ff33; padding-top:14px; }
+.ranking-section h3 { margin:0 0 10px; font:inherit; font-size:15px; color:#f7d3ec; }
+.ranking-form { display:flex; flex-wrap:wrap; align-items:end; gap:8px; }
+.ranking-form label { display:flex; flex-direction:column; gap:5px; font-size:11px; }
+.ranking-form input { width:150px; min-height:44px; padding:8px; border:1px solid #c9a8ff66; border-radius:8px; background:#171326; color:#fff; font:inherit; text-transform:uppercase; }
+.ranking-form button { min-height:44px; }
+.ranking-status,.ranking-note { font-size:11px; line-height:1.8; color:#d7cce7; overflow-wrap:anywhere; }
+.ranking-entries { list-style:none; padding:0; margin:10px 0; max-height:240px; overflow:auto; overscroll-behavior:contain; }
+.ranking-entries li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; padding:9px 6px; border-bottom:1px solid #c9a8ff22; font-size:11px; }
+.ranking-entries li strong { color:#fff; letter-spacing:1px; }
+.ranking-entries li span { color:#d1c3df; }
+.ranking-entries .ranking-own { background:#f477be22; border-radius:6px; }
+.ranking-page .panel { max-width:720px; margin:auto; }
+.ranking-filters { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0; }
+.ranking-filters label { display:flex; flex-direction:column; gap:6px; font-size:12px; }
+.ranking-filters select { max-width:100%; min-height:44px; padding:8px; font:inherit; background:#191326; color:#fff; border:1px solid #c9a8ff66; border-radius:8px; }
+.ranking-page .ranking-entries { max-height:none; }
+.ranking-open { display:inline-flex; align-items:center; text-decoration:none; }
