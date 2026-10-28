@@ -64,6 +64,7 @@ try {
   assert.equal((await api('status')).enabled,true);
   const shareQuery=new URLSearchParams({song:'biscuit-case',difficulty:'normal',v:'4',score:'1160000',base:'960000',combo:'328',skipped:'0'});
   const shareUrl=`http://127.0.0.1:4194/rhythm/share.php?${shareQuery}`;
+  assert.equal((await fetch(shareUrl.replace('v=4','v=5'))).status,200);
   const sharePage=await fetch(shareUrl);assert.equal(sharePage.status,200);
   const shareHtml=await sharePage.text();assert.ok(shareHtml.includes('ビスケットケース / ふつう'));
   assert.ok(shareHtml.includes('1,160,000'));assert.ok(shareHtml.includes('最高なLIVE！'));
@@ -153,7 +154,7 @@ try {
       }echo 'TypeScript/PHP scoring parity: 3 complete mixed charts passed.';`}));
 
   } finally {await server.close();}
-  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:4};
+  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:5};
   const start=async(target=board)=>{
     const {token}=await api('start',target);
     sql(`UPDATE rhythm_sessions SET issued_at=issued_at-30 WHERE token_hash='${hash(token)}';`);return token;
@@ -163,9 +164,10 @@ try {
   await api('start',{...board,rulesVersion:1},400);
   await api('start',{...board,rulesVersion:2},400);
   await api('start',{...board,rulesVersion:3},400);
+  await api('start',{...board,rulesVersion:4},400);
   await api('start',{...board,chartHash:'0'.repeat(64)},409);
   await api('start',board,403,'https://other.example');
-  for(const version of [1,2,3]) {
+  for(const version of [1,2,3,4]) {
     const oldId=hash(`ranking-test|normal|${hash(fixture)}|rules${version}`),oldToken=String(version).repeat(64);
     sql(`INSERT INTO rhythm_boards (id,song_id,difficulty,chart_hash,rules_version,chart_json,minimum_seconds) VALUES ('${oldId}','ranking-test','normal','${hash(fixture)}',${version},'${fixture}',0);
       INSERT INTO rhythm_entries (board_id,token_hash,submission_hash,name,score,max_combo,created_at) VALUES ('${oldId}','${hash(oldToken)}','${hash('old')}','OLD',${version===1?8000:1002200},8,1);
@@ -209,7 +211,7 @@ try {
   // Fast-forwarding the browser clock must not bypass the API's real elapsed-time
   // check in production. Only these isolated test DB rows are shortened.
   sql('TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;TRUNCATE TABLE rhythm_entries;');
-  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:4});
+  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:5});
   sql('UPDATE rhythm_boards SET minimum_seconds=0;TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;');
   execFileSync(process.execPath,['node_modules/@playwright/test/cli.js','test','--config','playwright.ranking.config.ts'],{stdio:'inherit',env:{...env,RANKING_DB_CONTAINER:mysql}});
 } finally {

@@ -39,7 +39,7 @@ it('cancels the tap portion of a chord when its hold tail misses', () => {
 it('waits for different hold endpoints and uses their actual tail judgement', () => {
   const engine=game([hold(0),hold(1,12)]); engine.input(0,10); engine.input(1,10);
   engine.release(0,11.08); expect(engine.baseScore).toBe(0);
-  engine.release(1,12.15); expect(engine.baseScore).toBe(Math.floor(1700 * 1000 / engine.notes.length));
+  engine.release(1,12.15); expect(engine.baseScore).toBe(Math.floor(1750 * 1000 / engine.notes.length));
   expect(engine.counts).toEqual({PERFECT:1,GREAT:1,GOOD:0,MISS:0});
 });
 it('discards incomplete chord points on a seek and resets the group settlement for replay', () => {

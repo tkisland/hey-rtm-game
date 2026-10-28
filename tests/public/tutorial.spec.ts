@@ -183,7 +183,7 @@ test('two outward touches score one box and plays one short arpeggio; mute suppr
     await advance(2500);await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:central});
     await expect(page.locator('#tutorial-score')).toHaveText('0 点 · COMBO 0');
     await advance(2580);await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[points[0],points[5]]});
-    await expect(page.locator('#tutorial-score')).toHaveText('701,050 点 · COMBO 1');
+    await expect(page.locator('#tutorial-score')).toHaveText('751,125 点 · COMBO 1');
     await expect(page.locator('#tutorial-feedback')).toHaveText('箱オシ成功！');
     await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     expect(await page.evaluate(()=>(window as any).boxTones)).toBe(1);

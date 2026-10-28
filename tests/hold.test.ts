@@ -16,7 +16,7 @@ describe('hold endpoint judgement and chord scoring', () => {
     expect(engine.advance(10.5, held(0))).toEqual([]);
     expect(engine.advance(11, held(0))).toEqual([]); expect(engine.baseScore).toBe(0);
     expect(engine.release(0, 11)).toMatchObject([{ judgement: 'GREAT', noteId: 1 }]);
-    expect(engine.baseScore).toBe(Math.floor(700 * 1000 / engine.notes.length)); expect(engine.combo).toBe(1); expect(engine.finished).toBe(true);
+    expect(engine.baseScore).toBe(Math.floor(750 * 1000 / engine.notes.length)); expect(engine.combo).toBe(1); expect(engine.finished).toBe(true);
     expect(engine.release(0, 11.1)).toEqual([]); expect(engine.advance(12, held(0))).toEqual([]);
     expect(engine.counts.GREAT).toBe(1);
   });
