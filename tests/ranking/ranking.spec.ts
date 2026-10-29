@@ -15,19 +15,29 @@ test.beforeEach(async({page})=>{
     localStorage.setItem('hey-rhythm-settings-v1',JSON.stringify({sound:false}));
     localStorage.setItem('hey-rhythm-onboarding-v1',JSON.stringify({seen:true,tutorial:true,timing:true}));
   });
-  const start=page.waitForResponse(response=>response.url().includes('action=start'));
-  await page.goto('./game.html');await page.clock.runFor(100);await expect(page.locator('#restart')).toBeEnabled();
-  expect((await start).status()).toBe(200);
+  await page.goto('./game.html');
+  await expect.poll(()=>page.evaluate(()=>Boolean((window as any).testVideo))).toBe(true);
+  await page.clock.runFor(100);await expect(page.locator('#restart')).toBeEnabled();
+  expect(sessionCounts()).toBe('0\t0');
 });
+function sessionCounts():string {
+  return execFileSync('docker',['exec','--env','MYSQL_PWD=rhythm_root_pass',process.env.RANKING_DB_CONTAINER!,'mysql','-N','-uroot','rhythm','-e','SELECT (SELECT COUNT(*) FROM rhythm_sessions),(SELECT COALESCE(SUM(hits),0) FROM rhythm_rate_limits);'],{encoding:'utf8'}).trim();
+}
+async function begin(page:Page):Promise<void>{
+  const response=page.waitForResponse(r=>r.url().includes('action=start'));
+  await page.locator('#play-start').click();await page.clock.runFor(16);
+  expect((await response).status()).toBe(200);
+}
 async function finish(page:Page,hit=true){
-  await page.locator('#play-start').click();await page.clock.runFor(7650);
+  await begin(page);await page.clock.runFor(7634);
   if(hit)await page.keyboard.press('l');
   await page.clock.fastForward(210000);await page.clock.runFor(1700);
   await expect(page.locator('#result')).toBeVisible();await expect(page.locator('#ranking-form')).toBeVisible();
 }
 test('registers each play without login, preserves duplicate names and opens the correct board from the menu',async({page})=>{
   const during:string[]=[];page.on('request',request=>{if(request.url().includes('/api/'))during.push(request.url());});
-  await page.locator('#play-start').click();await page.clock.runFor(7650);await page.keyboard.press('l');
+  await begin(page);expect(during.some(url=>url.includes('action=start'))).toBe(true);during.length=0;
+  await page.clock.runFor(7634);await page.keyboard.press('l');
   expect(during).toEqual([]);await page.clock.fastForward(210000);await page.clock.runFor(1700);
   await expect(page.locator('#ranking-form')).toBeVisible();await expect(page.locator('#result-score')).toHaveText('1,968');
   await page.locator('#ranking-name').fill('あいうえお');await page.locator('#ranking-submit').click();
@@ -77,7 +87,7 @@ test('a lost registration response can be retried without creating another recor
   await expect(page.locator('#ranking-entries li')).toHaveCount(1);
 });
 test('seeks and speed changes keep the result playable but ineligible for registration',async({page})=>{
-  await page.locator('#play-start').click();await page.clock.runFor(1000);
+  await begin(page);await page.clock.runFor(984);
   await page.evaluate(()=>(window as any).testVideo.seekTo(100));await page.clock.runFor(32);
   await page.clock.fastForward(130000);await page.clock.runFor(1700);
   await expect(page.locator('#ranking-status')).toContainText('シークしたプレイは登録できません');
@@ -106,4 +116,17 @@ test('a delayed response from the previous play cannot fill or lock the next reg
   await expect(page.locator('#ranking-form')).toBeVisible();await expect(page.locator('#ranking-name')).toHaveValue('');
   await expect(page.locator('#ranking-submit')).toBeEnabled();await expect(page.locator('#ranking-status')).not.toContainText('登録しました');
   await expect(page.locator('#ranking-entries')).toContainText('OLDER1');
+});
+
+test('pause/resume keeps one token and an iframe replay issues a new token with a fresh score',async({page})=>{
+  await begin(page);expect(sessionCounts()).toBe('1\t1');
+  await page.evaluate(()=>(window as any).testVideo.pauseVideo());await page.clock.runFor(32);await page.clock.fastForward(3000);
+  await page.evaluate(()=>(window as any).testVideo.playVideo());await page.clock.runFor(32);
+  expect(sessionCounts()).toBe('1\t1');
+  await page.clock.fastForward(220000);await page.clock.runFor(1700);await expect(page.locator('#result')).toBeVisible();
+  await page.evaluate(()=>(window as any).testVideo.setState(0));await page.clock.runFor(32);
+  const next=page.waitForResponse(r=>r.url().includes('action=start'));
+  await page.evaluate(()=>{const v=(window as any).testVideo;v.seekTo(0);v.playVideo();});await page.clock.runFor(32);
+  expect((await next).status()).toBe(200);expect(sessionCounts()).toBe('2\t2');
+  await expect(page.locator('#score')).toHaveText('0');await expect(page.locator('#result')).toBeHidden();
 });

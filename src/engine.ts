@@ -4,7 +4,7 @@ import { timeToBeat } from './tempo';
 import { playableNotes, chordGroups } from './note-display';
 
 /** Bump with scoring/judgement rule changes; rankings must not mix rule sets. */
-export const SCORE_RULES_VERSION = 6;
+export const SCORE_RULES_VERSION = 7;
 export const WINDOWS = { PERFECT: 0.05, GREAT: 0.1, GOOD: 0.16 } as const;
 /** More forgiving releases and slide checkpoints; starts still use WINDOWS. */
 export const HOLD_WINDOWS = { PERFECT: 0.1, GREAT: 0.18, GOOD: 0.25 } as const;
@@ -47,7 +47,9 @@ export class GameEngine {
   private scoreGroups = new Map<PlayNote, PlayNote[]>();
   private awarded = new Set<PlayNote[]>();
   private previousPressed = new Set<number>();
-  private judgementOrder: number[] = [];
+  private scoringOrder: PlayNote[] = [];
+  private scoringIndexes = new Map<PlayNote,number>();
+  private lastScoredIndex = -1;
   constructor(public chart: Chart) { this.reset(); }
 
   nextSlideLane(lane: number): number | undefined {
@@ -73,19 +75,41 @@ export class GameEngine {
     this.counts = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
     this.lastHit = null;
     this.previousPressed.clear();
-    this.judgementOrder = [];
+    this.scoringOrder = [...this.notes].sort((a,b)=>(a.type==='hold'?a.endTime:a.time)-(b.type==='hold'?b.endTime:b.time)||a.id-b.id);
+    this.scoringIndexes = new Map(this.scoringOrder.map((note,index)=>[note,index]));
+    this.lastScoredIndex = -1;
   }
 
   private record(note: PlayNote, judgement: Judgement, error: number, lane = playLane(note)): Hit {
     note.state = judgement === 'MISS' ? 'miss' : 'hit';
     note.judgement = judgement;
-    this.judgementOrder.push(note.id);
     this.counts[judgement]++;
-    this.combo = judgement !== 'MISS' ? this.combo + 1 : 0;
+    const index=this.scoringIndexes.get(note)!;
+    if(index>this.lastScoredIndex){this.applyScore(note);this.lastScoredIndex=index;}
+    else {
+      // Usually final judgements arrive in order. Rebuild only when an early/late
+      // release or MISS settles a note before one already scored; never per frame.
+      this.basePoints=this.comboPoints=this.specialBonus=this.combo=this.maxCombo=0;
+      this.comboSteps.clear();this.awarded.clear();
+      for(const settled of this.scoringOrder){
+        if(settled.state==='skipped')this.combo=0;
+        else if(settled.judgement!==undefined)this.applyScore(settled);
+      }
+    }
+    this.baseScore=Math.floor(this.basePoints*1000/this.notes.length);
+    this.comboBonus=Math.floor(this.comboPoints*15/this.notes.length);
+    this.lastHit = { judgement, lane, errorMs: error * 1000, noteId: note.id,
+      ...(note.gimmick === 'box' ? {boxId:note.boxId, ...(judgement !== 'MISS' ? {boxStep:6, boxComplete:true} : {})} : {}) };
+    return this.lastHit;
+  }
+
+  /** Ordered scoring also fixes simultaneous inputs independently of finger order. */
+  private applyScore(note: PlayNote): void {
+    this.combo = note.judgement !== 'MISS' ? this.combo + 1 : 0;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.comboSteps.set(note, Math.min(10, Math.floor(this.combo / 10)));
     const group = this.scoreGroups.get(note)!;
-    if (!this.awarded.has(group) && group.every(member => member.state === 'hit')) {
+    if (!this.awarded.has(group) && group.every(member => member.state === 'hit' && this.comboSteps.has(member))) {
       for (const member of group) {
         const points = POINTS[member.judgement!];
         this.basePoints += points;
@@ -93,13 +117,8 @@ export class GameEngine {
         this.specialBonus += Math.floor(this.specialPoints.get(member)! * points / POINTS.PERFECT);
       }
       // Round cumulative amounts once, so all PERFECT is exactly 1,000,000.
-      this.baseScore = Math.floor(this.basePoints * 1000 / this.notes.length);
-      this.comboBonus = Math.floor(this.comboPoints * 15 / this.notes.length);
       this.awarded.add(group);
     }
-    this.lastHit = { judgement, lane, errorMs: error * 1000, noteId: note.id,
-      ...(note.gimmick === 'box' ? {boxId:note.boxId, ...(judgement !== 'MISS' ? {boxStep:6, boxComplete:true} : {})} : {}) };
-    return this.lastHit;
   }
 
   advance(time: number, pressed?: ReadonlySet<number>): Hit[] {
@@ -227,8 +246,7 @@ export class GameEngine {
 
   /** Materialized only after play; no per-frame serialization or result-object allocation. */
   rankingJudgements(): {id:number;judgement:Judgement}[] {
-    const notes=new Map(this.notes.map(note=>[note.id,note]));
-    return this.judgementOrder.map(id=>({id,judgement:notes.get(id)!.judgement!}));
+    return this.scoringOrder.filter(note=>note.judgement!==undefined).map(note=>({id:note.id,judgement:note.judgement!}));
   }
   get finished(): boolean { return this.notes.every(note => note.state !== 'pending' && note.state !== 'holding'); }
   get skipped(): number { return this.notes.filter(note => note.state === 'skipped').length; }

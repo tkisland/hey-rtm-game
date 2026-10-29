@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const RH_SCORE_RULES_VERSION = 6;
+const RH_SCORE_RULES_VERSION = 7;
 
 final class RankingError extends RuntimeException {
     public function __construct(public int $httpStatus, public string $errorCode, string $message) { parent::__construct($message); }
@@ -120,6 +120,16 @@ function rh_calculate(string $json, mixed $results): array {
     $notes=rh_notes($json);
     if (!is_array($results) || !array_is_list($results) || count($results)!==count($notes)) rh_error(422,'invalid_result','最後までプレイした結果だけ登録できます。');
     $known=array_fill_keys(array_column($notes,'id'),true);[$membership,$groups]=rh_groups($notes);
+    // Validate all IDs and grades before scoring. The client cannot select combo order.
+    $byId=[];
+    foreach($results as $result){
+        if(!is_array($result))rh_error(422,'invalid_result','判定結果を確認できません。');
+        $id=$result['id'] ?? null;$grade=$result['judgement'] ?? null;
+        if(!is_int($id)||!isset($known[$id])||isset($byId[$id])||!is_string($grade)||!in_array($grade,['PERFECT','GREAT','GOOD','MISS'],true))rh_error(422,'invalid_result','判定結果を確認できません。');
+        $byId[$id]=$result;
+    }
+    usort($notes,static fn($a,$b)=>(($a['type']==='hold'?$a['endTime']:$a['time'])<=>($b['type']==='hold'?$b['endTime']:$b['time']))?:($a['id']<=>$b['id']));
+    $results=array_map(static fn($note)=>$byId[$note['id']],$notes);
     $chart=json_decode($json,true,64,JSON_THROW_ON_ERROR);$special=[];
     foreach ($notes as $note) $special[$note['id']]=rh_special_points($chart,$note);
     $points=['PERFECT'=>1000,'GREAT'=>750,'GOOD'=>500,'MISS'=>0];$judged=[];$awarded=[];$basePoints=0;$comboPoints=0;$specialBonus=0;$steps=[];$combo=0;$max=0;
@@ -209,6 +219,7 @@ function rh_submit(PDO $db, array $data): array {
         $query=$db->prepare('SELECT * FROM rhythm_sessions WHERE token_hash=? FOR UPDATE');$query->execute([$tokenHash]);$session=$query->fetch();
         if (!$session || (int)$session['expires_at']<time()) rh_error(410,'expired','登録の有効期限が切れました。もういちどプレイしてください。');
         $query=$db->prepare('SELECT * FROM rhythm_boards WHERE id=?');$query->execute([$session['board_id']]);$board=$query->fetch();
+        if (!$board) rh_error(410,'board_unavailable','このプレイの譜面情報を確認できません。もういちどプレイしてください。');
         if ((int)$board['rules_version']!==RH_SCORE_RULES_VERSION) rh_error(409,'rules_changed','採点ルールが更新されました。ページを読み込み直して再度プレイしてください。');
         if (time()-(int)$session['issued_at']<(int)$board['minimum_seconds']) rh_error(422,'too_early','プレイ時間を確認できません。最後までプレイしてから登録してください。');
         $result=rh_calculate($board['chart_json'],$data['results'] ?? null);

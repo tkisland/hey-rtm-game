@@ -71,7 +71,7 @@ try {
   }
   const shareQuery=new URLSearchParams({song:'biscuit-case',difficulty:'normal',v:'4',score:'1160000',base:'960000',combo:'328',skipped:'0'});
   const shareUrl=`http://127.0.0.1:4194/rhythm/share.php?${shareQuery}`;
-  for(const version of [5,6])assert.equal((await fetch(shareUrl.replace('v=4',`v=${version}`))).status,200);
+  for(const version of [5,6,7])assert.equal((await fetch(shareUrl.replace('v=4',`v=${version}`))).status,200);
   const sharePage=await fetch(shareUrl);assert.equal(sharePage.status,200);
   const shareHtml=await sharePage.text();assert.ok(shareHtml.includes('ビスケットケース / ふつう'));
   assert.ok(shareHtml.includes('1,160,000'));assert.ok(shareHtml.includes('最高なLIVE！'));
@@ -157,9 +157,13 @@ try {
     const encodedParity=Buffer.from(JSON.stringify(parity)).toString('base64');
     console.log(docker(['exec','-i',php,'php'],{input:`<?php require '/app/rhythm/api/core.php';
       foreach(json_decode(base64_decode('${encodedParity}'),true) as $case) {
-        $actual=rh_calculate($case['json'],$case['results']);
-        if($actual!==$case['expected'])throw new Exception('Scoring mismatch: '.json_encode([$actual,$case['expected']]));
-      }echo 'TypeScript/PHP scoring parity: 3 complete mixed charts passed.';`}));
+        $missFirst=$case['results'];usort($missFirst,static fn($a,$b)=>($a['judgement']==='MISS'?0:1)<=>($b['judgement']==='MISS'?0:1));
+        $rotated=array_merge(array_slice($case['results'],10),array_slice($case['results'],0,10));
+        foreach([$case['results'],array_reverse($case['results']),$missFirst,$rotated] as $results){
+          $actual=rh_calculate($case['json'],$results);
+          if($actual!==$case['expected'])throw new Exception('Scoring/order mismatch: '.json_encode([$actual,$case['expected']]));
+        }
+      }echo 'TypeScript/PHP scoring parity: 3 complete mixed charts in 4 submission orders passed.';`}));
 
     const {autoplayChart}=await server.ssrLoadModule('/tests/chart-autoplay.ts');
     for(const [songId,song] of Object.entries(catalog.songs)) {
@@ -171,7 +175,7 @@ try {
       }
     }
   } finally {await server.close();}
-  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:6};
+  const board={songId:'ranking-test',difficulty:'normal',chartHash:hash(fixture),rulesVersion:7};
   const start=async(target=board)=>{
     const {token}=await api('start',target);
     sql(`UPDATE rhythm_sessions SET issued_at=issued_at-30 WHERE token_hash='${hash(token)}';`);return token;
@@ -183,9 +187,10 @@ try {
   await api('start',{...board,rulesVersion:3},400);
   await api('start',{...board,rulesVersion:4},400);
   await api('start',{...board,rulesVersion:5},400);
+  await api('start',{...board,rulesVersion:6},400);
   await api('start',{...board,chartHash:'0'.repeat(64)},409);
   await api('start',board,403,'https://other.example');
-  for(const version of [1,2,3,4,5]) {
+  for(const version of [1,2,3,4,5,6]) {
     const oldId=hash(`ranking-test|normal|${hash(fixture)}|rules${version}`),oldToken=String(version).repeat(64);
     sql(`INSERT INTO rhythm_boards (id,song_id,difficulty,chart_hash,rules_version,chart_json,minimum_seconds) VALUES ('${oldId}','ranking-test','normal','${hash(fixture)}',${version},'${fixture}',0);
       INSERT INTO rhythm_entries (board_id,token_hash,submission_hash,name,score,max_combo,created_at) VALUES ('${oldId}','${hash(oldToken)}','${hash('old')}','OLD',${version===1?8000:1002200},8,1);
@@ -239,7 +244,7 @@ try {
   // Fast-forwarding the browser clock must not bypass the API's real elapsed-time
   // check in production. Only these isolated test DB rows are shortened.
   sql('TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;TRUNCATE TABLE rhythm_entries;');
-  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:6});
+  for(const song of ['super-mommy-girls','biscuit-case'])await api('start',{songId:song,difficulty:'normal',chartHash:hash(catalog.songs[song].charts.normal),rulesVersion:7});
   sql('UPDATE rhythm_boards SET minimum_seconds=0;TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;');
   execFileSync(process.execPath,['node_modules/@playwright/test/cli.js','test','--config','playwright.ranking.config.ts'],{stdio:'inherit',env:{...env,RANKING_DB_CONTAINER:mysql}});
 } finally {
