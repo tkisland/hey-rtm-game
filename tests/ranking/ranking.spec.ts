@@ -44,8 +44,8 @@ test('registers each play without login, preserves duplicate names and opens the
   if(test.info().project.name==='mobile-touch')await page.screenshot({path:test.info().outputPath('result-ranking.png')});
   await page.goto('./');await page.getByRole('link',{name:'ランキング',exact:true}).click();
   await expect(page.locator('#ranking-page-entries li')).toHaveCount(2);
-  await page.locator('#ranking-difficulty').selectOption('hard');await expect(page.locator('#ranking-page-status')).toContainText('まだ記録がありません');
-  await expect(page.locator('#ranking-play')).toHaveAttribute('href','./game.html?song=super-mommy-girls&difficulty=hard');
+  await page.locator('#ranking-difficulty').selectOption('hard');await expect(page.locator('#ranking-page-status')).toContainText('準備中');
+  await expect(page.locator('#ranking-play')).toBeHidden();
   await expect(page.locator('#ranking-page-entries li')).toHaveCount(0);
   await page.locator('#ranking-song').selectOption('biscuit-case');await page.locator('#ranking-difficulty').selectOption('normal');
   await expect(page.locator('#ranking-page-status')).toContainText('まだ記録がありません');

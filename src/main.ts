@@ -23,7 +23,7 @@ import { loadSettings, normalizePlayerSettings, normalizeSettings, saveSettings 
 import { PLAYER_STATE, VideoClock, stateName } from './sync';
 import { createYouTubePlayer, readYouTubeMetadata } from './youtube';
 import type { YouTubePlayer, YouTubeMetadata } from './youtube';
-import { findSong, songStorageKey, songUrl, songVideoUrl } from './songs';
+import { findSong, isPublicDifficulty, songStorageKey, songUrl, songVideoUrl } from './songs';
 import type { Song } from './songs';
 import {findDifficulty,difficultyLabel} from './difficulties';
 import type {Difficulty} from './difficulties';
@@ -62,7 +62,10 @@ if (!__ADMIN__) {
       if (!online || !online.chart.notes.length) throw new Error('No preview notes');
       previewUid = user.uid;
     } catch { location.replace(`./admin.html?song=${encodeURIComponent(song.id)}&difficulty=${difficulty}`); return; }
-  } else online = await publishedChart(song,difficulty);
+  } else {
+    if(!isPublicDifficulty(song,difficulty)){location.replace('./?unavailable-song=1');return;}
+    online = await publishedChart(song,difficulty);
+  }
 }
 const bundled = bundledChart(song,difficulty);
 if (!__ADMIN__ && !online && !bundled) { location.replace('./?unavailable-song=1'); return; }

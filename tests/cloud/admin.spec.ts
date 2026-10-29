@@ -59,12 +59,11 @@ test('edits, saves, previews and publishes each difficulty without touching norm
   await player.addInitScript(()=>localStorage.setItem('hey-rhythm-onboarding-v1',JSON.stringify({seen:true,tutorial:true,timing:true})));
   await player.goto('http://127.0.0.1:4184/');
   const select=player.getByRole('combobox',{name:'SUPER MOMMY GIRLSの難易度'});
-  await expect(select.locator('option[value="easy"]')).toHaveText('かんたん');
-  await expect(select.locator('option[value="hard"]')).toHaveText('むずかしい');
-  await select.selectOption('easy');await player.locator('[data-song="super-mommy-girls"] .song-play').click();
-  await expect(player.locator('#chart-info')).toContainText('1 NOTES');await expect(player.locator('#song-difficulty')).toHaveText('かんたん');
+  await expect(select.locator('option[value="easy"]')).toHaveText('かんたん（準備中）');
+  await expect(select.locator('option[value="hard"]')).toHaveText('むずかしい（準備中）');
+  await select.selectOption('easy');await expect(player.locator('[data-song="super-mommy-girls"] .song-play')).toHaveCount(0);
   await player.goto('http://127.0.0.1:4184/game.html');await expect(player.locator('#chart-info')).toContainText('3 NOTES');
-  await player.goto('http://127.0.0.1:4184/game.html?difficulty=hard');await expect(player.locator('#chart-info')).toContainText('891 NOTES');
+  await player.goto('http://127.0.0.1:4184/game.html?difficulty=hard');await expect(player).toHaveURL(/unavailable-song=1/);
   await context.close();
 });
 test('keeps the editor and video unloaded until Google identity and server role both allow access',async ({page})=>{

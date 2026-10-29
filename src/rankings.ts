@@ -1,7 +1,7 @@
 import './style.css';
 import './menu.css';
 import './ranking.css';
-import {SONGS,findSong,songUrl} from './songs';
+import {SONGS,findSong,isPublicDifficulty,songUrl} from './songs';
 import {DIFFICULTIES,findDifficulty,DEFAULT_DIFFICULTY} from './difficulties';
 import {bundledChart} from './bundled-charts';
 import {publishedChart} from './cloud-published';
@@ -21,6 +21,7 @@ async function show():Promise<void>{
   const current=++generation,song=findSong(songSelect.value)!,difficulty=findDifficulty(difficultySelect.value)!;
   status.textContent='ランキングを読み込んでいます…';list.replaceChildren();play.hidden=true;
   const url=new URL(location.href);url.searchParams.set('song',song.id);url.searchParams.set('difficulty',difficulty);history.replaceState(null,'',url);
+  if(!isPublicDifficulty(song,difficulty)){status.textContent='この難易度の譜面は準備中です。';return;}
   try {
     const online=await publishedChart(song,difficulty),chart=online?.chart ?? bundledChart(song,difficulty);
     if(current!==generation)return;

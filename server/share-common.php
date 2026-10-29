@@ -12,9 +12,9 @@ function rs_message(int $base): string {
 function rs_result(array $query): array {
     $catalog=rh_catalog();$song=$query['song'] ?? '';$difficulty=$query['difficulty'] ?? '';
     if (!is_string($song) || !isset($catalog['songs'][$song]) || !in_array($difficulty,['easy','normal','hard'],true)) rh_error(400,'invalid_share','共有する曲を確認してください。');
-    $query['art'] ??='2'; // Old links remain valid; new artwork gets a separate card-cache URL.
+    $query['art'] ??='3'; // Old links remain valid; new artwork gets a separate card-cache URL.
     $result=['song'=>$song,'difficulty'=>$difficulty];
-    foreach (['v'=>[4,6],'art'=>[2,2],'score'=>[0,2147483647],'base'=>[0,1000000],'combo'=>[0,5000],'skipped'=>[0,5000]] as $name=>[$min,$max]) {
+    foreach (['v'=>[4,6],'art'=>[2,3],'score'=>[0,2147483647],'base'=>[0,1000000],'combo'=>[0,5000],'skipped'=>[0,5000]] as $name=>[$min,$max]) {
         $value=$query[$name] ?? null;
         if (!is_string($value) || !preg_match('/^(0|[1-9][0-9]{0,9})$/D',$value) || (int)$value<$min || (int)$value>$max) rh_error(400,'invalid_share','共有する結果を確認してください。');
         $result[$name]=(int)$value;

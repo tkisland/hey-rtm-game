@@ -2,7 +2,7 @@ import './style.css';
 import './menu.css';
 import { LANE_COLORS } from './colors';
 import { CUSTOM_CHART_KEY, EDITOR_KEY, loadChart, storeChart } from './editor-model';
-import { findSong, SONGS, songStorageKey, songUrl } from './songs';
+import { findSong, isPublicDifficulty, SONGS, songStorageKey, songUrl } from './songs';
 import type { Song } from './songs';
 import { bundledChart } from './bundled-charts';
 import { tempoLabel } from './tempo';
@@ -47,7 +47,7 @@ function render(): void {
   document.getElementById('song-empty')!.hidden = songs.length > 0;
   songs.forEach(song => {
     const difficulty=selected.get(song.id) ?? DEFAULT_DIFFICULTY;
-    const saved = __ADMIN__ ? savedChart(song,difficulty) : null, bundled = online.get(chartKey(song,difficulty)) ?? bundledChart(song,difficulty), card = node('article', 'song-card'); card.dataset.song = song.id;
+    const saved = __ADMIN__ ? savedChart(song,difficulty) : null, bundled = (__ADMIN__ || isPublicDifficulty(song,difficulty)) ? online.get(chartKey(song,difficulty)) ?? bundledChart(song,difficulty) : null, card = node('article', 'song-card'); card.dataset.song = song.id;
     const artwork = node('div', 'song-art'); artwork.setAttribute('aria-hidden', 'true');
     artwork.append(node('span', 'cover-number', String(SONGS.indexOf(song) + 1).padStart(2, '0')));
     const lanes = node('div', 'cover-lanes');
@@ -58,7 +58,7 @@ function render(): void {
     const levelLabel=node('label','difficulty-choice'), level=node('select','song-difficulty');level.id=`difficulty-${song.id}`;
     level.setAttribute('aria-label',`${song.title}の難易度`);
     for(const item of DIFFICULTIES){
-      const available=online.has(chartKey(song,item.id)) || !!bundledChart(song,item.id);
+      const available=isPublicDifficulty(song,item.id) && (online.has(chartKey(song,item.id)) || !!bundledChart(song,item.id));
       const option=node('option','',`${item.label}${available || __ADMIN__ ? '' : '（準備中）'}`);option.value=item.id;level.append(option);
     }
     level.value=difficulty;
@@ -103,6 +103,7 @@ search.addEventListener('input', render, { signal: listeners.signal });
 window.addEventListener('pageshow', render, { signal: listeners.signal });
 render();
 if (!__ADMIN__) void Promise.all(SONGS.flatMap(song => DIFFICULTIES.map(async difficulty => {
+  if(!isPublicDifficulty(song,difficulty.id))return;
   try { const published = await publishedChart(song,difficulty.id); if (published) online.set(chartKey(song,difficulty.id), published.chart); }
   catch { /* The game reports a failed chart request without playing stale data. */ }
 }))).then(() => { if (!listeners.signal.aborted) render(); });
