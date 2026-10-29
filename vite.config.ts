@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import { readFileSync } from 'node:fs';
+import securityHeaders from './server/security-headers.json';
 import { parseCloudConfig } from './src/cloud-schema';
 
 export default defineConfig(({ mode }) => {
@@ -11,6 +12,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: './',
     appType: 'mpa',
+    preview: {headers:securityHeaders},
     define: { __ADMIN__: JSON.stringify(admin), __FIREBASE_CONFIG__:JSON.stringify(cloud), __FIREBASE_EMULATORS__:JSON.stringify(cloudTest) },
     plugins: [{
       name: 'separate-player-and-admin',
@@ -35,7 +37,7 @@ export default defineConfig(({ mode }) => {
     build: {
       manifest: true,
       outDir: admin ? 'dist-admin' : 'dist',
-      rollupOptions: { input: admin ? { menu: 'index.html', game: 'game.html', editor: 'editor.html', admin: 'admin.html', rankings:'rankings.html' } : { menu: 'index.html', game: 'game.html', admin: 'admin.html', rankings:'rankings.html' } },
+      rollupOptions: { input: admin ? { menu: 'index.html', game: 'game.html', editor: 'editor.html', admin: 'admin.html', rankings:'rankings.html',moderation:'moderation.html' } : { menu: 'index.html', game: 'game.html', admin: 'admin.html', rankings:'rankings.html',moderation:'moderation.html' } },
     },
   };
 });

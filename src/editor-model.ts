@@ -1,5 +1,5 @@
-import { copyChart, emptyChart, finite, parseChart, MAX_NOTES, MAX_TIME, MIN_HOLD } from './chart-data';
-export { copyChart, emptyChart, parseChart, MAX_NOTES, MAX_TIME, MIN_HOLD } from './chart-data';
+import { copyChart, emptyChart, finite, parseChart, MAX_NOTES, MAX_TIME, MIN_HOLD, MAX_NOTE_ID } from './chart-data';
+export { copyChart, emptyChart, parseChart, MAX_NOTES, MAX_TIME, MIN_HOLD, MAX_NOTE_ID } from './chart-data';
 import { DEFAULT_SONG } from './songs';
 import type { Song } from './songs';
 import type { Chart, ChartNote, SlidePoint } from './chart';
@@ -65,7 +65,7 @@ export class EditorModel {
     if (!finite(time, 0, MAX_TIME) || !Number.isInteger(lane) || lane < 0 || lane > 5) throw new Error('ノーツの秒数・レーンを確認してください。');
     if (this.chart.notes.length >= MAX_NOTES) throw new Error(`ノーツは最大${MAX_NOTES}個です。`);
     const id = Math.max(0, ...this.chart.notes.map(note => note.id)) + 1;
-    if (!Number.isSafeInteger(id)) throw new Error('ノーツIDの上限に達しました。JSONのIDを確認してください。');
+    if (!Number.isSafeInteger(id) || id > MAX_NOTE_ID) throw new Error('ノーツIDの上限に達しました。JSONのIDを確認してください。');
     const chart = copyChart(this.chart);
     if (endTime !== undefined && (!finite(endTime, 0, MAX_TIME) || endTime - time < MIN_HOLD - 1e-8)) throw new Error('長オシの終点は始点より30ms以上後にしてください。');
     const base = { id, time, lane, ...(recorded ? { sourceTime: time } : {}) };
@@ -124,7 +124,7 @@ export class EditorModel {
     if (this.chart.notes.some(other => other.lane === lane && Math.abs(other.time - note.time) <= 0.001)) throw new Error('選択したレーンには同じ時刻のノーツがあります。');
     if (this.chart.notes.length >= MAX_NOTES) throw new Error(`ノーツは最大${MAX_NOTES}個です。`);
     const id = Math.max(0, ...this.chart.notes.map(n => n.id)) + 1;
-    if (!Number.isSafeInteger(id)) throw new Error('ノーツIDの上限に達しました。');
+    if (!Number.isSafeInteger(id) || id > MAX_NOTE_ID) throw new Error('ノーツIDの上限に達しました。');
     if (note.gimmick) throw new Error('同時オシを追加するには通常の単オシ・長オシを選んでください。');
     const chart = copyChart(this.chart); chart.notes.push({ ...note, id, lane });
     return this.commit(chart);
@@ -179,7 +179,7 @@ export class EditorModel {
     if (!clipboard.notes.length) throw new Error('先に範囲をコピーしてください。');
     if (this.chart.notes.length + clipboard.notes.length > MAX_NOTES) throw new Error(`ノーツは最大${MAX_NOTES}個です。`);
     const firstId = Math.max(0, ...this.chart.notes.map(note => note.id)) + 1;
-    if (!Number.isSafeInteger(firstId + clipboard.notes.length - 1)) throw new Error('ノーツIDの上限に達しました。');
+    if (!Number.isSafeInteger(firstId + clipboard.notes.length - 1) || firstId + clipboard.notes.length - 1 > MAX_NOTE_ID) throw new Error('ノーツIDの上限に達しました。');
     const delta = at - clipboard.start;
     const boxIds = new Map<number, number>();
     let boxId = Math.max(0, ...this.chart.notes.map(note => note.boxId ?? 0));

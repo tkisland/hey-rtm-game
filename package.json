@@ -18,7 +18,8 @@
     "test:sakura": "playwright test --config playwright.sakura.config.ts",
     "test:ranking": "node scripts/test-ranking.mjs",
     "test:rules": "vitest run --config vitest.cloud.config.ts",
-    "test:cloud": "playwright test --config playwright.cloud.config.ts"
+    "test:cloud": "playwright test --config playwright.cloud.config.ts",
+    "test:headers": "node scripts/test-security-headers.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^6.0.0",

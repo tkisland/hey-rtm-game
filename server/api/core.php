@@ -198,12 +198,17 @@ function rh_resolve(PDO $db, array $catalog, array $key): array {
     $insert->execute([$id,$song,$difficulty,$hash,RH_SCORE_RULES_VERSION,$json,$minimum]);
     return ['id'=>$id,'chart_json'=>$json,'minimum_seconds'=>$minimum];
 }
+require_once __DIR__.'/rate-limit.php';
+function rh_has_visibility(PDO $db): bool { return (bool)$db->query("SHOW TABLES LIKE 'rhythm_entry_visibility'")->fetchColumn(); }
+function rh_is_hidden(PDO $db,string $tokenHash): bool {
+    if(!rh_has_visibility($db))return false;
+    $q=$db->prepare('SELECT 1 FROM rhythm_entries e JOIN rhythm_entry_visibility v ON v.entry_id=e.id WHERE e.token_hash=? AND v.hidden=1 LIMIT 1');$q->execute([$tokenHash]);return (bool)$q->fetchColumn();
+}
+function rh_public_entries(PDO $db): string { return rh_has_visibility($db)?'rhythm_entries e LEFT JOIN rhythm_entry_visibility v ON v.entry_id=e.id':'rhythm_entries e'; }
+function rh_visible_filter(PDO $db): string { return rh_has_visibility($db)?'COALESCE(v.hidden,0)=0 AND ':''; }
 function rh_start(PDO $db, array $config, array $catalog, array $data): array {
     $key=rh_board_key($data,$catalog);$now=time();$bucket=(int)floor($now/60);
-    $ip=hash_hmac('sha256',(string)($_SERVER['REMOTE_ADDR'] ?? ''),$config['db_password']);
-    $rate=$db->prepare('INSERT INTO rhythm_rate_limits (ip_hash,bucket,hits) VALUES (?,?,1) ON DUPLICATE KEY UPDATE hits=hits+1');$rate->execute([$ip,$bucket]);
-    $count=$db->prepare('SELECT hits FROM rhythm_rate_limits WHERE ip_hash=? AND bucket=?');$count->execute([$ip,$bucket]);
-    if ((int)$count->fetchColumn()>30) rh_error(429,'rate_limit','開始操作が続いています。少し待ってから再度お試しください。');
+    rh_rate_limit($db,$config,'start',max(1,min(1000,(int)($config['start_limit_per_minute'] ?? 180))));
     $board=rh_resolve($db,$catalog,$key);$token=bin2hex(random_bytes(32));
     $insert=$db->prepare('INSERT INTO rhythm_sessions (token_hash,board_id,issued_at,expires_at) VALUES (?,?,?,?)');$insert->execute([hash('sha256',$token),$key[0],$now,$now+7200]);
     $cleanup=$db->prepare('DELETE FROM rhythm_sessions WHERE expires_at<? LIMIT 100');$cleanup->execute([$now]);
@@ -230,6 +235,7 @@ function rh_validated_play(PDO $db,array $data): array {
     if (time()-(int)$session['issued_at']<(int)$board['minimum_seconds']) rh_error(422,'too_early','プレイ時間を確認できません。最後までプレイしてから登録してください。');
     $result=rh_calculate($board['chart_json'],$data['results'] ?? null);
     if (($data['score'] ?? null)!==$result['score'] || ($data['maxCombo'] ?? null)!==$result['maxCombo']) rh_error(422,'score_mismatch','判定結果と点数が一致しません。');
+    if(rh_is_hidden($db,$tokenHash))rh_error(409,'entry_hidden','この記録は公開されていません。');
     $ordered=array_map(static fn($r)=>['id'=>$r['id'],'judgement'=>$r['judgement']],$data['results']);usort($ordered,static fn($a,$b)=>$a['id']<=>$b['id']);
     $fingerprint=hash('sha256',json_encode($ordered,JSON_THROW_ON_ERROR));
     $shared=null;
@@ -271,7 +277,7 @@ function rh_submit(PDO $db, array $data): array {
             $query=$db->prepare('SELECT * FROM rhythm_entries WHERE id=?');$query->execute([$db->lastInsertId()]);$entry=$query->fetch();
         }
         $db->commit();
-        $query=$db->prepare('SELECT COUNT(*) FROM rhythm_entries WHERE board_id=? AND (score>? OR (score=? AND max_combo>?) OR (score=? AND max_combo=? AND id<?))');
+        $query=$db->prepare('SELECT COUNT(*) FROM '.rh_public_entries($db).' WHERE '.rh_visible_filter($db).'e.board_id=? AND (e.score>? OR (e.score=? AND e.max_combo>?) OR (e.score=? AND e.max_combo=? AND e.id<?))');
         $query->execute([$entry['board_id'],$entry['score'],$entry['score'],$entry['max_combo'],$entry['score'],$entry['max_combo'],$entry['id']]);
         return ['entry'=>rh_entry($entry),'rank'=>1+(int)$query->fetchColumn()];
     } catch (Throwable $error) { if ($db->inTransaction()) $db->rollBack();throw $error; }

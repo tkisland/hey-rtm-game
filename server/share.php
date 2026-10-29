@@ -8,7 +8,7 @@ $title=$result['title'].' / '.$result['level'].'｜HEY! RHYTHM!';
 $description=$result['legacy']?$result['message']:$result['message'].' TOTAL '.number_format($result['score']).' / MAX COMBO '.number_format($result['combo']);
 header('Content-Type: text/html; charset=utf-8');header('X-Content-Type-Options: nosniff');
 header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-header('Referrer-Policy: no-referrer');header('Cache-Control: public, max-age=86400');
+header('Referrer-Policy: no-referrer');header('Cache-Control: '.($result['legacy']?'public, max-age=86400':'public, max-age=0, must-revalidate'));
 ?>
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?=rs_escape($title)?></title><meta name="robots" content="noindex,follow">

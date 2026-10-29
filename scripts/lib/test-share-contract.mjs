@@ -28,7 +28,7 @@ export async function testSharedResults({api,docker,sql,start,perfect,miss,board
   const html=await page.text();assert.ok(html.includes('1,003,300'));assert.ok(!html.includes('2,147,483,647'));assert.ok(!html.includes(token));
   const imageUrl=`${base}share-image.php?id=${shared.id}&art=4`;
   const generated=budget().used;
-  const image=await fetch(imageUrl),png=Buffer.from(await image.arrayBuffer());assert.equal(image.status,200);
+  const image=await fetch(imageUrl),png=Buffer.from(await image.arrayBuffer());assert.equal(image.status,200);assert.ok(image.headers.get('cache-control').includes('must-revalidate'));
   assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a');assert.equal(png.readUInt32BE(16),1200);assert.equal(png.readUInt32BE(20),630);
   writeFileSync('/tmp/rhythm-verified-share-preview.png',png);
   const head=await fetch(imageUrl,{method:'HEAD'});assert.equal(head.status,200);assert.equal(Number(head.headers.get('content-length')),png.length);assert.equal((await head.arrayBuffer()).byteLength,0);
