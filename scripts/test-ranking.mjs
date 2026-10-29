@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {prepareAdminAuth} from './lib/admin-auth-fixture.mjs';
+import {testModeration} from './lib/test-moderation-contract.mjs';
 import {testSharedResults} from './lib/test-share-contract.mjs';
 import {execFileSync} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
@@ -9,7 +11,7 @@ import {lookup} from 'node:dns/promises';
 import {createServer} from 'vite';
 
 // Isolated real MySQL/PHP. No production server, credentials or Firebase writes.
-const suffix=randomUUID().slice(0,8),network=`rhythm-rank-${suffix}`,mysql=`rhythm-db-${suffix}`,php=`rhythm-php-${suffix}`;
+const suffix=randomUUID().slice(0,8),network=`rhythm-rank-${suffix}`,mysql=`rhythm-db-${suffix}`,php=`rhythm-php-${suffix}`,authName=`rhythm-auth-${suffix}`;
 const temporary=mkdtempSync(join(tmpdir(),'rhythm-ranking-'));
 const env={...process.env,DOCKER_CONFIG:process.env.DOCKER_CONFIG || join(tmpdir(),'rhythm-docker')};
 for(const key of ['http_proxy','https_proxy','no_proxy'])if(!env[key] && env[key.toUpperCase()])env[key]=env[key.toUpperCase()];
@@ -34,14 +36,15 @@ try {
   if(env.SSL_CERT_FILE && existsSync(env.SSL_CERT_FILE))buildAccess.push('--secret',`id=proxy_ca,src=${env.SSL_CERT_FILE}`);
   docker(['build',...buildAccess,...['HTTP_PROXY','HTTPS_PROXY','NO_PROXY','http_proxy','https_proxy','no_proxy'].flatMap(key=>['--build-arg',key]),'-f','server/Dockerfile.test','-t','hey-rhythm-ranking-test','server'],{stdio:'inherit'});
   docker(['network','create',network]);
+  const auth=prepareAdminAuth({docker,network,name:authName,temporary});
   docker(['run','-d','--name',mysql,'--network',network,'--network-alias','db','-e','MYSQL_ROOT_PASSWORD=rhythm_root_pass','-e','MYSQL_DATABASE=rhythm','-e','MYSQL_USER=rhythm','-e','MYSQL_PASSWORD=rhythm_test_pass','mysql:8.4']);
   let ready=false;
   for(let attempt=0;attempt<90;attempt++){
     try{sql('SELECT 1;');ready=true;break;}catch{await pause(1000);}
   }
-  assert.ok(ready,'MySQL did not become ready');sql(readFileSync('server/setup/schema.sql','utf8'));sql(readFileSync('server/setup/002-share-results.sql','utf8'));
-  writeFileSync(join(temporary,'config.php'),`<?php return ['db_host'=>'db','db_name'=>'rhythm','db_user'=>'rhythm','db_password'=>'rhythm_test_pass','allowed_origin'=>'http://127.0.0.1:4194','share_cache_max_bytes'=>2097152];`);
-  docker(['create','--name',php,'--network',network,'-p','127.0.0.1:4194:8080','-e','RHYTHM_CONFIG_PATH=/private/config.php','hey-rhythm-ranking-test']);
+  assert.ok(ready,'MySQL did not become ready');sql(readFileSync('server/setup/schema.sql','utf8'));sql(readFileSync('server/setup/002-share-results.sql','utf8'));sql(readFileSync('server/setup/003-ranking-moderation.sql','utf8'));
+  writeFileSync(join(temporary,'config.php'),`<?php return ['db_host'=>'db','db_name'=>'rhythm','db_user'=>'rhythm','db_password'=>'rhythm_test_pass','allowed_origin'=>'http://127.0.0.1:4194','share_cache_max_bytes'=>2097152,'start_limit_per_minute'=>30];`);
+  docker(['create','--name',php,'--network',network,'-p','127.0.0.1:4194:8080','-e','RHYTHM_CONFIG_PATH=/private/config.php','hey-rhythm-ranking-test','php','-d','openssl.cafile=/private/auth-fixture/ca.pem','-S','0.0.0.0:8080','-t','/app']);
   docker(['cp','dist',`${php}:/app/rhythm`]);docker(['cp',temporary,`${php}:/private`]);
   const catalog=JSON.parse(readFileSync('dist/api/catalog.json','utf8'));
   // The deployed catalog keeps its real public configuration; only this test copy
@@ -234,6 +237,7 @@ try {
   sql('TRUNCATE TABLE rhythm_rate_limits;');
   await testSharedResults({api,docker,sql,start,perfect,miss,board:{...board,difficulty:'hard'},php});
   sql('TRUNCATE TABLE rhythm_rate_limits;');
+  await testModeration({api,docker,sql,start,perfect,board:{...board,difficulty:'hard'},php,catalog,putCatalog,auth});
   const expired=await start();sql(`UPDATE rhythm_sessions SET expires_at=1 WHERE token_hash='${hash(expired)}';`);
   await api('submit',{token:expired,name:'ABCDE',...perfect},410);
   sql('TRUNCATE TABLE rhythm_rate_limits;');
@@ -254,7 +258,7 @@ try {
   sql('UPDATE rhythm_boards SET minimum_seconds=0;TRUNCATE TABLE rhythm_rate_limits;TRUNCATE TABLE rhythm_sessions;');
   execFileSync(process.execPath,['node_modules/@playwright/test/cli.js','test','--config','playwright.ranking.config.ts'],{stdio:'inherit',env:{...env,RANKING_DB_CONTAINER:mysql}});
 } finally {
-  for(const name of [php,mysql])try{docker(['rm','-f',name]);}catch{}
+  for(const name of [php,mysql,authName])try{docker(['rm','-f',name]);}catch{}
   try{docker(['network','rm',network]);}catch{}
   rmSync(temporary,{recursive:true,force:true});
 }

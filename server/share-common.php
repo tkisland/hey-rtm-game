@@ -15,7 +15,8 @@ function rs_result(array $query,?PDO $db=null): array {
         $id=$query['id'];$art=$query['art'] ?? (string)RS_ART;
         if(!is_string($id)||!preg_match('/^[a-f0-9]{32}$/D',$id)||$art!==(string)RS_ART)rh_error(400,'invalid_share','共有リンクを確認してください。');
         if(!$db){$config=rh_config();if(!$config)rh_error(503,'share_unavailable','共有結果を取得できません。');$db=rh_db($config);}
-        $q=$db->prepare('SELECT id,song_id,difficulty,title,rules_version,score,base_score,max_combo FROM rhythm_shared_results WHERE id=?');$q->execute([$id]);$row=$q->fetch();
+        $q=$db->prepare('SELECT id,token_hash,song_id,difficulty,title,rules_version,score,base_score,max_combo FROM rhythm_shared_results WHERE id=?');$q->execute([$id]);$row=$q->fetch();
+        if($row && rh_is_hidden($db,$row['token_hash']))rh_error(404,'share_not_found','共有結果が見つかりません。');
         if(!$row)rh_error(404,'share_not_found','共有結果が見つかりません。');
         $result=['id'=>$id,'art'=>RS_ART,'legacy'=>false,'song'=>$row['song_id'],'difficulty'=>$row['difficulty'],'title'=>$row['title'],'v'=>(int)$row['rules_version'],'score'=>(int)$row['score'],'base'=>(int)$row['base_score'],'combo'=>(int)$row['max_combo'],'skipped'=>0];
         return $result+['level'=>['easy'=>'かんたん','normal'=>'ふつう','hard'=>'むずかしい'][$result['difficulty']],'message'=>rs_message($result['base'])];

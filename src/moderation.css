@@ -1,0 +1,12 @@
+.moderation-panel { max-width:1000px; margin:20px auto; padding:20px; line-height:1.7; }
+.moderation-panel>p { font-size:13px; }
+.moderation-filters { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:16px 0; }
+.moderation-filters label { display:flex; gap:8px; align-items:center; }
+.moderation-filters select,.moderation-record input { color:#fff; background:#161126; padding:10px; border:1px solid #9d80bb; border-radius:6px; font:inherit; }
+.moderation-entries { padding:0; list-style:none; }
+.moderation-record { border:1px solid #8f77a8; border-radius:10px; padding:16px; margin:16px 0; overflow-wrap:anywhere; }
+.moderation-record h2 { font-size:17px; }
+.moderation-record p,.moderation-record details { font-size:12px; }
+.moderation-record label { display:block; margin:14px 0; font-size:12px; }
+.moderation-record input { display:block; width:100%; max-width:600px; margin-top:6px; font-size:16px; }
+.moderation-record.is-hidden { border-color:#77697e; background:#302632; }

@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 function files(directory) {
@@ -7,7 +7,7 @@ function files(directory) {
     return entry.isDirectory() ? files(path) : [path];
   });
 }
-const output = files('dist'), pages = ['index.html','game.html','admin.html','rankings.html'];
+const output = files('dist'), pages = ['index.html','game.html','admin.html','rankings.html','moderation.html'];
 for (const page of pages) if (!output.includes(join('dist', page))) throw new Error(`Missing public page: ${page}`);
 if (output.includes(join('dist','editor.html'))) throw new Error('Admin asset in public output: standalone local editor');
 const manifest = JSON.parse(readFileSync('dist/.vite/manifest.json','utf8'));
@@ -25,7 +25,7 @@ for (const page of pages) {
   const chunks = [...graph(page)].map(key => manifest[key].file);
   for (const file of [page,...chunks]) {
     const text = content(file);
-    const markers = page === 'admin.html' ? ['record-toggle'] : privateMarkers;
+    const markers = page === 'admin.html' || page === 'moderation.html' ? ['record-toggle'] : privateMarkers;
     for (const marker of markers) if (text.includes(marker)) throw new Error(`Admin functionality in initial ${file}: ${marker}`);
   }
 }
@@ -37,7 +37,11 @@ for (const page of pages) for (const key of graph(page,true)) {
 for (const path of output) {
   if (/\.(?:html|js)$/.test(path) && readFileSync(path,'utf8').includes('demo-hey-rtm')) throw new Error('Emulator configuration must not be published.');
   const relative = path.slice('dist'.length+1).replaceAll('\\','/');
+  if (/\.(?:sql|pem|key)$/i.test(relative)) throw new Error(`Private server setup file in public output: ${relative}`);
   if (/(?:^|\/)(?:config(?:\.example)?\.php|schema\.sql|\.env(?:\..*)?)$/.test(relative)) throw new Error(`Private server setup file in public output: ${relative}`);
   if (/\.(?:html|js|css)$/.test(path) && !referenced.has(relative)) throw new Error(`Admin asset in public output or unreferenced file: ${relative}`);
 }
 console.log('Public output verified: player pages contain no editing controls; online editor loads separately after administrator authentication.');
+
+// The manifest is a build-time verification input, not a deployment asset.
+rmSync('dist/.vite',{recursive:true,force:true});

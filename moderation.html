@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>ランキング管理｜HEY! RHYTHM!</title></head>
+<body class="admin-page"><div class="app-shell">
+<header class="topbar"><a class="brand" href="./">HEY! <span>RHYTHM!</span></a><a href="./admin.html">譜面の管理へ</a></header>
+<section class="panel admin-login"><p class="eyebrow">ADMINISTRATOR</p><h1>ランキング管理</h1>
+<p id="moderation-account"></p><button id="google-login" class="restart-button">Googleでログイン</button><button id="moderation-logout" class="text-button" hidden>ログアウト</button><p id="login-status" role="status">管理者権限を確認しています…</p></section>
+<main id="moderation-panel" class="panel moderation-panel" hidden>
+<p>記録を消さずに非表示・復元できます。理由と操作履歴は管理者だけが確認できます。非表示にすると関連する共有ページ・画像も停止します。Xに取得済みの画像は取り消せません。</p>
+<div class="moderation-filters"><label>曲<select id="moderation-song"></select></label><label>難易度<select id="moderation-difficulty"></select></label><button id="moderation-refresh" class="restart-button">読み込み直す</button></div>
+<p class="field-help">新しい登録順・1ページ50件。過去の採点ルール・譜面の記録も表示します。</p>
+<p id="moderation-status" role="status"></p><ol id="moderation-entries" class="moderation-entries"></ol>
+<div class="moderation-filters"><button id="moderation-previous" class="text-button" disabled>前のページ</button><button id="moderation-next" class="text-button" disabled>次のページ</button></div>
+</main></div><script type="module" src="/src/moderation.ts"></script></body></html>

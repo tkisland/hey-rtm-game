@@ -4,6 +4,7 @@ import type { Chart, ChartNote } from './chart';
 import { copyNote } from './chart';
 
 export const MAX_NOTES = 5000;
+export const MAX_NOTE_ID = 2147483647;
 export const MAX_TIME = 7200;
 export const MIN_HOLD = 0.03;
 const MAX_JSON_BYTES = 1024 * 1024;
@@ -33,7 +34,7 @@ export function parseChart(text: string, requireNotes = false, song: Song = DEFA
   if (!Array.isArray(value.notes) || value.notes.length > MAX_NOTES || (requireNotes && !value.notes.length)) throw new Error(`ノーツ数は${requireNotes ? '1' : '0'}〜${MAX_NOTES}個にしてください。`);
   const ids = new Set<number>();
   const notes: ChartNote[] = value.notes.map(item => {
-    if (!object(item) || !Number.isSafeInteger(item.id) || (item.id as number) < 1 || ids.has(item.id as number) || !finite(item.time, 0, MAX_TIME) || !Number.isInteger(item.lane) || !finite(item.lane, 0, 5) || (item.type !== 'tap' && item.type !== 'hold') || (item.sourceTime !== undefined && !finite(item.sourceTime, 0, MAX_TIME))) throw new Error('ノーツのID（一意の正整数）・秒数・レーン（0〜5）・typeを確認してください。');
+    if (!object(item) || !Number.isSafeInteger(item.id) || (item.id as number) < 1 || (item.id as number) > MAX_NOTE_ID || ids.has(item.id as number) || !finite(item.time, 0, MAX_TIME) || !Number.isInteger(item.lane) || !finite(item.lane, 0, 5) || (item.type !== 'tap' && item.type !== 'hold') || (item.sourceTime !== undefined && !finite(item.sourceTime, 0, MAX_TIME))) throw new Error('ノーツのID（一意の正整数）・秒数・レーン（0〜5）・typeを確認してください。');
     ids.add(item.id as number);
     if (item.gimmick !== undefined && !['box', 'dd', 'slide'].includes(item.gimmick as string)) throw new Error('ギミックはbox・dd・slideを指定してください。');
     const gimmick = item.gimmick as ChartNote['gimmick'];

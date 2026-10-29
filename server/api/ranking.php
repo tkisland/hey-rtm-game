@@ -28,7 +28,7 @@ try {
     elseif ($action==='submit') $result=rh_submit($db,rh_input());
     else {
         [$id]=rh_board_key($_GET,$catalog);
-        $query=$db->prepare('SELECT id,name,score,max_combo,created_at FROM rhythm_entries WHERE board_id=? ORDER BY score DESC,max_combo DESC,id ASC LIMIT 20');$query->execute([$id]);
+        $query=$db->prepare('SELECT e.id,e.name,e.score,e.max_combo,e.created_at FROM '.rh_public_entries($db).' WHERE '.rh_visible_filter($db).'e.board_id=? ORDER BY e.score DESC,e.max_combo DESC,e.id ASC LIMIT 20');$query->execute([$id]);
         $result=['entries'=>array_map('rh_entry',$query->fetchAll())];
     }
     echo json_encode(['ok'=>true]+$result,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);

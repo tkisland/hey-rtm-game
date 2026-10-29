@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,15 +14,16 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'hey-public-build-'));
   mkdirSync(join(root, 'dist/assets'), {recursive:true});
   mkdirSync(join(root, 'dist/.vite'), {recursive:true});
-  put('index.html', '<h1>Select music</h1>'); put('game.html', '<canvas></canvas>'); put('admin.html', '<button>Sign in</button>');put('rankings.html','<h1>Ranking</h1>');
-  const manifest = Object.fromEntries(['index','game','admin','rankings'].map(name => [`${name}.html`, {file:`assets/${name}.js`}]));
+  put('index.html', '<h1>Select music</h1>'); put('game.html', '<canvas></canvas>'); put('admin.html', '<button>Sign in</button>');put('rankings.html','<h1>Ranking</h1>');put('moderation.html','<h1>Moderation sign in</h1>');
+  const manifest = Object.fromEntries(['index','game','admin','rankings','moderation'].map(name => [`${name}.html`, {file:`assets/${name}.js`}]));
   put('.vite/manifest.json',JSON.stringify(manifest));
-  for (const name of ['index','game','admin','rankings']) put(`assets/${name}.js`,'console.log(1);');
+  for (const name of ['index','game','admin','rankings','moderation']) put(`assets/${name}.js`,'console.log(1);');
 });
 afterEach(() => rmSync(root, {recursive:true, force:true}));
 it('accepts player pages and the sign-in entry', () => {
   put('assets/game.js', 'console.log("player");');
   expect(verify()).toContain('Public output verified');
+  expect(existsSync(join(root,'dist/.vite/manifest.json'))).toBe(false);
 });
 it('allows the editor only in the dynamically loaded administrator graph', () => {
   const manifest = JSON.parse(requireManifest());
@@ -52,7 +53,7 @@ it('refuses to publish the test project or emulator configuration', () => {
 });
 it('refuses database configuration and SQL setup files in public output',()=>{
   mkdirSync(join(root,'dist/api'));
-  for(const file of ['api/config.php','config.example.php','schema.sql','.env.local']){
+  for(const file of ['api/config.php','config.example.php','schema.sql','003-ranking-moderation.sql','rate-limit.key','fixture-ca.pem','.env.local']){
     put(file,'private configuration');expect(verify).toThrow('Private server setup file');rmSync(join(root,'dist',file));
   }
 });
