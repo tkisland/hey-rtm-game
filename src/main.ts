@@ -145,7 +145,7 @@ const settingsToggle = element<HTMLButtonElement>('settings-toggle');
 const settingsPanel = element('settings-panel');
 let player: YouTubePlayer | null = null;
 let diagnosticMetadata: YouTubeMetadata | undefined, nextMetadataAt = 0;
-let state = -2;
+let state = -2, videoEnded = false;
 let awaitingAudio = false, preparingPlayback = false, playRequest = 0;
 let audioPauseAt = -Infinity;
 const audioPrompt = 'ノーツ音の準備が必要です。ゲーム側の「ゲームスタート」を押してライブをはじめてください。';
@@ -299,9 +299,15 @@ function readTime(now: number): { time: number; playing: boolean } {
       // A timeout still preserves pending notes; a retry or late seek can recover.
       return {time:gameTime,playing:false};
     }
+    // A genuine replay from the iframe starts a fresh game and ranking session.
+    // ENDED alone may reset the playhead; require actual playback near the start.
+    const iframeReplay=engine.finished && sample.playing && videoTime<=.5 && (videoEnded || sample.seek && sample.backwards);
+    if(iframeReplay){
+      engine.reset(activeChart());demo?.reset();ranking?.restart();clearResults();videoEnded=false;
+    }
     // Completed sessions keep their score and result until an explicit restart.
     // YouTube may reset its playhead or deliver a final discontinuity after ENDED.
-    if (sample.seek && !engine.finished && state !== PLAYER_STATE.ENDED) {
+    if (!iframeReplay && sample.seek && !engine.finished && state !== PLAYER_STATE.ENDED) {
       ranking?.invalidate('シークしたプレイは登録できません。最初からプレイして記録に挑戦しよう！');
       sound.cancelPending();
       engine.seek(demo ? gameTime : compensateInput(gameTime, settings.inputOffset), sample.backwards);
@@ -339,6 +345,7 @@ function setState(next: number): void {
   sound.setPlaybackActive(next === PLAYER_STATE.PLAYING && !clockStale);
   if (next !== state && next === PLAYER_STATE.PLAYING) void sound.unlock();
   if (next !== state && next !== PLAYER_STATE.PLAYING) sound.cancelPending();
+  if(next===PLAYER_STATE.ENDED)videoEnded=true;
   state = next;
   element('status-dot').classList.toggle('playing', next === PLAYER_STATE.PLAYING && !failed && !clockStale);
   const labels: Record<number, string> = {
@@ -434,6 +441,7 @@ async function restartGame(): Promise<void> {
   sound.cancelPending();
   if (!await preparePlayback()) return;
   engine.reset(activeChart());
+  videoEnded=false;
   demo?.reset();
   ranking?.restart();
   clearResults(); updateChartInfo(); clock.reset();
@@ -572,6 +580,7 @@ function frame(now: number): void {
   if (!sample.playing) engine.cancelBoxGesture();
   sound.setPlaybackActive(sample.playing || preparingPlayback);
   if (sample.playing) {
+    ranking?.start();
     const updates = demo ? demo.advance(sample.time,(lane,at)=>{if(sample.time-at<.12)sound.play(lane);})
       : engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
     if(demo)renderer.pressed=demo.pressed;

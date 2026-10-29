@@ -10,9 +10,9 @@ it('normalizes only three to six ASCII alphanumeric characters, without treating
 it('hashes the exact authoritative JSON and separates changed content',async()=>{
   expect(await chartHash('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
   expect(await chartHash('{"notes":[]}')).not.toBe(await chartHash('{"notes":[],"title":"new"}'));
-  expect(rankingBoard('song','normal','hash')).toEqual({songId:'song',difficulty:'normal',chartHash:'hash',rulesVersion:6});
+  expect(rankingBoard('song','normal','hash')).toEqual({songId:'song',difficulty:'normal',chartHash:'hash',rulesVersion:7});
 });
-it('exports final judgement completion order once and clears it when starting another play',()=>{
+it('exports authored completion order once and clears it when starting another play',()=>{
   const engine=new GameEngine({videoId:DEFAULT_SONG.videoId,title:'ranking',bpm:120,startTime:1,notes:[
     {id:1,time:1,lane:0,type:'hold',endTime:3},{id:2,time:2,lane:1,type:'tap'},
   ]});

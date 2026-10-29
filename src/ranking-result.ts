@@ -10,17 +10,23 @@ export function mountResultRanking(songId:string,difficulty:Difficulty,json:stri
   const list=document.getElementById('ranking-entries') as HTMLOListElement;
   const controller=new AbortController();
   let generation=0,alive=true,token:string|null=null,result:RankingResult|null=null,invalid='',submitted=false,busy=false;
-  let preparation:Promise<void>;
+  let preparation:Promise<void>=Promise.resolve(),started=false;
   const board:Promise<RankingBoard>=chartHash(json).then(hash=>rankingBoard(songId,difficulty,hash));
   const errorText=(error:unknown)=>error instanceof RankingError?error.message:'ランキングを利用できません。';
   let preparationError='';
-  function prepare():void {
-    const current=++generation;token=null;result=null;invalid='';submitted=false;busy=false;preparationError='';section.hidden=true;
+  function reset():void {
+    generation++;token=null;result=null;invalid='';submitted=false;busy=false;preparationError='';section.hidden=true;
     input.value='';input.disabled=false;button.disabled=false;list.replaceChildren();status.textContent='';
+    started=false;preparation=Promise.resolve();
+  }
+  function start():void {
+    if(started || !alive || invalid)return;
+    started=true;const current=generation;
     preparation=(async()=>{
       try {
         const [enabled,currentBoard]=await Promise.all([rankingEnabled(),board]);
         if(!enabled)throw new RankingError('not_configured','ランキングは準備中です。');
+        if(!alive || current!==generation)return;
         const next=await startRanking(currentBoard);if(alive && current===generation)token=next;
       }catch(error){if(alive && current===generation)preparationError=errorText(error);}
     })();
@@ -50,13 +56,15 @@ export function mountResultRanking(songId:string,difficulty:Difficulty,json:stri
       busy=false;button.disabled=submitted;input.disabled=submitted;
     });
   },{signal:controller.signal});
-  prepare();
+  reset();
   return {
-    restart:prepare,
+    start,
+    restart:reset,
     invalidate(reason:string){if(!result)invalid ||= reason;},
     clear(){section.hidden=true;result=null;},
     async show(value:RankingResult,eligible:boolean):Promise<void>{
       const current=generation;result=value;section.hidden=false;form.hidden=true;status.textContent='ランキングを確認しています…';
+      if(!started)invalid ||= '再生開始を確認できませんでした。もういちどプレイしてください。';
       if(!eligible)invalid ||= 'シークや再生速度の変更があるプレイは登録できません。';
       await preparation;
       if(!alive || current!==generation)return;

@@ -8,7 +8,7 @@ it('shares the selected song, difficulty and formatted result with a public Saku
   expect(url.searchParams.get('text')!.split('\n').slice(0,-1).join('\n')).toBe('#HeyRhythm\nレスが届いたLIVE！\nビスケットケース / むずかしい\nSCORE：652,000\nMAX COMBO：328');
   const shared=new URL(url.searchParams.get('text')!.split('\n').at(-1)!);
   expect(shared.origin+shared.pathname).toBe('https://hey.jpn.org/rhythm/share.php');
-  expect(Object.fromEntries(shared.searchParams)).toEqual({song:'biscuit-case',difficulty:'hard',v:'6',art:'3',score:'652000',base:'600000',combo:'328',skipped:'0'});
+  expect(Object.fromEntries(shared.searchParams)).toEqual({song:'biscuit-case',difficulty:'hard',v:'7',art:'3',score:'652000',base:'600000',combo:'328',skipped:'0'});
   expect([...url.searchParams.keys()]).toEqual(['text']);
   expect(url.searchParams.get('text')!.split('\n')).toHaveLength(6);
   expect(url.searchParams.get('text')).not.toMatch(/#HeyMommy|#HEY_RHYTHM/i);
