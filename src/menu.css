@@ -51,3 +51,5 @@
 .song-actions.player-difficulty-actions { grid-template-columns:minmax(0,1fr) minmax(64px,.6fr); }
 .player-difficulty-actions .difficulty-choice { grid-column:auto; }
 .song-difficulty { width:100%; min-width:0; min-height:44px; max-width:100%; border:1px solid #c9a8ff55; border-radius:8px; padding:6px; background:#191326; color:#fff; font:inherit; }
+
+.song-actions .song-demo { grid-column:1 / -1; color:#e9dcff; background:#26173d; border:1px solid #8564a9; }

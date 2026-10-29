@@ -38,14 +38,22 @@ jobs:
           VITE_FIREBASE_CONFIG: ${{ vars.FIREBASE_WEB_CONFIG }}
       - name: Install browser for subdirectory checks
         run: npx playwright install --with-deps chromium
-      - name: Check difficulty selection and replay
-        run: npm run test:public -- tests/public/difficulties.spec.ts
+      - name: Check difficulty selection, replay and demonstrations
+        run: npm run test:public -- tests/public/difficulties.spec.ts tests/public/demo-play.spec.ts
       - name: Check FTP output under /rhythm/
         run: npm run test:sakura
       - name: Check score breakdown, replay and slide releases
         run: npm run test:e2e -- tests/browser/scoring.spec.ts tests/browser/smg-slide-tail.spec.ts
       - name: Test ranking with isolated PHP and MySQL
         run: npm run test:ranking
+      - name: Upload browser failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-details
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload FTP site package
         uses: actions/upload-artifact@v4
         with:

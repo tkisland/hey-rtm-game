@@ -72,6 +72,10 @@ function render(): void {
       const play = node('a', 'song-play', __ADMIN__ ? bundled ? '収録譜面で遊ぶ' : '練習譜面で遊ぶ' : 'プレイ');
       play.href = __ADMIN__ ? songUrl(song, 'game', bundled ? 'bundled' : 'test',difficulty) : songUrl(song, 'game',false,difficulty);
       actions.append(play);
+      if(!__ADMIN__){
+        const demo=node('a','song-demo','見本プレイ');
+        demo.href=`${songUrl(song,'game',false,difficulty)}&mode=demo`;actions.append(demo);
+      }
     } else actions.append(node('span', 'song-unavailable', '準備中'));
     if (__ADMIN__) {
       const custom = node('button', 'song-saved', '保存譜面で遊ぶ'); custom.type = 'button'; custom.disabled = !saved;
