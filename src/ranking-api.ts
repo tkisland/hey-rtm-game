@@ -29,6 +29,11 @@ export async function loadRanking(board:RankingBoard):Promise<RankingEntry[]> {r
 export async function submitRanking(token:string,name:string,result:RankingResult):Promise<{entry:RankingEntry;rank:number}> {
   return request('submit',{token,name,...result},true);
 }
+export async function createSharedResult(token:string,result:RankingResult):Promise<string> {
+  const response=await request('share',{token,...result},true);
+  if(typeof response.id!=='string'||!/^[a-f0-9]{32}$/.test(response.id))throw new RankingError('invalid_share','共有リンクを確認できません。');
+  return response.id;
+}
 export function normalizeRankingName(value:string):string|null {return /^[a-zA-Z0-9]{3,6}$/.test(value)?value.toUpperCase():null;}
 export function renderRanking(list:HTMLOListElement,entries:RankingEntry[],highlight?:string):void {
   list.replaceChildren();

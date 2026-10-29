@@ -7,13 +7,17 @@ final class RankingError extends RuntimeException {
     public function __construct(public int $httpStatus, public string $errorCode, string $message) { parent::__construct($message); }
 }
 function rh_error(int $status, string $code, string $message): never { throw new RankingError($status,$code,$message); }
-function rh_config(): ?array {
+function rh_config_path(): ?string {
     $home=getenv('HOME') ?: '';
     if (preg_match('~^(/home/[^/]+)/~',__DIR__,$match)) $home=$match[1];
     $path=getenv('RHYTHM_CONFIG_PATH') ?: ($home ? $home.'/rhythm-private/config.php' : '');
     if (!$path || !is_file($path)) return null;
     $real=realpath($path);$root=realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
     if (!$real || preg_match('~^/home/[^/]+/www(?:/|$)~',$real) || ($root && ($real===$root || str_starts_with($real,$root.DIRECTORY_SEPARATOR)))) return null;
+    return $real;
+}
+function rh_config(): ?array {
+    $real=rh_config_path();if(!$real)return null;
     $config=require $real;
     if (!is_array($config)) return null;
     foreach (['db_host','db_name','db_user','db_password'] as $key) if (!is_string($config[$key] ?? null) || $config[$key]==='') return null;
@@ -209,6 +213,47 @@ function rh_start(PDO $db, array $config, array $catalog, array $data): array {
 function rh_entry(array $row): array {
     return ['id'=>(string)$row['id'],'name'=>$row['name'],'score'=>(int)$row['score'],'maxCombo'=>(int)$row['max_combo'],'createdAt'=>(int)$row['created_at']];
 }
+function rh_has_shared_results(PDO $db): bool {
+    // Additive migration: old ranking operations continue before the new table is installed.
+    return (bool)$db->query("SHOW TABLES LIKE 'rhythm_shared_results'")->fetchColumn();
+}
+/** Caller holds a transaction; bind completed results to one play, independently of its name. */
+function rh_validated_play(PDO $db,array $data): array {
+    $token=$data['token'] ?? null;
+    if(!is_string($token)||!preg_match('/^[a-f0-9]{64}$/D',$token))rh_error(400,'invalid_token','このプレイの登録情報を確認できません。');
+    $tokenHash=hash('sha256',$token);
+    $query=$db->prepare('SELECT * FROM rhythm_sessions WHERE token_hash=? FOR UPDATE');$query->execute([$tokenHash]);$session=$query->fetch();
+    if (!$session || (int)$session['expires_at']<time()) rh_error(410,'expired','登録の有効期限が切れました。もういちどプレイしてください。');
+    $query=$db->prepare('SELECT * FROM rhythm_boards WHERE id=?');$query->execute([$session['board_id']]);$board=$query->fetch();
+    if (!$board) rh_error(410,'board_unavailable','このプレイの譜面情報を確認できません。もういちどプレイしてください。');
+    if ((int)$board['rules_version']!==RH_SCORE_RULES_VERSION) rh_error(409,'rules_changed','採点ルールが更新されました。ページを読み込み直して再度プレイしてください。');
+    if (time()-(int)$session['issued_at']<(int)$board['minimum_seconds']) rh_error(422,'too_early','プレイ時間を確認できません。最後までプレイしてから登録してください。');
+    $result=rh_calculate($board['chart_json'],$data['results'] ?? null);
+    if (($data['score'] ?? null)!==$result['score'] || ($data['maxCombo'] ?? null)!==$result['maxCombo']) rh_error(422,'score_mismatch','判定結果と点数が一致しません。');
+    $ordered=array_map(static fn($r)=>['id'=>$r['id'],'judgement'=>$r['judgement']],$data['results']);usort($ordered,static fn($a,$b)=>$a['id']<=>$b['id']);
+    $fingerprint=hash('sha256',json_encode($ordered,JSON_THROW_ON_ERROR));
+    $shared=null;
+    if(rh_has_shared_results($db)){
+        $query=$db->prepare('SELECT * FROM rhythm_shared_results WHERE token_hash=?');$query->execute([$tokenHash]);$shared=$query->fetch();
+    }
+    if($shared && !hash_equals($shared['result_hash'],$fingerprint))rh_error(409,'result_changed','このプレイの結果はすでに確定しています。');
+    return [$tokenHash,$session,$board,$result,$fingerprint,$shared];
+}
+function rh_share(PDO $db,array $catalog,array $data): array {
+    $db->beginTransaction();
+    try {
+        [$tokenHash,$session,$board,$result,$fingerprint,$shared]=rh_validated_play($db,$data);
+        $query=$db->prepare('SELECT * FROM rhythm_entries WHERE token_hash=?');$query->execute([$tokenHash]);$entry=$query->fetch();
+        if($entry && !hash_equals($entry['submission_hash'],hash('sha256',json_encode([$entry['name'],$data['results']],JSON_THROW_ON_ERROR))))rh_error(409,'result_changed','このプレイの結果はすでに確定しています。');
+        if(!$shared){
+            $id=bin2hex(random_bytes(16));$title=$catalog['songs'][$board['song_id']]['title'] ?? null;
+            if(!is_string($title))throw new RuntimeException('Share song title is missing');
+            $query=$db->prepare('INSERT INTO rhythm_shared_results (id,token_hash,board_id,result_hash,song_id,difficulty,title,rules_version,score,base_score,max_combo,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+            $query->execute([$id,$tokenHash,$session['board_id'],$fingerprint,$board['song_id'],$board['difficulty'],$title,(int)$board['rules_version'],$result['score'],$result['baseScore'],$result['maxCombo'],time()]);
+        }else $id=$shared['id'];
+        $db->commit();return ['id'=>$id];
+    }catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+}
 function rh_submit(PDO $db, array $data): array {
     $token=$data['token'] ?? null;$name=$data['name'] ?? null;
     if (!is_string($token) || !preg_match('/^[a-f0-9]{64}$/D',$token)) rh_error(400,'invalid_token','このプレイの登録情報を確認できません。');
@@ -216,14 +261,7 @@ function rh_submit(PDO $db, array $data): array {
     $name=strtoupper($name);$tokenHash=hash('sha256',$token);
     $db->beginTransaction();
     try {
-        $query=$db->prepare('SELECT * FROM rhythm_sessions WHERE token_hash=? FOR UPDATE');$query->execute([$tokenHash]);$session=$query->fetch();
-        if (!$session || (int)$session['expires_at']<time()) rh_error(410,'expired','登録の有効期限が切れました。もういちどプレイしてください。');
-        $query=$db->prepare('SELECT * FROM rhythm_boards WHERE id=?');$query->execute([$session['board_id']]);$board=$query->fetch();
-        if (!$board) rh_error(410,'board_unavailable','このプレイの譜面情報を確認できません。もういちどプレイしてください。');
-        if ((int)$board['rules_version']!==RH_SCORE_RULES_VERSION) rh_error(409,'rules_changed','採点ルールが更新されました。ページを読み込み直して再度プレイしてください。');
-        if (time()-(int)$session['issued_at']<(int)$board['minimum_seconds']) rh_error(422,'too_early','プレイ時間を確認できません。最後までプレイしてから登録してください。');
-        $result=rh_calculate($board['chart_json'],$data['results'] ?? null);
-        if (($data['score'] ?? null)!==$result['score'] || ($data['maxCombo'] ?? null)!==$result['maxCombo']) rh_error(422,'score_mismatch','判定結果と点数が一致しません。');
+        [$tokenHash,$session,$board,$result]=rh_validated_play($db,$data);
         $submission=hash('sha256',json_encode([$name,$data['results']],JSON_THROW_ON_ERROR));
         $query=$db->prepare('SELECT * FROM rhythm_entries WHERE token_hash=?');$query->execute([$tokenHash]);$entry=$query->fetch();
         if ($entry && !hash_equals($entry['submission_hash'],$submission)) rh_error(409,'already_submitted','このプレイはすでに登録済みです。');

@@ -29,6 +29,7 @@ import type { Song } from './songs';
 import {findDifficulty,difficultyLabel} from './difficulties';
 import type {Difficulty} from './difficulties';
 import {resultShareUrl} from './result-share';
+import {RankingError} from './ranking-api';
 import {mountResultRanking} from './ranking-result';
 import { publishedChart } from './cloud-published';
 import type { CloudChart } from './cloud-schema';
@@ -159,7 +160,8 @@ let restartDeadline = 0;
 let restartTimedOut = false;
 const restartMessage = () => restartTimedOut ? '先頭からの再生を確認できません。「↻」で再試行してください' : '動画を先頭に戻しています…';
 let lastInputError: number | null = null;
-let resultShown = false;
+let resultShown = false, shareGeneration = 0;
+let retryShare:(()=>void)|null=null;
 let completionAt: number | null = null;
 const RESULT_DELAY_MS = 1500;
 let disposed = false;
@@ -222,6 +224,9 @@ function showHits(hits: Hit[], now: number): void {
   for (const hit of latest.values()) showHit(hit,now);
 }
 function clearResults(): void {
+  shareGeneration++;retryShare=null;
+  element('result-share-status').hidden=true;
+  element('result-share-retry').hidden=true;
   resultShown = false;
   completionAt = null;
   result.hidden = true;
@@ -252,10 +257,6 @@ function showResults(): void {
   element('result-combo-bonus').textContent = `＋${scoreFormat.format(engine.comboBonus)}`;
   element('result-special-bonus').textContent = `＋${scoreFormat.format(engine.specialBonus)}`;
   element('result-combo').textContent = `MAX COMBO ${engine.maxCombo}`;
-  if (!__ADMIN__ && !previewUid && !demoMode) {
-    const share = element<HTMLAnchorElement>('result-share');
-    share.href = resultShareUrl(song,difficulty,engine); share.hidden = false;
-  }
   const counts = element('result-counts');
   counts.replaceChildren();
   for (const [name, count] of Object.entries(engine.counts)) {
@@ -265,7 +266,28 @@ function showResults(): void {
     item.append(label, value); counts.append(item);
   }
   element('result-accuracy').textContent = `基本スコア得点率 ${engine.accuracy.toFixed(1)}%（判定済みノーツのみ） · 判定済み ${Object.values(engine.counts).reduce((sum,n)=>sum+n,0)} · シークでスキップ ${engine.skipped} / 全 ${engine.notes.length} ノーツ`;
-  void ranking?.show({score:engine.score,maxCombo:engine.maxCombo,results:engine.rankingJudgements()},engine.skipped===0 && videoRate===1);
+  const finishedResult={score:engine.score,maxCombo:engine.maxCombo,results:engine.rankingJudgements()};
+  const eligible=engine.skipped===0 && videoRate===1;
+  void ranking?.show(finishedResult,eligible);
+  if(!__ADMIN__&&!previewUid&&!demoMode){
+    const share=element<HTMLAnchorElement>('result-share'),shareStatus=element('result-share-status'),retry=element<HTMLButtonElement>('result-share-retry');
+    const display={score:engine.score,baseScore:engine.baseScore,maxCombo:engine.maxCombo,skipped:engine.skipped};
+    const generation=++shareGeneration;
+    share.href=resultShareUrl(song,difficulty,display);share.hidden=false;
+    const prepare=()=>{
+      if(!ranking||generation!==shareGeneration)return;
+      shareStatus.textContent='共有画像を準備しています。文章のみの共有もできます。';shareStatus.hidden=false;retry.hidden=true;
+      void ranking.share(finishedResult).then(id=>{
+        if(generation!==shareGeneration)return;
+        share.href=resultShareUrl(song,difficulty,display,id);shareStatus.hidden=true;
+      }).catch((error:unknown)=>{
+        if(generation!==shareGeneration)return;
+        shareStatus.textContent='画像付き共有を準備できませんでした。曲ページのリンクで共有できます。';
+        retry.hidden=!(error instanceof RankingError && ['connection','unavailable','share_setup','share_busy','share_rate_limit'].includes(error.code));
+      });
+    };
+    if(eligible){retryShare=prepare;prepare();}
+  }
 }
 function readTime(now: number): { time: number; playing: boolean } {
   if (!player || failed) return { time: smoothedVideoTime - (settings.offset + settings.noteOffset) / 1000, playing: false };
@@ -395,6 +417,7 @@ const disposePlayer = createYouTubePlayer({
   error: showError,
 }, song);
 
+element('result-share-retry').addEventListener('click',()=>retryShare?.(),{signal});
 element('result-close').addEventListener('click', () => { result.hidden = true; }, {signal});
 element('show-result').addEventListener('click', () => { result.hidden = false; }, {signal});
 

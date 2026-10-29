@@ -163,8 +163,10 @@
             <button id="result-replay" class="restart-button" type="button">もういちど遊ぶ</button>
             <a id="demo-play-normal" href="./game.html" class="restart-button" hidden>自分で遊ぶ</a>
             <a id="result-share" class="restart-button result-share" target="_blank" rel="noopener noreferrer" aria-label="プレイ結果をXで共有（新しいタブで開く）" hidden>Xで共有 ↗</a>
+            <button id="result-share-retry" class="text-button" type="button" hidden>画像付き共有を再試行</button>
             <a href="./" class="restart-button">ほかの曲を選ぶ</a>
           </div>
+          <p id="result-share-status" class="field-help" role="status" hidden></p>
           <details class="score-help"><summary>得点のしくみ</summary><p>基本スコアは全PERFECTで100万点。GREATは75％、GOODは50％です。同時オシは1つでもMISSになると、その組全体が0点です。</p><p>コンボボーナスは10コンボから基本配点の1.5％、10コンボごとに1.5％増え、100コンボ以上は15％です。</p><p>特殊操作は長オシの1拍につき150点、オシ変の移動1回につき追加450点、箱オシの完了で1,500点、DDで450点。最終判定に応じてGREATは75％、GOODは50％となり、最後まで成功したときに確定します。</p></details>
         </section>
         <!-- admin:start -->

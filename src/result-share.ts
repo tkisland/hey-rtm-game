@@ -1,5 +1,4 @@
 import {resultMessage} from './result-message';
-import {SCORE_RULES_VERSION} from './engine';
 import type {Song} from './songs';
 import {difficultyLabel} from './difficulties';
 import type {Difficulty} from './difficulties';
@@ -8,7 +7,7 @@ const publicSite='https://hey.jpn.org/rhythm/';
 const numbers=new Intl.NumberFormat('ja-JP');
 
 /** An ordinary user-activated link; no X SDK, credentials or requests during play. */
-export function resultShareUrl(song:Song,difficulty:Difficulty,result:{score:number;baseScore:number;maxCombo:number;skipped:number}):string {
+export function resultShareUrl(song:Song,difficulty:Difficulty,result:{score:number;baseScore:number;maxCombo:number;skipped:number},shareId?:string):string {
   const text=[
     '#HeyRhythm',
     resultMessage(result.baseScore)+(result.skipped>0?`（シークでスキップ：${numbers.format(result.skipped)}ノーツ）`:''),
@@ -18,8 +17,9 @@ export function resultShareUrl(song:Song,difficulty:Difficulty,result:{score:num
   ];
   const intent=new URL('https://twitter.com/intent/tweet');
   // Build a public play link independently from the current preview/debug URL.
-  const page=new URL('share.php',publicSite);
-  page.search=new URLSearchParams({song:song.id,difficulty,v:String(SCORE_RULES_VERSION),art:'3',score:String(result.score),base:String(result.baseScore),combo:String(result.maxCombo),skipped:String(result.skipped)}).toString();
+  if(shareId!==undefined&&!/^[a-f0-9]{32}$/.test(shareId))throw new Error('Invalid share result ID');
+  const page=new URL(shareId?'share.php':'game.html',publicSite);
+  page.search=new URLSearchParams(shareId?{id:shareId}:{song:song.id,difficulty}).toString();
   text.push(page.href);
   intent.searchParams.set('text',text.join('\n'));
   return intent.href;

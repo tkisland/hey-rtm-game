@@ -17,6 +17,6 @@ try {
   await mkdir('dist/api',{recursive:true});
   for(const file of ['ranking.php','core.php'])await copyFile(`server/api/${file}`,`dist/api/${file}`);
   await writeFile('dist/api/catalog.json',JSON.stringify({schemaVersion:1,rulesVersion:SCORE_RULES_VERSION,firebase:config?{projectId:config.projectId,apiKey:config.apiKey}:null,songs}));
-  for(const file of ['share.php','share-image.php','share-common.php'])await copyFile(`server/${file}`,`dist/${file}`);
+  for(const file of ['share.php','share-image.php','share-common.php','share-cache.php'])await copyFile(`server/${file}`,`dist/${file}`);
   console.log('Ranking PHP and authoritative chart catalog prepared; database credentials are not included.');
 } finally {await server.close();}
