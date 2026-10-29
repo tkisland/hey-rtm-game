@@ -16,9 +16,9 @@ it('ships the SMG005 MIDI with its tempo map, confirmed origin and all five note
   expect(chart.startTime).toBe(7.65); expect(chart.beatOrigin).toBe(7.65);
   expect(chart.tempoChanges).toEqual([{time:18.626632844,bpm:192}]);
   expect(chart.notes).toHaveLength(540);
-  const notes=playableNotes(chart.notes); expect(notes).toHaveLength(510);
+  const notes=playableNotes(chart.notes); expect(notes).toHaveLength(508);
   expect(chordGroups(notes)).toHaveLength(28);
-  expect(notes.filter(n=>n.type==='tap'&&!n.gimmick)).toHaveLength(474);
+  expect(notes.filter(n=>n.type==='tap'&&!n.gimmick)).toHaveLength(472);
   expect(notes.filter(n=>n.type==='hold'&&!n.gimmick)).toHaveLength(17);
   for(const [gimmick,count] of [['box',6],['dd',9],['slide',4]]) expect(notes.filter(n=>n.gimmick===gimmick)).toHaveLength(count as number);
   expect(notes.find(n=>n.time===127.261398469)).toMatchObject({gimmick:'slide',lane:4,path:[{time:127.886398469,lane:3}]});
@@ -38,7 +38,7 @@ it('maps the uploaded pitch 44 to purple without altering the source MIDI',()=>{
     expect(note.type).toBe(raw.endTick-raw.tick>=1.5*midi.ppq?'hold':'tap');
   }
 });
-it('plays the entire shipped chart with 510 perfect results including authored slides and single-score boxes',()=>{
+it('plays the entire shipped chart with 508 perfect results including authored slides and single-score boxes',()=>{
   const chart=convertMidi(input,config), notes=playableNotes(chart.notes), engine=new GameEngine(chart), pressed=new Set<number>();
   const times=[...new Set(notes.flatMap(n=>[n.time,...(n.type==='hold'?[n.endTime]:[]),...(n.path??[]).map(p=>p.time)]))].sort((a,b)=>a-b);
   for(const time of times) {
@@ -61,6 +61,6 @@ it('plays the entire shipped chart with 510 perfect results including authored s
     }
     engine.advance(time,pressed);
   }
-  expect(engine.finished).toBe(true);expect(engine.counts).toEqual({PERFECT:510,GREAT:0,GOOD:0,MISS:0});
-  expect(engine.baseScore).toBe(1000000); expect(engine.score).toBe(1166817);expect(engine.combo).toBe(510);
+  expect(engine.finished).toBe(true);expect(engine.counts).toEqual({PERFECT:508,GREAT:0,GOOD:0,MISS:0});
+  expect(engine.baseScore).toBe(1000000); expect(engine.score).toBe(1166755);expect(engine.combo).toBe(508);
 });

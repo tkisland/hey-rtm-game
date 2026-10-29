@@ -1,9 +1,15 @@
 import type {Chart,ChartNote} from '../../src/chart';
 import {copyNote} from '../../src/chart';
 import {copyChart} from '../../src/chart-data';
-import {playableNotes} from '../../src/note-display';
+import {boxGroups} from '../../src/note-display';
 import {beatToTime,timeToBeat} from '../../src/tempo';
 
+// Derive from authored MIDI timestamps. A tail marker can become a genuine tap
+// after easy mode shortens/converts its slide, so coalesce only box markers here.
+const authoredHeads=(notes:readonly ChartNote[]):ChartNote[]=>{
+  const first=new Set(boxGroups(notes).map(group=>group[0]));
+  return notes.filter(note=>note.gimmick!=='box'||first.has(note)).map(note=>note.gimmick==='box'?{...note,lane:2}:note);
+};
 const hand=(lane:number)=>lane<3?0:1;
 const end=(note:ChartNote)=>note.type==='hold'?note.endTime:note.time;
 function heads(notes:readonly ChartNote[]):ChartNote[][] {
@@ -18,7 +24,7 @@ function heads(notes:readonly ChartNote[]):ChartNote[][] {
 /** Offline authoring only. The game loads the exported, independently editable JSON. */
 export function easyChart(source:Chart):Chart {
   const result=copyChart(source);result.notes=[];
-  const groups=heads(playableNotes(source.notes));let previousBeat=-Infinity,previousHand=-1;
+  const groups=heads(authoredHeads(source.notes));let previousBeat=-Infinity,previousHand=-1;
   for(const [index,group] of groups.entries()) {
     const time=group[0].time,beat=timeToBeat(source,time),gap=beat-previousBeat;
     const even=Math.abs(beat/2-Math.round(beat/2))<.045;
@@ -47,7 +53,7 @@ export function easyChart(source:Chart):Chart {
 }
 
 export function hardChart(source:Chart):Chart {
-  const result=copyChart(source),original=playableNotes(source.notes),groups=heads(original);
+  const result=copyChart(source),original=authoredHeads(source.notes),groups=heads(original);
   let id=Math.max(...source.notes.map(n=>n.id))+1;
   const holds=original.filter(n=>n.type==='hold');
   const wide=original.filter(n=>n.gimmick==='box'||n.gimmick==='dd');
