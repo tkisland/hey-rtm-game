@@ -10,18 +10,17 @@ const numbers=new Intl.NumberFormat('ja-JP');
 /** An ordinary user-activated link; no X SDK, credentials or requests during play. */
 export function resultShareUrl(song:Song,difficulty:Difficulty,result:{score:number;baseScore:number;maxCombo:number;skipped:number}):string {
   const text=[
-    resultMessage(result.baseScore),
+    '#HeyRhythm',
+    resultMessage(result.baseScore)+(result.skipped>0?`（シークでスキップ：${numbers.format(result.skipped)}ノーツ）`:''),
     `${song.title} / ${difficultyLabel(difficulty)}`,
     `SCORE：${numbers.format(result.score)}`,
     `MAX COMBO：${numbers.format(result.maxCombo)}`,
   ];
-  if(result.skipped>0)text.push(`シークでスキップ：${numbers.format(result.skipped)}ノーツ`);
   const intent=new URL('https://twitter.com/intent/tweet');
-  intent.searchParams.set('text',text.join('\n'));
   // Build a public play link independently from the current preview/debug URL.
   const page=new URL('share.php',publicSite);
   page.search=new URLSearchParams({song:song.id,difficulty,v:String(SCORE_RULES_VERSION),art:'2',score:String(result.score),base:String(result.baseScore),combo:String(result.maxCombo),skipped:String(result.skipped)}).toString();
-  intent.searchParams.set('url',page.href);
-  intent.searchParams.set('hashtags','HeyMommy,HEY_RHYTHM');
+  text.push(page.href);
+  intent.searchParams.set('text',text.join('\n'));
   return intent.href;
 }
