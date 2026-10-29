@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import type {Page} from '@playwright/test';
 import {api} from '../browser/mock-video';
 
 test.beforeEach(async({page,context})=>{
@@ -18,11 +19,21 @@ test.beforeEach(async({page,context})=>{
   await page.clock.runFor(100);await expect(page.locator('#restart')).toBeEnabled();
 });
 
+async function begin(page:Page):Promise<void>{
+  const start=page.waitForResponse(r=>r.url().includes('action=start'));
+  await page.locator('#play-start').click();await page.clock.runFor(16);
+  await (await start).finished();await page.clock.runFor(16);
+}
+async function replay(page:Page):Promise<void>{
+  const start=page.waitForResponse(r=>r.url().includes('action=start'));
+  await page.locator('#result-replay').click();await page.clock.runFor(32);
+  await (await start).finished();await page.clock.runFor(16);
+}
 test('sharing is user-activated and opens the finalized public result without changing the game',async({page,context})=>{
   const requests:string[]=[];
   context.on('request',request=>{if(new URL(request.url()).hostname==='twitter.com')requests.push(request.url());});
   const share=page.locator('#result-share');await expect(share).not.toBeVisible();await expect(share).not.toHaveAttribute('href',/.+/);
-  await page.locator('#play-start').click();await page.clock.runFor(7650);await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('1,968');
+  await begin(page);await page.clock.runFor(7618);await page.keyboard.press('l');await expect(page.locator('#score')).toHaveText('1,968');
   await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(220);video.setState(0);});
   await page.clock.runFor(1400);await expect(share).not.toBeVisible();
   await page.clock.runFor(300);await expect(share).toBeVisible();
@@ -41,7 +52,7 @@ test('sharing is user-activated and opens the finalized public result without ch
   await popup.close();await page.locator('#result-close').click();
   await page.locator('.playback-details summary').click();await page.locator('#show-result').click();
   await expect(share).toHaveAttribute('href',finalLink.href);
-  await page.locator('#result-replay').click();await page.clock.runFor(32);
+  await replay(page);
   await expect(share).not.toBeVisible();await expect(share).not.toHaveAttribute('href',/.+/);
   await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(220);video.setState(0);});
   await page.clock.runFor(1700);await expect(share).toBeVisible();
@@ -49,7 +60,9 @@ test('sharing is user-activated and opens the finalized public result without ch
 });
 
 test('Biscuit Case shares its own title and play link and distinguishes skipped notes',async({page})=>{
-  await page.goto('/game.html?song=biscuit-case&sync=1');await page.clock.runFor(100);await expect(page.locator('#restart')).toBeEnabled();
+  await page.goto('/game.html?song=biscuit-case&sync=1');
+  await expect.poll(()=>page.evaluate(()=>Boolean((window as any).testVideo))).toBe(true);
+  await page.clock.runFor(100);await expect(page.locator('#restart')).toBeEnabled();
   await page.evaluate(()=>{const video=(window as any).testVideo;video.seekTo(1);video.playVideo();});
   await page.clock.runFor(32);
   await page.evaluate(()=>(window as any).testVideo.seekTo(200));await page.clock.runFor(32);
@@ -66,7 +79,7 @@ test('Biscuit Case shares its own title and play link and distinguishes skipped 
 test('a failed share can retry without blocking ranking or publishing a numeric result URL',async({page})=>{
   let attempts=0;
   await page.route('**/api/ranking.php?action=share',r=>r.fulfill(++attempts===1?{status:503,json:{ok:false,code:'unavailable',message:'retry'}}:{json:{ok:true,id:'c'.repeat(32)}}));
-  await page.locator('#play-start').click();await page.clock.runFor(16);await page.clock.fastForward(220000);await page.clock.runFor(1700);
+  await begin(page);await page.clock.fastForward(220000);await page.clock.runFor(1700);
   const share=page.locator('#result-share');await expect(page.locator('#result-share-retry')).toBeVisible();
   expect(new URL(new URL((await share.getAttribute('href'))!).searchParams.get('text')!.split('\n').at(-1)!).pathname).toBe('/rhythm/game.html');
   await page.locator('#result-share-retry').click();await expect.poll(()=>share.getAttribute('href')).toContain('id%3D'+'c'.repeat(32));
@@ -80,8 +93,8 @@ test('a delayed share response cannot replace the next play result',async({page}
     if(first){first=false;seen();await wait;await route.fulfill({json:{ok:true,id:'d'.repeat(32)}});}
     else await route.fulfill({json:{ok:true,id:'e'.repeat(32)}});
   });
-  await page.locator('#play-start').click();await page.clock.runFor(16);await page.clock.fastForward(220000);await page.clock.runFor(1700);await requested;
-  await page.locator('#result-replay').click();await page.clock.runFor(32);
+  await begin(page);await page.clock.fastForward(220000);await page.clock.runFor(1700);await requested;
+  await replay(page);
   const oldResponse=page.waitForResponse(r=>r.url().includes('action=share'));release();await oldResponse;
   await page.clock.runFor(32);await expect(page.locator('#result-share')).not.toHaveAttribute('href',/.+/);
   await page.clock.fastForward(220000);await page.clock.runFor(1700);
