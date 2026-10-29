@@ -46,6 +46,14 @@ jobs:
         run: npm run test:e2e -- tests/browser/scoring.spec.ts tests/browser/smg-slide-tail.spec.ts
       - name: Test ranking with isolated PHP and MySQL
         run: npm run test:ranking
+      - name: Upload browser failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-details
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload FTP site package
         uses: actions/upload-artifact@v4
         with:
