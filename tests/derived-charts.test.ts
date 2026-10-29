@@ -8,7 +8,7 @@ import {parseChart} from '../src/chart-data';
 import {easyChart,hardChart} from '../scripts/lib/difficulty-authoring';
 import {autoplayChart} from './chart-autoplay';
 
-const counts={'super-mommy-girls':{easy:275,normal:510,hard:893},'biscuit-case':{easy:393,normal:753,hard:998}};
+const counts={'super-mommy-girls':{easy:275,normal:508,hard:891},'biscuit-case':{easy:393,normal:753,hard:998}};
 const hashes={'super-mommy-girls':'907b0758caedaf6bddcd0109f5c9a7fd5cde0addfb18c146592f1d5916fa76e6','biscuit-case':'dbfbc349b6a51e973911544b73ada967415982bfdd0628252afa46742a3f3cec'};
 for(const song of SONGS) {
   const normal=bundledChart(song)!;
