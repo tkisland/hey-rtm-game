@@ -1,5 +1,5 @@
 import './ranking.css';
-import {chartHash,rankingBoard,rankingEnabled,startRanking,loadRanking,submitRanking,normalizeRankingName,renderRanking,RankingError} from './ranking-api';
+import {chartHash,rankingBoard,rankingEnabled,createSharedResult,startRanking,loadRanking,submitRanking,normalizeRankingName,renderRanking,RankingError} from './ranking-api';
 import type {RankingBoard,RankingResult} from './ranking-api';
 import type {Difficulty} from './difficulties';
 
@@ -71,6 +71,11 @@ export function mountResultRanking(songId:string,difficulty:Difficulty,json:stri
       form.hidden=!token || !!invalid;
       status.textContent=preparationError || invalid || '英数字3〜6文字の名前で登録できます。';
       if(token){try{await refresh(current);}catch(error){if(alive && current===generation)status.textContent=errorText(error);}}
+    },
+    async share(value:RankingResult):Promise<string>{
+      const current=generation;await preparation;
+      if(!alive||current!==generation||!token||invalid)throw new RankingError('share_unavailable','画像付き共有を準備できません。');
+      return createSharedResult(token,value);
     },
     destroy(){alive=false;generation++;controller.abort();},
   };

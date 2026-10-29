@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {testSharedResults} from './lib/test-share-contract.mjs';
 import {execFileSync} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
 import {mkdtempSync,readFileSync,writeFileSync,rmSync,existsSync} from 'node:fs';
@@ -20,7 +21,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 let checks=0;
 async function api(action,data={},expected=200,origin='http://127.0.0.1:4194'){
   const url=new URL(base);url.searchParams.set('action',action);
-  const post=['start','submit'].includes(action);
+  const post=['start','submit','share'].includes(action);
   if(!post)for(const [key,value] of Object.entries(data))url.searchParams.set(key,value);
   const response=await fetch(url,{...(post?{method:'POST',headers:{'content-type':'application/json',origin},body:JSON.stringify(data)}:{})});
   const body=await response.json();assert.equal(response.status,expected,JSON.stringify(body));checks++;return body;
@@ -38,8 +39,8 @@ try {
   for(let attempt=0;attempt<90;attempt++){
     try{sql('SELECT 1;');ready=true;break;}catch{await pause(1000);}
   }
-  assert.ok(ready,'MySQL did not become ready');sql(readFileSync('server/setup/schema.sql','utf8'));
-  writeFileSync(join(temporary,'config.php'),`<?php return ['db_host'=>'db','db_name'=>'rhythm','db_user'=>'rhythm','db_password'=>'rhythm_test_pass','allowed_origin'=>'http://127.0.0.1:4194'];`);
+  assert.ok(ready,'MySQL did not become ready');sql(readFileSync('server/setup/schema.sql','utf8'));sql(readFileSync('server/setup/002-share-results.sql','utf8'));
+  writeFileSync(join(temporary,'config.php'),`<?php return ['db_host'=>'db','db_name'=>'rhythm','db_user'=>'rhythm','db_password'=>'rhythm_test_pass','allowed_origin'=>'http://127.0.0.1:4194','share_cache_max_bytes'=>2097152];`);
   docker(['create','--name',php,'--network',network,'-p','127.0.0.1:4194:8080','-e','RHYTHM_CONFIG_PATH=/private/config.php','hey-rhythm-ranking-test']);
   docker(['cp','dist',`${php}:/app/rhythm`]);docker(['cp',temporary,`${php}:/private`]);
   const catalog=JSON.parse(readFileSync('dist/api/catalog.json','utf8'));
@@ -55,7 +56,7 @@ try {
     {id:14,type:'tap',lane:0,time:8}, // A slide tail marker, not a second input.
     {id:13,type:'tap',lane:2,time:8.1},
   ]};
-  const fixture=JSON.stringify(chart);catalog.songs['ranking-test']={videoId:chart.videoId,charts:{normal:fixture,easy:fixture}};
+  const fixture=JSON.stringify(chart);catalog.songs['ranking-test']={title:'Contract test',videoId:chart.videoId,charts:{normal:fixture,easy:fixture,hard:fixture}};
   const putCatalog=()=>{writeFileSync(join(temporary,'catalog.json'),JSON.stringify(catalog));docker(['cp',join(temporary,'catalog.json'),`${php}:/app/rhythm/api/catalog.json`]);};
   putCatalog();docker(['start',php]);
   for(let attempt=0;attempt<30;attempt++){
@@ -74,18 +75,20 @@ try {
   for(const version of [5,6,7])assert.equal((await fetch(shareUrl.replace('v=4',`v=${version}`))).status,200);
   const sharePage=await fetch(shareUrl);assert.equal(sharePage.status,200);
   const shareHtml=await sharePage.text();assert.ok(shareHtml.includes('ビスケットケース / ふつう'));
-  assert.ok(shareHtml.includes('1,160,000'));assert.ok(shareHtml.includes('最高なLIVE！'));
-  assert.ok(shareHtml.includes('summary_large_image'));assert.ok(shareHtml.includes('https://hey.jpn.org/rhythm/share-image.php?'));
+  assert.ok(!shareHtml.includes('1,160,000'));assert.ok(shareHtml.includes('以前の形式'));
+  assert.ok(shareHtml.includes('summary_large_image'));assert.ok(shareHtml.includes('https://hey.jpn.org/rhythm/ogp-v2.png'));
   const imageUrl=shareUrl.replace('/share.php?','/share-image.php?');
   const imageResponse=await fetch(imageUrl);assert.equal(imageResponse.headers.get('content-type'),'image/png');
   const png=Buffer.from(await imageResponse.arrayBuffer());assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
   assert.equal(png.readUInt32BE(16),1200);assert.equal(png.readUInt32BE(20),630);
   writeFileSync(join(tmpdir(),'rhythm-share-preview.png'),png);
-  for(const change of [{song:'<script>'},{difficulty:'unknown'},{score:'-1'},{base:'1000001'},{score:'1',base:'900000'},{combo:'5001'},{v:'99'}]) {
+  for(const change of [{song:'<script>'},{difficulty:'unknown'},{id:'../invalid'}]) {
     const query=new URLSearchParams(shareQuery);for(const [key,value] of Object.entries(change))query.set(key,value);
     for(const page of ['share.php','share-image.php'])assert.equal((await fetch(`http://127.0.0.1:4194/rhythm/${page}?${query}`)).status,400);
   }
-  console.log('Result OGP: HTML metadata, Japanese PNG 1200x630 and 14 invalid requests passed.');
+  const forged=await (await fetch(shareUrl.replace('1160000','2147483647'))).text();assert.ok(!forged.includes('2,147,483,647'));
+  assert.deepEqual(png,readFileSync('dist/ogp-v2.png'));
+  console.log('Legacy share links: common OGP only; numeric parameters cannot create result cards.');
 
   for(const [method,type,body,origin,status] of [
     ['GET','application/json',undefined,'http://127.0.0.1:4194',405],
@@ -228,6 +231,9 @@ try {
     assert.equal(entries.length,1);assert.equal(entries[0].score,level.result.score);
   }
   console.log(`Bundled difficulty registration: ${levelPlays.length} complete charts matched PHP scores in separate boards.`);
+  sql('TRUNCATE TABLE rhythm_rate_limits;');
+  await testSharedResults({api,docker,sql,start,perfect,miss,board:{...board,difficulty:'hard'},php});
+  sql('TRUNCATE TABLE rhythm_rate_limits;');
   const expired=await start();sql(`UPDATE rhythm_sessions SET expires_at=1 WHERE token_hash='${hash(expired)}';`);
   await api('submit',{token:expired,name:'ABCDE',...perfect},410);
   sql('TRUNCATE TABLE rhythm_rate_limits;');
