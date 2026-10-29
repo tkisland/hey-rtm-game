@@ -1,3 +1,4 @@
+import {DemoPlayer} from './demo-player';
 import {resultMessage} from './result-message';
 import { decoratePenlight } from './penlight';
 import { playLane } from './engine';
@@ -88,6 +89,15 @@ if (!__ADMIN__ && requested !== null) {
   const url = new URL(location.href); url.searchParams.delete('chart'); history.replaceState(null, '', url);
 }
 const engine = new GameEngine(activeChart());
+const demoMode = new URLSearchParams(location.search).get('mode') === 'demo';
+const demo = demoMode ? new DemoPlayer(engine) : null;
+if(demoMode){
+  element('demo-badge').hidden=false;
+  element('result-replay').textContent='もういちど見る';
+  element('demo-play-normal').hidden=false;
+  element<HTMLAnchorElement>('demo-play-normal').href=songUrl(song,'game',false,difficulty);
+  element('result-demo-note').hidden=false;
+}
 if (previewUid) {
   const back = document.createElement('a'); back.href = `./admin.html?song=${encodeURIComponent(song.id)}&difficulty=${difficulty}`;
   back.className = 'editor-link'; back.textContent = '管理画面'; back.setAttribute('aria-label', '管理画面へ戻る');
@@ -126,7 +136,7 @@ sound.delay = settings.soundDelay;
 const unbindLayout = bindDockLayout(document.querySelector('.stage')!, document.querySelector('.controls-dock')!);
 const unbindVenue = bindConcertVenue(element<HTMLCanvasElement>('game-canvas'), document.querySelector('.media-panel')!, document.querySelector('.live-layout')!);
 const result = element('result'), stageHint = element('stage-hint');
-const ranking = !__ADMIN__ && !previewUid ? mountResultRanking(song.id,difficulty,online?.json ?? JSON.stringify(bundled!)) : null;
+const ranking = !__ADMIN__ && !previewUid && !demoMode ? mountResultRanking(song.id,difficulty,online?.json ?? JSON.stringify(bundled!)) : null;
 const hintTitle = stageHint.querySelector('strong')!;
 const hintDescription = stageHint.querySelector<HTMLElement>('span:last-child')!;
 const status = element('player-status'), notice = element('game-notice');
@@ -242,7 +252,7 @@ function showResults(): void {
   element('result-combo-bonus').textContent = `＋${scoreFormat.format(engine.comboBonus)}`;
   element('result-special-bonus').textContent = `＋${scoreFormat.format(engine.specialBonus)}`;
   element('result-combo').textContent = `MAX COMBO ${engine.maxCombo}`;
-  if (!__ADMIN__ && !previewUid) {
+  if (!__ADMIN__ && !previewUid && !demoMode) {
     const share = element<HTMLAnchorElement>('result-share');
     share.href = resultShareUrl(song,difficulty,engine); share.hidden = false;
   }
@@ -294,7 +304,8 @@ function readTime(now: number): { time: number; playing: boolean } {
     if (sample.seek && !engine.finished && state !== PLAYER_STATE.ENDED) {
       ranking?.invalidate('シークしたプレイは登録できません。最初からプレイして記録に挑戦しよう！');
       sound.cancelPending();
-      engine.seek(compensateInput(gameTime, settings.inputOffset), sample.backwards);
+      engine.seek(demo ? gameTime : compensateInput(gameTime, settings.inputOffset), sample.backwards);
+      demo?.reset();
       clearResults();
       notice.textContent = sample.backwards ? '後方シーク：スコアをリセットしました。' : '前方シーク：飛ばしたノーツはMISSに数えません。';
     }
@@ -334,7 +345,7 @@ function setState(next: number): void {
     [-2]: 'YouTubeプレーヤーを読み込み中…',
     [-1]: '「ゲームスタート」を押してライブ開始！',
     [0]: '動画の再生が終了しました',
-    [1]: 'MVと同期してプレイ中',
+    [1]: demoMode ? '見本プレイ中 · 自動操作' : 'MVと同期してプレイ中',
     [2]: '一時停止中 · スコアは保持されます',
     [3]: '動画を読み込み中 · ノーツを停止しています',
     [5]: '「ゲームスタート」を押してライブ開始！',
@@ -381,7 +392,7 @@ element('result-close').addEventListener('click', () => { result.hidden = true; 
 element('show-result').addEventListener('click', () => { result.hidden = false; }, {signal});
 
 function hit(lane: number, gesture?: InputGesture): void {
-  if (calibration.active || songTiming.active) return;
+  if (demoMode || calibration.active || songTiming.active) return;
   // Sample timing before audio initialization so a cold AudioContext cannot delay judgement.
   const now = performance.now();
   const sample = readTime(now);
@@ -395,6 +406,7 @@ function hit(lane: number, gesture?: InputGesture): void {
   showResults();
 }
 const unbindInput = bindInput(buttons, hit, lanes => {
+  if(demoMode)return;
   const previous = renderer.pressed; renderer.pressed = lanes;
   if (calibration.active || songTiming.active) return;
   const released = [...previous].filter(lane => !lanes.has(lane));
@@ -404,7 +416,7 @@ const unbindInput = bindInput(buttons, hit, lanes => {
   released.forEach(lane => engine.release(lane, compensateInput(sample.time, settings.inputOffset)).forEach(result => showHit(result, now)));
   syncHoldSound(true, now);
   showResults();
-}, () => (calibration.active || songTiming.active), {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id), slideDestination:lane => engine.nextSlideLane(lane)});
+}, () => (demoMode || calibration.active || songTiming.active), {sweepCrossings:true, onGestureEnd:id => engine.cancelBoxGesture(id), slideDestination:lane => engine.nextSlideLane(lane)});
 
 async function preparePlayback(): Promise<boolean> {
   const request = ++playRequest;
@@ -422,6 +434,7 @@ async function restartGame(): Promise<void> {
   sound.cancelPending();
   if (!await preparePlayback()) return;
   engine.reset(activeChart());
+  demo?.reset();
   ranking?.restart();
   clearResults(); updateChartInfo(); clock.reset();
   restartTarget = 0;
@@ -545,10 +558,10 @@ if (__ADMIN__) {
     const url = new URL(location.href);
     url.searchParams.set('chart', source);
     history.replaceState(null, '', url);
-    engine.reset(activeChart()); clearResults(); updateChartInfo(); reflectChartSource();
+    engine.reset(activeChart()); demo?.reset(); clearResults(); updateChartInfo(); reflectChartSource();
     if (player && !failed) restart.click();
   }, { signal });
-} else notice.textContent = previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長オシは終点で離そう。同時オシは片方でもMISSになると、その組は0点です。';
+} else notice.textContent = demoMode ? '見本プレイ：ノーツを自動で操作します。ランキング登録・X共有の対象外です。' : previewUid ? '管理者プレビュー：未公開の下書きで試遊しています。通常のプレイには公開済みの譜面を使います。' : '長オシは終点で離そう。同時オシは片方でもMISSになると、その組は0点です。';
 
 let debugUpdated = 0;
 function frame(now: number): void {
@@ -559,7 +572,9 @@ function frame(now: number): void {
   if (!sample.playing) engine.cancelBoxGesture();
   sound.setPlaybackActive(sample.playing || preparingPlayback);
   if (sample.playing) {
-    const updates = engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
+    const updates = demo ? demo.advance(sample.time,(lane,at)=>{if(sample.time-at<.12)sound.play(lane);})
+      : engine.advance(compensateInput(sample.time, settings.inputOffset), renderer.pressed);
+    if(demo)renderer.pressed=demo.pressed;
     showHits(updates,now);
   } else if (restartTarget === null && state === PLAYER_STATE.ENDED && !engine.finished) {
     const end = Math.max(sample.time,...engine.notes.map(note => note.type === 'hold' ? note.endTime : note.time));
@@ -585,13 +600,14 @@ function frame(now: number): void {
   judgements.forEach((feedback, lane) => {
     const holding = holdingLanes.has(lane);
     buttons[lane].classList.toggle('holding', holding);
+    if(demo)buttons[lane].classList.toggle('pressed',sample.playing && demo.pressed.has(lane));
     if (holding) {
       if (feedback.hidden) feedback.hidden = false;
       if (judgementLabels[lane].textContent !== 'HOLD') judgementLabels[lane].textContent = 'HOLD';
     } else if (now - judgementTimes[lane] > 800 && !feedback.hidden) feedback.hidden = true;
   });
   const guidance = failed ? '動画を再生できません' : awaitingAudio ? 'ノーツ音の準備待ち · 上の「ゲームスタート」で開始' : restartTarget !== null ? restartMessage() : clockStale ? '動画時刻の更新待ち' : sample.playing
-    ? engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
+    ? demoMode ? engine.finished ? '見本プレイ終了' : '見本プレイ中 · ボタンの光と操作のタイミングをチェック' : engine.finished ? 'FINISH! · リザルトをチェック' : sample.time < engine.chart.startTime
       ? `開始まで ${Math.max(0, engine.chart.startTime - sample.time).toFixed(1)}秒` : '上の横線でレスをキャッチ · S D F / J K L'
     : state === PLAYER_STATE.PAUSED ? '「ゲーム再開」を押してライブ再開！' : state === PLAYER_STATE.BUFFERING ? '動画を読み込み中…' : '上の「ゲームスタート」でライブ開始！';
   if (controlStatus.textContent !== guidance) controlStatus.textContent = guidance;
@@ -599,7 +615,7 @@ function frame(now: number): void {
   if (now - fpsStarted >= 500) { fps = frames * 1000 / (now - fpsStarted); frames = 0; fpsStarted = now; }
   if(diagnostics&&player&&now>=nextMetadataAt){diagnosticMetadata=readYouTubeMetadata(player);nextMetadataAt=now+250;}
   diagnostics?.record({ audio:sound.diagnostics(), ...diagnosticMetadata, atMs:performance.now(), apiTime:apiVideoTime, clockTime:smoothedVideoTime,
-    judgementTime:compensateInput(sample.time,settings.inputOffset), playerState:state, reportedRate:videoRate, predictionRate,
+    judgementTime:demo ? sample.time : compensateInput(sample.time,settings.inputOffset), playerState:state, reportedRate:videoRate, predictionRate,
     playing:sample.playing, stale:clockStale, seek:diagnosticsSeek, resync:diagnosticsResync,
     score:engine.score, judgedNotes:Object.values(engine.counts).reduce((sum,n)=>sum+n,0), skippedNotes:engine.skipped, totalNotes:engine.notes.length, inputOffsetMs:settings.inputOffset,
     chartOffsetMs:settings.offset, noteOffsetMs:settings.noteOffset, inputErrorMs:lastInputError, frameGapMs:Math.max(0,now-previousFrame), fps });
