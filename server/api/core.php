@@ -49,6 +49,7 @@ function rh_board_key(array $data, array $catalog): array {
     if (!in_array($data['rulesVersion'] ?? null,[RH_SCORE_RULES_VERSION,(string)RH_SCORE_RULES_VERSION],true) || ($catalog['rulesVersion'] ?? null)!==RH_SCORE_RULES_VERSION
         || !is_string($song) || !isset($catalog['songs'][$song]) || !in_array($difficulty,['easy','normal','hard'],true)
         || !is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D',$hash)) rh_error(400,'invalid_board','曲・難易度・譜面を確認してください。');
+    if (isset($catalog['songs'][$song]['publicDifficulties']) && !in_array($difficulty,$catalog['songs'][$song]['publicDifficulties'],true)) rh_error(409,'chart_unavailable','この難易度の譜面は準備中です。');
     return [hash('sha256',$song.'|'.$difficulty.'|'.$hash.'|rules'.RH_SCORE_RULES_VERSION),$song,$difficulty,$hash];
 }
 /** Trusted chart only. Box markers score as one note, just like the browser engine. */

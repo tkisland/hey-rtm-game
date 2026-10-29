@@ -63,6 +63,12 @@ try {
     await pause(200);
   }
   assert.equal((await api('status')).enabled,true);
+  for(const song of ['super-mommy-girls','biscuit-case'])for(const difficulty of ['easy','hard']){
+    assert.deepEqual(catalog.songs[song].publicDifficulties,['normal']);
+    assert.equal(catalog.songs[song].charts[difficulty],undefined);
+    const board={songId:song,difficulty,chartHash:'0'.repeat(64),rulesVersion:catalog.rulesVersion};
+    await api('start',board,409);await api('leaderboard',board,409);
+  }
   const shareQuery=new URLSearchParams({song:'biscuit-case',difficulty:'normal',v:'4',score:'1160000',base:'960000',combo:'328',skipped:'0'});
   const shareUrl=`http://127.0.0.1:4194/rhythm/share.php?${shareQuery}`;
   for(const version of [5,6])assert.equal((await fetch(shareUrl.replace('v=4',`v=${version}`))).status,200);
