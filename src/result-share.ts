@@ -20,7 +20,7 @@ export function resultShareUrl(song:Song,difficulty:Difficulty,result:{score:num
   intent.searchParams.set('text',text.join('\n'));
   // Build a public play link independently from the current preview/debug URL.
   const page=new URL('share.php',publicSite);
-  page.search=new URLSearchParams({song:song.id,difficulty,v:String(SCORE_RULES_VERSION),art:'2',score:String(result.score),base:String(result.baseScore),combo:String(result.maxCombo),skipped:String(result.skipped)}).toString();
+  page.search=new URLSearchParams({song:song.id,difficulty,v:String(SCORE_RULES_VERSION),art:'3',score:String(result.score),base:String(result.baseScore),combo:String(result.maxCombo),skipped:String(result.skipped)}).toString();
   intent.searchParams.set('url',page.href);
   intent.searchParams.set('hashtags','HeyMommy,HEY_RHYTHM');
   return intent.href;

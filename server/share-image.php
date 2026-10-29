@@ -16,7 +16,7 @@ try {
     $write($result['title'].' / '.$result['level'],30,308,$white);
     $write('TOTAL',15,345,$pink);
     $write(number_format($result['score']),76,430,$gold);
-    $write('基本スコア '.number_format($result['base']).' / MAX COMBO '.number_format($result['combo']),19,480,$white);
+    $write('MAX COMBO '.number_format($result['combo']),19,480,$white);
     if($result['skipped']>0)$write('シークでスキップ '.number_format($result['skipped']).'ノーツ',12,505,$pink);
     header('Content-Type: image/png');header('X-Content-Type-Options: nosniff');header('Cache-Control: public, max-age=86400');
     imagepng($canvas,null,6);imagedestroy($canvas);
